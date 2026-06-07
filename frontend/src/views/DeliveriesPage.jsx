@@ -5,6 +5,7 @@ import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
+import { IncidentModel } from '../models/incident.model.js';
 import toast from 'react-hot-toast';
 import { Plus, Eye, CheckCircle2, X, Calendar, Clipboard } from 'lucide-react';
 
@@ -19,6 +20,12 @@ export const DeliveriesPage = () => {
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+
+  // Quick Incident state
+  const [showIncidentModal, setShowIncidentModal] = useState(false);
+  const [incidentType, setIncidentType] = useState('damage');
+  const [incidentNote, setIncidentNote] = useState('');
+  const [incidentItems, setIncidentItems] = useState([]);
 
   // Form states
   const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -111,6 +118,37 @@ export const DeliveriesPage = () => {
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi cập nhật trạng thái: ' + error.message);
+    }
+  };
+
+  const handleSubmitQuickIncident = async (e) => {
+    e.preventDefault();
+    const checkedItems = incidentItems.filter(item => item.checked);
+    if (checkedItems.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một sản phẩm gặp sự cố');
+      return;
+    }
+    const invalidQty = checkedItems.some(item => item.quantity <= 0 || item.quantity > item.maxQty);
+    if (invalidQty) {
+      toast.error('Số lượng sự cố không hợp lệ (phải lớn hơn 0 và không vượt quá số lượng trong phiếu)');
+      return;
+    }
+
+    try {
+      await IncidentModel.create({
+        type: incidentType,
+        refType: 'delivery',
+        refId: selectedDelivery._id,
+        note: incidentNote,
+        items: checkedItems.map(item => ({
+          productId: item.productId,
+          quantity: Number(item.quantity)
+        }))
+      });
+      toast.success('Báo cáo sự cố thành công');
+      setShowIncidentModal(false);
+    } catch (error) {
+      toast.error('Lỗi khi báo cáo sự cố: ' + error.message);
     }
   };
 
@@ -414,7 +452,40 @@ export const DeliveriesPage = () => {
                   <strong className="text-slate-900 text-base">{formatCurrency(selectedDelivery.totalAmount)}</strong>
                 </span>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  <PermissionGuard permission="incident:create">
+                    <button
+                      onClick={() => {
+                        const items = selectedDelivery.items.map(item => ({
+                          productId: item.product?._id || item.product,
+                          name: item.product?.name || '',
+                          sku: item.product?.sku || '',
+                          maxQty: item.quantity,
+                          quantity: item.quantity,
+                          checked: false
+                        }));
+                        setIncidentItems(items);
+                        setIncidentType('damage');
+                        setIncidentNote('');
+                        setShowIncidentModal(true);
+                      }}
+                      className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors animate-all"
+                    >
+                      ⚠️ Báo sự cố
+                    </button>
+                  </PermissionGuard>
+
+                  {(selectedDelivery.status === 'draft' || selectedDelivery.status === 'approved') && (
+                    <PermissionGuard permission="delivery:approve">
+                      <button
+                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'rejected')}
+                        className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-650 border border-red-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      >
+                        ❌ Từ chối
+                      </button>
+                    </PermissionGuard>
+                  )}
+
                   {selectedDelivery.status === 'draft' && (
                     <PermissionGuard permission="delivery:approve">
                       <button
@@ -444,6 +515,118 @@ export const DeliveriesPage = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Quick Incident Modal */}
+      {showIncidentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="font-bold text-slate-800">Báo cáo Sự cố</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Liên kết Phiếu xuất: {selectedDelivery.code}</p>
+              </div>
+              <button onClick={() => setShowIncidentModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmitQuickIncident} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Loại sự cố *</label>
+                <select
+                  required
+                  value={incidentType}
+                  onChange={(e) => setIncidentType(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
+                >
+                  <option value="damage">Hàng bị hư hỏng (Damage)</option>
+                  <option value="shortage">Thiếu hụt số lượng (Shortage)</option>
+                  <option value="wrong_product">Sai sản phẩm (Wrong product)</option>
+                  <option value="expired">Hàng hết hạn (Expired)</option>
+                  <option value="other">Sự cố khác (Other)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Mô tả chi tiết / Ghi chú</label>
+                <textarea
+                  value={incidentNote}
+                  onChange={(e) => setIncidentNote(e.target.value)}
+                  placeholder="Nhập mô tả sự cố..."
+                  rows="3"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-700">Chọn sản phẩm gặp sự cố *</label>
+                <div className="border border-slate-100 rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-bold uppercase">
+                        <th className="px-3 py-2 w-8">Chọn</th>
+                        <th className="px-3 py-2">Sản phẩm</th>
+                        <th className="px-3 py-2 text-right">SL Gặp Sự Cố</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {incidentItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/20">
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={item.checked}
+                              onChange={(e) => {
+                                const newItems = [...incidentItems];
+                                newItems[idx].checked = e.target.checked;
+                                setIncidentItems(newItems);
+                              }}
+                              className="rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <p className="font-semibold text-slate-900">{item.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">SKU: {item.sku} (Tối đa: {item.maxQty})</p>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number"
+                              min="1"
+                              max={item.maxQty}
+                              disabled={!item.checked}
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newItems = [...incidentItems];
+                                newItems[idx].quantity = e.target.value;
+                                setIncidentItems(newItems);
+                              }}
+                              className="w-16 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-center text-xs"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowIncidentModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold transition-colors shadow-md shadow-primary-500/10"
+                >
+                  Gửi báo cáo
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

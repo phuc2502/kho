@@ -10,7 +10,11 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  ClipboardList,
+  ArrowLeftRight,
+  AlertTriangle,
+  History
 } from 'lucide-react';
 
 export const DashboardLayout = () => {
@@ -27,10 +31,14 @@ export const DashboardLayout = () => {
     { path: '/inventory', label: 'Tồn kho thực tế', icon: Database, permission: 'inventory:read' },
     { path: '/receipts', label: 'Phiếu Nhập kho', icon: ArrowDownLeft, permission: 'receipt:read' },
     { path: '/deliveries', label: 'Phiếu Xuất kho', icon: ArrowUpRight, permission: 'delivery:read' },
+    { path: '/stocktakes', label: 'Kiểm kê kho', icon: ClipboardList, permission: 'stocktake:read' },
+    { path: '/adjustments', label: 'Điều chỉnh tồn kho', icon: ArrowLeftRight, permission: 'adjustment:read' },
+    { path: '/incidents', label: 'Báo cáo Sự cố', icon: AlertTriangle, permission: 'incident:read' },
     { path: '/products', label: 'Sản phẩm & Danh mục', icon: Package, permission: 'product:read' },
     { path: '/warehouse', label: 'Sơ đồ Kho hàng', icon: Warehouse, permission: 'warehouse:read' },
     { path: '/partners', label: 'Đối tác liên kết', icon: ShoppingBag, permission: 'partner:read' },
-    { path: '/users', label: 'Tài khoản & Phân quyền', icon: Users, permission: 'user:manage' }
+    { path: '/users', label: 'Tài khoản & Phân quyền', icon: Users, permission: 'user:manage' },
+    { path: '/audit-logs', label: 'Nhật ký Hoạt động', icon: History, permission: 'audit:read' }
   ];
 
   const filteredItems = navItems.filter(item => hasPermission(item.permission));
