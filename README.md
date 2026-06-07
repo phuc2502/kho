@@ -80,3 +80,15 @@ Khởi chạy Frontend:
 npm run dev
 ```
 Giao diện sẽ chạy tại địa chỉ: `http://localhost:5173`.
+
+---
+
+## 🔑 Tài khoản thử nghiệm (Test Accounts)
+
+Sau khi chạy dữ liệu mẫu (seed), bạn có thể sử dụng các tài khoản sau để đăng nhập thử nghiệm:
+
+| Vai trò | Email | Mật khẩu | Quyền hạn |
+| :--- | :--- | :--- | :--- |
+| **Admin** | `admin@wms.local` | `admin_password_123` | Toàn quyền, quản lý người dùng |
+| **Manager** | `manager@wms.local` | `manager_password_123` | Quản lý sản phẩm, đối tác, duyệt phiếu nhập/xuất |
+| **Staff** | `staff@wms.local` | `staff_password_123` | Lập phiếu nhập/xuất, xem tồn kho |
