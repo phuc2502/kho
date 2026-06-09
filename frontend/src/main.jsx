@@ -11,6 +11,10 @@ import { ProductsPage } from './views/ProductsPage.jsx';
 import { WarehouseStructurePage } from './views/WarehouseStructurePage.jsx';
 import { PartnersPage } from './views/PartnersPage.jsx';
 import { UserManagementPage } from './views/UserManagementPage.jsx';
+import { StocktakesPage } from './views/StocktakesPage.jsx';
+import { AdjustmentsPage } from './views/AdjustmentsPage.jsx';
+import { IncidentsPage } from './views/IncidentsPage.jsx';
+import { AuditLogsPage } from './views/AuditLogsPage.jsx';
 import './index.css';
 
 // Guard for authenticated routes
@@ -95,6 +99,30 @@ const App = () => {
             <Route path="users" element={
               <ProtectedRoute permission="user:manage">
                 <UserManagementPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="stocktakes" element={
+              <ProtectedRoute permission="stocktake:read">
+                <StocktakesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="adjustments" element={
+              <ProtectedRoute permission="adjustment:read">
+                <AdjustmentsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="incidents" element={
+              <ProtectedRoute permission="incident:read">
+                <IncidentsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="audit-logs" element={
+              <ProtectedRoute permission="audit:read">
+                <AuditLogsPage />
               </ProtectedRoute>
             } />
 

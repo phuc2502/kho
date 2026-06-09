@@ -58,10 +58,23 @@ export const UserManagementPage = () => {
       ]
     },
     {
+      group: 'Kiểm kê & Điều chỉnh',
+      items: [
+        { key: 'stocktake:read', label: 'Xem phiếu kiểm kê' },
+        { key: 'stocktake:create', label: 'Tạo/Sửa phiếu kiểm kê' },
+        { key: 'adjustment:read', label: 'Xem phiếu điều chỉnh' },
+        { key: 'adjustment:create', label: 'Tạo phiếu điều chỉnh' },
+        { key: 'adjustment:approve', label: 'Duyệt phiếu điều chỉnh' },
+        { key: 'incident:read', label: 'Xem báo cáo sự cố' },
+        { key: 'incident:create', label: 'Tạo/Sửa báo cáo sự cố' }
+      ]
+    },
+    {
       group: 'Báo cáo & Hệ thống',
       items: [
         { key: 'inventory:read', label: 'Xem tồn kho thực tế' },
-        { key: 'user:manage', label: 'Quản lý tài khoản & Phân quyền' }
+        { key: 'user:manage', label: 'Quản lý tài khoản & Phân quyền' },
+        { key: 'audit:read', label: 'Xem nhật ký hoạt động' }
       ]
     }
   ];

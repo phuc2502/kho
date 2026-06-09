@@ -36,6 +36,24 @@ export const connectDB = async () => {
 
     await sequelize.authenticate();
     console.log('MySQL Connected successfully.');
+
+    // Import all models to register them (order matters for FK references)
+    await import('../models/user.model.js');
+    await import('../models/category.model.js');
+    await import('../models/product.model.js');
+    await import('../models/warehouseNode.model.js');
+    await import('../models/partner.model.js');
+    await import('../models/inventory.model.js');
+    await import('../models/receipt.model.js');
+    await import('../models/delivery.model.js');
+    await import('../models/auditLog.model.js');
+    await import('../models/stocktake.model.js');
+    await import('../models/adjustment.model.js');
+    await import('../models/incident.model.js');
+
+    // Sync all models (alter: safe update without data loss)
+    await sequelize.sync({ alter: true });
+    console.log('Database synced successfully.');
   } catch (error) {
     console.error(`Error connection: ${error.message}`);
     process.exit(1);
