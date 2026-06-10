@@ -1,7 +1,6 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.js';
 import { Product } from './product.model.js';
-import { Partner } from './partner.model.js';
 import { User } from './user.model.js';
 import { WarehouseNode } from './warehouseNode.model.js';
 
@@ -16,14 +15,11 @@ export const Receipt = sequelize.define('Receipt', {
     allowNull: false,
     unique: true
   },
-  partnerId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    field: 'partner',
-    references: {
-      model: Partner,
-      key: '_id'
-    }
+  // Ghi chú lô hàng / đợt nhập (không có nhà cung cấp riêng theo thiết kế FOSITEK)
+  ghiChu: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    defaultValue: null
   },
   status: {
     type: DataTypes.ENUM('draft', 'approved', 'completed', 'rejected'),
@@ -99,7 +95,6 @@ export const ReceiptItem = sequelize.define('ReceiptItem', {
 });
 
 // Setup relationships
-Receipt.belongsTo(Partner, { foreignKey: 'partnerId', as: 'partner' });
 Receipt.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
 Receipt.hasMany(ReceiptItem, { foreignKey: 'receiptId', as: 'items', onDelete: 'CASCADE' });
 

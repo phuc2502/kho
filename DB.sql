@@ -9,7 +9,6 @@ CREATE TABLE NguoiDung (
     Ma_nguoi_dung   CHAR(10)        NOT NULL,
     Ten_nguoi_dung  NVARCHAR(100)   NOT NULL,
     So_dien_thoai   CHAR(15)        NULL,
-    Chuc_vu         NVARCHAR(100)   NULL,
     Trang_thai      BIT             NOT NULL DEFAULT 1,
     Thoi_gian_tao   DATETIME        NOT NULL DEFAULT GETDATE(),
     Thoi_gian_cap_nhat DATETIME     NOT NULL DEFAULT GETDATE(),

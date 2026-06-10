@@ -9,12 +9,18 @@ import { ReceiptsPage } from './views/ReceiptsPage.jsx';
 import { DeliveriesPage } from './views/DeliveriesPage.jsx';
 import { ProductsPage } from './views/ProductsPage.jsx';
 import { WarehouseStructurePage } from './views/WarehouseStructurePage.jsx';
-import { PartnersPage } from './views/PartnersPage.jsx';
 import { UserManagementPage } from './views/UserManagementPage.jsx';
 import { StocktakesPage } from './views/StocktakesPage.jsx';
 import { AdjustmentsPage } from './views/AdjustmentsPage.jsx';
 import { IncidentsPage } from './views/IncidentsPage.jsx';
 import { AuditLogsPage } from './views/AuditLogsPage.jsx';
+import { DashboardPage } from './views/DashboardPage.jsx';
+import { ReportsPage } from './views/ReportsPage.jsx';
+import { ScannerPage } from './views/ScannerPage.jsx';
+import { ProfilePage } from './views/ProfilePage.jsx';
+import { ForgotPasswordPage } from './views/ForgotPasswordPage.jsx';
+import { ResetPasswordPage } from './views/ResetPasswordPage.jsx';
+import { EmailLogsPage } from './views/EmailLogsPage.jsx'; // [THÊM MỚI]
 import './index.css';
 
 // Guard for authenticated routes
@@ -23,8 +29,8 @@ const ProtectedRoute = ({ permission, children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></span>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#f7f5f2' }}>
+        <span className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#0061fe', borderTopColor: 'transparent' }}></span>
       </div>
     );
   }
@@ -52,13 +58,15 @@ const App = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           
           <Route path="/" element={
             <ProtectedRoute>
               <DashboardLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<Navigate to="/inventory" replace />} />
+            <Route index element={<DashboardPage />} />
             
             <Route path="inventory" element={
               <ProtectedRoute permission="inventory:read">
@@ -87,12 +95,6 @@ const App = () => {
             <Route path="warehouse" element={
               <ProtectedRoute permission="warehouse:read">
                 <WarehouseStructurePage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="partners" element={
-              <ProtectedRoute permission="partner:read">
-                <PartnersPage />
               </ProtectedRoute>
             } />
             
@@ -126,7 +128,32 @@ const App = () => {
               </ProtectedRoute>
             } />
 
-            <Route path="*" element={<Navigate to="/inventory" replace />} />
+            {/* [THÊM MỚI] Nhật ký email — chỉ Admin */}
+            <Route path="email-logs" element={
+              <ProtectedRoute permission="user:manage">
+                <EmailLogsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="reports" element={
+              <ProtectedRoute>
+                <ReportsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="scanner" element={
+              <ProtectedRoute>
+                <ScannerPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

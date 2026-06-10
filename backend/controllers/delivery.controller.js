@@ -1,16 +1,15 @@
 import { Delivery, DeliveryItem } from '../models/delivery.model.js';
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
-import { Partner } from '../models/partner.model.js';
 import { User } from '../models/user.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
+import { recordAudit } from '../utils/audit.helper.js';
 
 export const getDeliveries = async (req, res, next) => {
   try {
     const deliveries = await Delivery.findAll({
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: DeliveryItem,
@@ -33,7 +32,12 @@ export const getDeliveries = async (req, res, next) => {
 export const createDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { partner, items } = req.body;
+    const { tenKhachHang, items } = req.body;
+
+    if (!tenKhachHang || !tenKhachHang.trim()) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Tên khách hàng là bắt buộc' });
+    }
 
     const count = await Delivery.count();
     const code = `DL-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
@@ -58,7 +62,7 @@ export const createDelivery = async (req, res, next) => {
 
     const delivery = await Delivery.create({
       code,
-      partnerId: partner,
+      tenKhachHang: tenKhachHang.trim(),
       totalAmount,
       createdByUserId: req.user._id,
       status: 'draft'
@@ -78,7 +82,6 @@ export const createDelivery = async (req, res, next) => {
 
     const populated = await Delivery.findByPk(delivery._id, {
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: DeliveryItem,
@@ -91,6 +94,7 @@ export const createDelivery = async (req, res, next) => {
       ]
     });
 
+    await recordAudit({ action: 'delivery.create', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: delivery._id, payload: { code, totalAmount, itemCount: mappedItems.length } });
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -102,7 +106,7 @@ export const updateDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { partner, items, status } = req.body;
+    const { tenKhachHang, items, status } = req.body;
 
     const delivery = await Delivery.findByPk(id, {
       include: [{ model: DeliveryItem, as: 'items' }]
@@ -117,7 +121,7 @@ export const updateDelivery = async (req, res, next) => {
       return res.status(400).json({ message: 'Không thể sửa phiếu xuất kho đã hoàn tất hoặc đã hủy' });
     }
 
-    if (partner) delivery.partnerId = partner;
+    if (tenKhachHang && tenKhachHang.trim()) delivery.tenKhachHang = tenKhachHang.trim();
 
     if (items) {
       let totalAmount = 0;
@@ -153,6 +157,13 @@ export const updateDelivery = async (req, res, next) => {
     }
 
     if (status) {
+      if (status === 'shipping') {
+        if (delivery.status !== 'approved') {
+          await t.rollback();
+          return res.status(400).json({ message: 'Chỉ có thể xác nhận xuất hàng từ trạng thái "Đã phê duyệt"' });
+        }
+      }
+
       if (status === 'completed' || status === 'approved') {
         const canApprove = req.user.role === 'Admin' || req.user.permissions.includes('delivery:approve');
         if (!canApprove) {
@@ -204,7 +215,6 @@ export const updateDelivery = async (req, res, next) => {
 
     const populated = await Delivery.findByPk(id, {
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: DeliveryItem,
@@ -217,6 +227,8 @@ export const updateDelivery = async (req, res, next) => {
       ]
     });
 
+    const actionVerb = status === 'completed' ? 'delivery.complete' : status === 'approved' ? 'delivery.approve' : status === 'shipping' ? 'delivery.shipping' : status === 'rejected' ? 'delivery.reject' : 'delivery.update';
+    await recordAudit({ action: actionVerb, userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { status, code: populated.code } });
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();

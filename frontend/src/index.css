@@ -1,8 +1,57 @@
+/* ── Inter — Atlas Grotesk + Sharp Grotesk substitute ────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom transition utilities */
+/* ── Dropbox CSS variables ──────────────────────────────────── */
+:root {
+  /* Colors */
+  --color-dropbox-blue:   #0061fe;
+  --color-cream-paper:    #f7f5f2;
+  --color-pure-white:     #ffffff;
+  --color-warm-ink:       #1e1919;
+  --color-stone-gray:     #716b61;
+  --color-sand-card:      #eee9e2;
+  --color-magenta-accent: #cd2f7b;
+
+  /* Radii */
+  --radius-btn:   16px;
+  --radius-card:  8px;
+  --radius-nav:   12px;
+  --radius-pill:  9999px;
+
+  /* Spacing (6px base) */
+  --space-12:  12px;
+  --space-24:  24px;
+  --space-48:  48px;
+  --space-72:  72px;
+  --space-96:  96px;
+}
+
+/* ── Global base ────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f7f5f2;  /* Cream Paper */
+  color: #1e1919;              /* Warm Ink */
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Sidebar nav scrollbar — dark theme ─────────────────────── */
+.sidebar-nav::-webkit-scrollbar        { width: 3px; }
+.sidebar-nav::-webkit-scrollbar-track  { background: transparent; }
+.sidebar-nav::-webkit-scrollbar-thumb  { background-color: rgba(255,255,255,0.15); border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background-color: rgba(255,255,255,0.28); }
+.sidebar-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+/* ── Custom transitions ─────────────────────────────────────── */
 .transition-all-300 {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }

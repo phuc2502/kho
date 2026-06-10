@@ -4,7 +4,9 @@ Hệ thống Quản lý Kho thành phẩm – FOSITEK (Phiên bản cập nhật
 
 # **a) Các bảng và thuộc tính đã chuẩn hóa**
 
-Dưới đây là 32 bảng trong hệ thống Quản lý kho thành phẩm FOSITEK đã được chuẩn hóa tối ưu (chuẩn 3NF), thiết kế theo mô hình RBAC mở rộng (Role-Based Access Control \+ User-level permission override).
+Dưới đây là 33 bảng trong hệ thống Quản lý kho thành phẩm FOSITEK đã được chuẩn hóa tối ưu (chuẩn 3NF), thiết kế theo mô hình RBAC mở rộng (Role-Based Access Control \+ User-level permission override).
+
+> **\[THÊM MỚI\]** Cập nhật: bổ sung bảng thứ 33 — **NhatKyEmail (EmailLogs)** — nhật ký gửi email hệ thống (tạo tài khoản, đặt lại mật khẩu, link khôi phục).
 
 ## **Tổng hợp các bảng theo nhóm chức năng**
 
@@ -12,7 +14,7 @@ Dưới đây là 32 bảng trong hệ thống Quản lý kho thành phẩm FOSI
 
 | STT | Tên bảng | Mô tả chức năng |
 | ----- | :---- | :---- |
-| 1 | **NguoiDung** | Thông tin hồ sơ nhân viên (không chứa thông tin đăng nhập) |
+| 1 | **NguoiDung** | Thông tin hồ sơ nhân viên: tên, SĐT, trạng thái (không chứa thông tin đăng nhập và không lưu chức vụ) |
 | 2 | **TaiKhoan** | Tài khoản đăng nhập riêng biệt, mỗi người dùng có 1 tài khoản |
 | 3 | **VaiTro** | Danh mục vai trò (Role): Quản lý kho, Kế toán kho, Nhân viên kho, QC, Sale… |
 | 4 | **NguoiDung\_VaiTro** | Gán vai trò cho người dùng (N:N, hỗ trợ RBAC) |
@@ -20,6 +22,7 @@ Dưới đây là 32 bảng trong hệ thống Quản lý kho thành phẩm FOSI
 | 6 | **VaiTro\_Quyen** | Gán quyền mặc định cho từng vai trò (N:N) |
 | 7 | **NguoiDung\_Quyen** | Ghi đè quyền trực tiếp cho người dùng cụ thể (cấp thêm hoặc thu hồi) |
 | 8 | **LichSuHoatDong** | Ghi nhật ký toàn bộ thao tác quan trọng trong hệ thống (Audit Log) |
+| 9 | **NhatKyEmail** *(EmailLogs)* | **\[THÊM MỚI\]** Nhật ký gửi email hệ thống: tạo tài khoản, admin đặt lại MK, link quên mật khẩu — ghi cả thành công và thất bại |
 
 **Nhóm 2 – Kho & Địa điểm**
 
@@ -101,14 +104,13 @@ Hệ thống áp dụng mô hình RBAC mở rộng: quyền được quản lý 
 
 **Bảng: NguoiDung**
 
-\* Chỉ lưu thông tin hồ sơ nhân viên. Thông tin đăng nhập được tách riêng sang bảng TaiKhoan. Khi tạo nhân viên mới, Admin sẽ đồng thời tạo bản ghi NguoiDung (hồ sơ) và TaiKhoan (đăng nhập). Chuc\_vu chỉ mang tính hiển thị, phân quyền thực sự do VaiTro\_Quyen và NguoiDung\_Quyen quyết định.
+\* Chỉ lưu thông tin hồ sơ nhân viên. Thông tin đăng nhập được tách riêng sang bảng TaiKhoan. Khi tạo nhân viên mới, Admin sẽ đồng thời tạo bản ghi NguoiDung (hồ sơ) và TaiKhoan (đăng nhập). Phân quyền thực sự do VaiTro\_Quyen và NguoiDung\_Quyen quyết định – không cần lưu chức vụ hiển thị trong bảng này.
 
 | Tên thuộc tính | Kiểu dữ liệu | Ràng buộc | Mô tả / Ví dụ |
 | :---- | :---- | :---- | :---- |
 | **Ma\_nguoi\_dung (PK)** | *CHAR(10)* | NOT NULL, UNIQUE | *ND001 – mã tự động sinh* |
 | Ten\_nguoi\_dung | *NVARCHAR(100)* | NOT NULL | *Bùi Thiện Phúc* |
 | So\_dien\_thoai | *CHAR(15)* | UNIQUE | *0912345678* |
-| Chuc\_vu | *NVARCHAR(100)* |  | *Nhân viên kho / Kế toán kho (hiển thị)* |
 | Trang\_thai | *BIT* | DEFAULT 1 | *1: Đang làm việc / 0: Đã nghỉ* |
 | Thoi\_gian\_tao | *DATETIME* | DEFAULT GETDATE() | *Ngày tạo hồ sơ* |
 | Thoi\_gian\_cap\_nhat | *DATETIME* | DEFAULT GETDATE() | *Tự cập nhật khi sửa hồ sơ* |
@@ -640,7 +642,7 @@ Kiểm tra quyền tại runtime (ưu tiên ghi đè cá nhân trước):
 
 **Tách bảng NguoiDung và TaiKhoan**
 
-NguoiDung lưu hồ sơ nhân viên (tên, chức vụ, số điện thoại). TaiKhoan lưu thông tin đăng nhập (email, mật khẩu hash, trạng thái).
+NguoiDung lưu hồ sơ nhân viên (tên, số điện thoại, trạng thái làm việc). TaiKhoan lưu thông tin đăng nhập (email, mật khẩu hash, trạng thái). Vai trò và chức danh được quản lý qua bảng VaiTro – không lưu trường chức vụ tự do trong NguoiDung để tránh dư thừa và không nhất quán với RBAC.
 
 Quy trình tạo tài khoản mới: Admin (cần quyền tao\_tai\_khoan) tạo đồng thời 1 bản ghi NguoiDung và 1 bản ghi TaiKhoan, đặt mật khẩu tạm cho nhân viên. Cột Ma\_admin\_tao ghi nhận Admin nào tạo.
 
@@ -657,6 +659,29 @@ Serial (SoSerial): Định danh đơn vị hàng riêng lẻ – chỉ áp dụn
 **Bảng LichSuHoatDong (Audit Log)**
 
 Bảng chỉ INSERT, không bao giờ UPDATE hoặc DELETE để đảm bảo tính toàn vẹn kiểm toán. PK dùng BIGINT IDENTITY thay vì CHAR để tối ưu hiệu năng ghi log tần suất cao. Du\_lieu\_cu và Du\_lieu\_moi lưu JSON snapshot giúp tra cứu lịch sử thay đổi chi tiết mà không cần bảng lịch sử riêng cho từng nghiệp vụ.
+
+**\[THÊM MỚI\] Bảng NhatKyEmail (EmailLogs)**
+
+Ghi nhật ký mọi email được hệ thống gửi đi, bao gồm cả trường hợp thành công và thất bại. Chỉ INSERT, không UPDATE/DELETE thủ công (Admin có thể xóa batch các bản ghi thất bại qua giao diện). Kết hợp với LichSuHoatDong để có cái nhìn đầy đủ về hoạt động hệ thống.
+
+| Thuộc tính | Kiểu | Ràng buộc | Mô tả |
+| --- | --- | --- | --- |
+| Ma\_nhat\_ky *(\_id)* | INT | PK, AUTO\_INCREMENT | Khóa chính |
+| Loai\_email *(type)* | ENUM | NOT NULL | welcome / adminReset / forgotPassword |
+| Email\_nguoi\_nhan *(recipient)* | VARCHAR(255) | NOT NULL | Địa chỉ email người nhận |
+| Tieu\_de *(subject)* | VARCHAR(500) | NOT NULL | Subject của email |
+| Trang\_thai *(status)* | ENUM | NOT NULL, DEFAULT 'success' | success / failed |
+| Thong\_bao\_loi *(errorMessage)* | TEXT | NULL | Mô tả lỗi SMTP nếu gửi thất bại |
+| Ma\_nguoi\_dung *(userId)* | INT | NULL, FK → Users | User liên quan (nullable) |
+| Nguoi\_trigger *(sentBy)* | VARCHAR(255) | NULL | Email admin hoặc 'system' |
+| Thoi\_gian\_tao *(createdAt)* | DATETIME | NOT NULL, DEFAULT NOW() | Thời điểm ghi nhận |
+
+*Không có updatedAt — bản ghi log không bao giờ bị sửa.*
+
+Các loại email được ghi nhận:
+- **welcome**: Admin tạo tài khoản mới → gửi email chào mừng kèm mật khẩu tạm
+- **adminReset**: Admin nhấn "Đặt lại MK" → gửi email mật khẩu mới cho nhân viên
+- **forgotPassword**: Nhân viên yêu cầu quên mật khẩu → gửi link đặt lại (60 phút)
 
 **Xem xét Thoi\_gian\_tao / Thoi\_gian\_cap\_nhat theo từng bảng**
 

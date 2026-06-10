@@ -24,7 +24,7 @@ export const sequelize = new Sequelize(
 
 export const connectDB = async () => {
   try {
-    // Ensure database exists
+    // Đảm bảo database tồn tại
     const connection = await mysql.createConnection({
       host: dbHost,
       port: dbPort,
@@ -37,12 +37,15 @@ export const connectDB = async () => {
     await sequelize.authenticate();
     console.log('MySQL Connected successfully.');
 
-    // Import all models to register them (order matters for FK references)
+    // Import tất cả models theo thứ tự (FK references)
     await import('../models/user.model.js');
+    await import('../models/permission.model.js');
+    await import('../models/rolePermission.model.js');
+    await import('../models/userPermission.model.js');
+    await import('../models/userWarehouse.model.js');
     await import('../models/category.model.js');
     await import('../models/product.model.js');
     await import('../models/warehouseNode.model.js');
-    await import('../models/partner.model.js');
     await import('../models/inventory.model.js');
     await import('../models/receipt.model.js');
     await import('../models/delivery.model.js');
@@ -51,9 +54,18 @@ export const connectDB = async () => {
     await import('../models/adjustment.model.js');
     await import('../models/incident.model.js');
 
-    // Sync all models (alter: safe update without data loss)
-    await sequelize.sync({ alter: true });
+    // Chạy migration trước khi sync (đổi ENUM, thêm cột mới)
+    const { runMigrations } = await import('../utils/migration.helper.js');
+    await runMigrations();
+
+    // Đồng bộ schema — chỉ tạo bảng mới nếu chưa tồn tại (KHÔNG alter để tránh tích lũy index thừa)
+    await sequelize.sync();
     console.log('Database synced successfully.');
+
+    // Seed danh mục quyền và mặc định vai trò (idempotent — chạy mỗi lần khởi động)
+    const { seedPermissionsAndRoleDefaults } = await import('../utils/permission.helper.js');
+    await seedPermissionsAndRoleDefaults();
+
   } catch (error) {
     console.error(`Error connection: ${error.message}`);
     process.exit(1);

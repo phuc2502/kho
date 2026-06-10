@@ -1,16 +1,15 @@
 import { Receipt, ReceiptItem } from '../models/receipt.model.js';
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
-import { Partner } from '../models/partner.model.js';
 import { User } from '../models/user.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
+import { recordAudit } from '../utils/audit.helper.js';
 
 export const getReceipts = async (req, res, next) => {
   try {
     const receipts = await Receipt.findAll({
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: ReceiptItem,
@@ -33,7 +32,7 @@ export const getReceipts = async (req, res, next) => {
 export const createReceipt = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { partner, items } = req.body;
+    const { ghiChu, items } = req.body;
 
     const count = await Receipt.count();
     const code = `RC-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
@@ -58,7 +57,7 @@ export const createReceipt = async (req, res, next) => {
 
     const receipt = await Receipt.create({
       code,
-      partnerId: partner,
+      ghiChu: ghiChu || null,
       totalAmount,
       createdByUserId: req.user._id,
       status: 'draft'
@@ -78,7 +77,6 @@ export const createReceipt = async (req, res, next) => {
 
     const populated = await Receipt.findByPk(receipt._id, {
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: ReceiptItem,
@@ -91,6 +89,7 @@ export const createReceipt = async (req, res, next) => {
       ]
     });
 
+    await recordAudit({ action: 'receipt.create', userId: req.user._id, username: req.user.username, entity: 'receipt', entityId: receipt._id, payload: { code, totalAmount, itemCount: mappedItems.length } });
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -102,7 +101,7 @@ export const updateReceipt = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { partner, items, status } = req.body;
+    const { ghiChu, items, status } = req.body;
 
     const receipt = await Receipt.findByPk(id, {
       include: [{ model: ReceiptItem, as: 'items' }]
@@ -117,7 +116,7 @@ export const updateReceipt = async (req, res, next) => {
       return res.status(400).json({ message: 'Không thể sửa phiếu nhập kho đã hoàn tất hoặc bị hủy' });
     }
 
-    if (partner) receipt.partnerId = partner;
+    if (ghiChu !== undefined) receipt.ghiChu = ghiChu;
 
     if (items) {
       let totalAmount = 0;
@@ -162,7 +161,7 @@ export const updateReceipt = async (req, res, next) => {
 
         if (status === 'completed' && receipt.status !== 'completed') {
           const itemsToProcess = items ? await ReceiptItem.findAll({ where: { receiptId: id }, transaction: t }) : receipt.items;
-          
+
           for (const item of itemsToProcess) {
             const [inventoryRecord, created] = await Inventory.findOrCreate({
               where: {
@@ -188,7 +187,6 @@ export const updateReceipt = async (req, res, next) => {
 
     const populated = await Receipt.findByPk(id, {
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: ReceiptItem,
@@ -201,6 +199,8 @@ export const updateReceipt = async (req, res, next) => {
       ]
     });
 
+    const actionVerb = status === 'completed' ? 'receipt.complete' : status === 'approved' ? 'receipt.approve' : status === 'rejected' ? 'receipt.reject' : 'receipt.update';
+    await recordAudit({ action: actionVerb, userId: req.user._id, username: req.user.username, entity: 'receipt', entityId: Number(id), payload: { status, code: populated.code } });
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();

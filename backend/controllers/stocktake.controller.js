@@ -5,14 +5,10 @@ import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
-import { Op } from 'sequelize';
-
-const computeStatus = (items) => {
-  return items.some(item => Number(item.countedQty) !== Number(item.systemQty)) ? 'diff' : 'pass';
-};
 
 const stocktakeIncludes = [
   { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
+  { model: User, as: 'approvedByUser', attributes: ['username', 'role'] },
   {
     model: StocktakeItem,
     as: 'items',
@@ -45,7 +41,6 @@ export const createStocktake = async (req, res, next) => {
       return res.status(400).json({ message: 'Phiếu kiểm kê cần ít nhất một dòng sản phẩm' });
     }
 
-    // Generate auto code if not provided
     const count = await Stocktake.count();
     const finalCode = code || `ST-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
 
@@ -55,38 +50,21 @@ export const createStocktake = async (req, res, next) => {
       return res.status(400).json({ message: `Mã phiếu kiểm kê ${finalCode} đã tồn tại` });
     }
 
-    // Enrich items with systemQty from Inventory
-    const enrichedItems = [];
-    for (const item of items) {
-      const inventoryRecord = await Inventory.findOne({
-        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
-        transaction: t
-      });
-      enrichedItems.push({
-        productId: item.productId,
-        warehouseNodeId: item.warehouseNodeId,
-        systemQty: inventoryRecord ? Number(inventoryRecord.quantity) : 0,
-        countedQty: Number(item.countedQty) || 0
-      });
-    }
-
-    const status = computeStatus(enrichedItems);
-
     const stocktake = await Stocktake.create({
       code: finalCode,
       date: date || new Date(),
-      status,
+      status: 'pending_approval',
       note: note || null,
       createdByUserId: req.user._id
     }, { transaction: t });
 
-    for (const item of enrichedItems) {
+    for (const item of items) {
       await StocktakeItem.create({
         stocktakeId: stocktake._id,
         productId: item.productId,
         warehouseNodeId: item.warehouseNodeId,
-        systemQty: item.systemQty,
-        countedQty: item.countedQty
+        systemQty: 0,
+        countedQty: 0
       }, { transaction: t });
     }
 
@@ -98,11 +76,64 @@ export const createStocktake = async (req, res, next) => {
       entityId: stocktake._id,
       userId: req.user._id,
       username: req.user.username,
-      payload: { code: stocktake.code, status }
+      payload: { code: stocktake.code, status: 'pending_approval' }
     });
 
     const populated = await Stocktake.findByPk(stocktake._id, { include: stocktakeIncludes });
     res.status(201).json(populated);
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    next(error);
+  }
+};
+
+export const approveStocktake = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const stocktake = await Stocktake.findByPk(id, {
+      include: [{ model: StocktakeItem, as: 'items' }]
+    });
+    if (!stocktake) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy phiếu kiểm kê' });
+    }
+
+    if (stocktake.status !== 'pending_approval') {
+      await t.rollback();
+      return res.status(400).json({ message: 'Chỉ có thể phê duyệt phiếu kiểm kê đang ở trạng thái chờ duyệt' });
+    }
+
+    // Snapshot current inventory values as systemQty
+    for (const item of stocktake.items) {
+      const inventoryRecord = await Inventory.findOne({
+        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
+        transaction: t
+      });
+      item.systemQty = inventoryRecord ? Number(inventoryRecord.quantity) : 0;
+      item.countedQty = 0;
+      await item.save({ transaction: t });
+    }
+
+    stocktake.status = 'counting';
+    stocktake.approvedByUserId = req.user._id;
+    stocktake.approvedAt = new Date();
+    await stocktake.save({ transaction: t });
+
+    await t.commit();
+
+    await recordAudit({
+      action: 'stocktake.approve',
+      entity: 'Stocktake',
+      entityId: stocktake._id,
+      userId: req.user._id,
+      username: req.user.username,
+      payload: { code: stocktake.code }
+    });
+
+    const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
+    res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);
@@ -121,37 +152,26 @@ export const updateStocktake = async (req, res, next) => {
       return res.status(404).json({ message: 'Không tìm thấy phiếu kiểm kê' });
     }
 
+    if (stocktake.status !== 'counting') {
+      await t.rollback();
+      return res.status(400).json({ message: 'Chỉ có thể cập nhật số liệu khi phiếu đang trong trạng thái "Đang kiểm kê"' });
+    }
+
     if (date) stocktake.date = date;
     if (note !== undefined) stocktake.note = note;
 
     if (items && items.length > 0) {
       await StocktakeItem.destroy({ where: { stocktakeId: id }, transaction: t });
 
-      const enrichedItems = [];
       for (const item of items) {
-        const inventoryRecord = await Inventory.findOne({
-          where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
-          transaction: t
-        });
-        enrichedItems.push({
-          productId: item.productId,
-          warehouseNodeId: item.warehouseNodeId,
-          systemQty: item.systemQty !== undefined ? Number(item.systemQty) : (inventoryRecord ? Number(inventoryRecord.quantity) : 0),
-          countedQty: Number(item.countedQty) || 0
-        });
-      }
-
-      for (const item of enrichedItems) {
         await StocktakeItem.create({
           stocktakeId: id,
           productId: item.productId,
           warehouseNodeId: item.warehouseNodeId,
-          systemQty: item.systemQty,
-          countedQty: item.countedQty
+          systemQty: Number(item.systemQty) || 0,
+          countedQty: Number(item.countedQty) || 0
         }, { transaction: t });
       }
-
-      stocktake.status = computeStatus(enrichedItems);
     }
 
     await stocktake.save({ transaction: t });
@@ -173,12 +193,59 @@ export const updateStocktake = async (req, res, next) => {
   }
 };
 
+export const completeStocktake = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const stocktake = await Stocktake.findByPk(id, {
+      include: [{ model: StocktakeItem, as: 'items' }]
+    });
+    if (!stocktake) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy phiếu kiểm kê' });
+    }
+
+    if (stocktake.status !== 'counting') {
+      await t.rollback();
+      return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang trong trạng thái "Đang kiểm kê"' });
+    }
+
+    const hasDiff = stocktake.items.some(
+      item => Number(item.countedQty) !== Number(item.systemQty)
+    );
+
+    stocktake.status = hasDiff ? 'diff' : 'pass';
+    await stocktake.save({ transaction: t });
+    await t.commit();
+
+    await recordAudit({
+      action: 'stocktake.complete',
+      entity: 'Stocktake',
+      entityId: stocktake._id,
+      userId: req.user._id,
+      username: req.user.username,
+      payload: { code: stocktake.code, status: stocktake.status }
+    });
+
+    const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
+    res.json(populated);
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    next(error);
+  }
+};
+
 export const deleteStocktake = async (req, res, next) => {
   try {
     const { id } = req.params;
     const stocktake = await Stocktake.findByPk(id);
     if (!stocktake) {
       return res.status(404).json({ message: 'Không tìm thấy phiếu kiểm kê' });
+    }
+
+    if (stocktake.status !== 'pending_approval') {
+      return res.status(400).json({ message: 'Chỉ có thể xóa phiếu kiểm kê đang chờ phê duyệt' });
     }
 
     await StocktakeItem.destroy({ where: { stocktakeId: id } });

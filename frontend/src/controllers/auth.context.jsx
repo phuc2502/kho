@@ -24,18 +24,13 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (emailOrUsername, password) => {
+  const login = async (emailOrUsername, password, rememberMe = false) => {
     setLoading(true);
     try {
-      const data = await UserModel.login(emailOrUsername, password);
+      const data = await UserModel.login(emailOrUsername, password, rememberMe);
       localStorage.setItem('token', data.token);
-      setUser({
-        _id: data._id,
-        username: data.username,
-        email: data.email,
-        role: data.role,
-        permissions: data.permissions
-      });
+      const { token: _t, ...userData } = data; // lưu tất cả trừ token
+      setUser(userData);
       return data;
     } finally {
       setLoading(false);
