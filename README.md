@@ -85,15 +85,10 @@ Giao diện chạy tại: `http://localhost:5173`
 
 ### Danh sách tài khoản
 
-| Họ tên | Email đăng nhập | Mật khẩu | Vai trò |
-|:---|:---|:---|:---|
-| Nguyễn Thành Đạt | `admin@fositek.vn` | `admin123` | **Admin** |
-| Vũ Xuân Hoàng | `hoang.vu@fositek.vn` | `quanly123` | **Quản lý kho** |
-| Trần Thị Lan Anh | `lananh.tran@fositek.vn` | `ketoan123` | **Kế toán kho** |
-| Bùi Thị Hằng | `hang.bui@fositek.vn` | `ketoan123` | **Kế toán kho** |
-| Phạm Văn Tuấn | `tuan.pham@fositek.vn` | `nhanvien123` | **Nhân viên kho** |
-| Lê Quang Hưng | `hung.le@fositek.vn` | `nhanvien123` | **Nhân viên kho** |
-| Đỗ Thị Ngọc | `ngoc.do@fositek.vn` | `qc123456` | **Nhân viên kho** |
+**Tài khoản đăng nhập:**
+- `admin@fositek.vn` / `admin123`
+- `hoang.vu@fositek.vn` / `quanly123`
+- `lananh.tran@fositek.vn` / `ketoan123`
 
 ---
 
@@ -205,3 +200,64 @@ Nháp → Đã duyệt → Hoàn thành
 | Database | MySQL 8.x (XAMPP) |
 | Auth | JWT (jsonwebtoken) + bcryptjs |
 | Design | Dropbox Design System (cream paper, warm ink, Dropbox Blue) |
+
+---
+
+## 📋 Thay đổi v2.0 — Quản lý lô sản xuất & Bảo hành
+
+> Cập nhật dựa trên phân tích thiếu sót so với chuẩn ngành (tham khảo Sacomtec GPP).
+
+### ⭐ Bảng mới: `LoSanXuat`
+Theo dõi lô sản xuất để hỗ trợ truy xuất nguồn gốc và thu hồi sản phẩm lỗi.
+
+| Cột | Kiểu | Ghi chú |
+|-----|------|---------|
+| Ma_lo | VARCHAR(50) PK | Mã lô nội bộ |
+| Ma_san_pham | INT FK | Liên kết SanPham |
+| So_lo_nha_may | VARCHAR(100) | Số lô từ nhà máy/nhà cung cấp |
+| Ngay_san_xuat | DATE | Ngày sản xuất lô |
+| So_luong_san_xuat | INT | Số lượng trong lô |
+| Nguon_goc | NVARCHAR(200) | Nhà cung cấp/nhà máy |
+| Ghi_chu | NVARCHAR(500) | |
+| Thoi_gian_tao | DATETIME2 | |
+
+### ⭐ Thuộc tính mới trong bảng cũ
+
+| Bảng | Cột thêm | Kiểu | Mục đích |
+|------|----------|------|----------|
+| `SanPham` | `Thoi_han_bao_hanh` | INT NULL | Số tháng bảo hành mặc định theo sản phẩm |
+| `SoSerial` | `Ma_lo` | VARCHAR(50) FK NULL | Gắn serial với lô sản xuất |
+| `SoSerial` | `Han_bao_hanh` | DATE NULL | Ngày hết hạn bảo hành của từng đơn vị |
+| `ChiTietNhapKho` | `Ma_lo` | VARCHAR(50) FK NULL | Lô sản xuất tương ứng khi nhập |
+
+### ⭐ NhatKyEmail mở rộng (12 cột)
+
+Bổ sung 3 cột và 3 loại email mới cho cảnh báo vận hành tự động:
+- `Ma_san_pham FK NULL` — sản phẩm liên quan
+- `Ma_vi_tri FK NULL` — vị trí kho liên quan  
+- `Da_xu_ly BIT DEFAULT 0` — trạng thái xử lý cảnh báo
+
+Loại email mới: `TON_KHO_THAP` · `HAN_BAO_HANH` · `LO_LOI`
+
+### ⭐ Quy tắc FIFO khi xuất kho
+
+Khi tạo phiếu xuất, hệ thống ưu tiên lấy lô nhập sớm nhất (`Ngay_san_xuat ASC`):
+```sql
+SELECT cl.Ma_lo, cl.So_luong_ton
+FROM ChiTietNhapKho cl
+JOIN LoSanXuat ls ON cl.Ma_lo = ls.Ma_lo
+WHERE cl.Ma_san_pham = @MaSanPham
+  AND cl.Ma_vi_tri = @MaViTri
+ORDER BY ls.Ngay_san_xuat ASC, ls.Thoi_gian_tao ASC;
+```
+Index hỗ trợ: `IX_LoSanXuat_SanPham_NgaySX (Ma_san_pham, Ngay_san_xuat)`
+
+### 📊 Dashboard — 5 widget mới
+
+| # | Widget | Query cơ sở |
+|---|--------|-------------|
+| 1 | Tổng tồn kho theo sản phẩm | `SUM(So_luong_ton)` GROUP BY sản phẩm |
+| 2 | Sắp hết hàng | `So_luong_ton < So_luong_toi_thieu` |
+| 3 | Serial sắp hết bảo hành | `Han_bao_hanh BETWEEN NOW() AND NOW()+30d` |
+| 4 | Nhập/Xuất 30 ngày | COUNT phiếu theo ngày lập |
+| 5 | Phân tầng tuổi lô tồn | Phân nhóm theo `Ngay_san_xuat` |

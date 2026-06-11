@@ -25,14 +25,16 @@ export const PERMISSION_CATALOG = [
   { code: 'partner:delete',     name: 'Xóa đối tác',                     group: 'Cấu trúc Kho & Đối tác' },
 
   // Vận hành Nhập & Xuất
-  { code: 'receipt:read',       name: 'Xem phiếu nhập',                  group: 'Vận hành Nhập & Xuất' },
-  { code: 'receipt:create',     name: 'Tạo phiếu nhập',                  group: 'Vận hành Nhập & Xuất' },
-  { code: 'receipt:update',     name: 'Sửa phiếu nhập',                  group: 'Vận hành Nhập & Xuất' },
-  { code: 'receipt:approve',    name: 'Duyệt phiếu nhập',                group: 'Vận hành Nhập & Xuất' },
-  { code: 'delivery:read',      name: 'Xem phiếu xuất',                  group: 'Vận hành Nhập & Xuất' },
-  { code: 'delivery:create',    name: 'Tạo phiếu xuất',                  group: 'Vận hành Nhập & Xuất' },
-  { code: 'delivery:update',    name: 'Sửa phiếu xuất',                  group: 'Vận hành Nhập & Xuất' },
-  { code: 'delivery:approve',   name: 'Duyệt phiếu xuất',                group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:read',              name: 'Xem phiếu nhập',                   group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:create',            name: 'Tạo phiếu nhập',                   group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:update',            name: 'Sửa phiếu nhập',                   group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:approve',           name: 'Duyệt phiếu nhập',                 group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery-request:read',     name: 'Xem yêu cầu xuất kho',             group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery-request:create',   name: 'Tạo yêu cầu xuất kho (Sale)',      group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:read',             name: 'Xem phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:create',           name: 'Tạo phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:update',           name: 'Sửa phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:approve',          name: 'Duyệt phiếu xuất',                 group: 'Vận hành Nhập & Xuất' },
 
   // Kiểm kê & Điều chỉnh
   { code: 'stocktake:read',     name: 'Xem phiếu kiểm kê',               group: 'Kiểm kê & Điều chỉnh' },
@@ -48,6 +50,7 @@ export const PERMISSION_CATALOG = [
   { code: 'inventory:read',     name: 'Xem tồn kho thực tế',             group: 'Báo cáo & Hệ thống' },
   { code: 'user:manage',        name: 'Quản lý tài khoản & Phân quyền',  group: 'Báo cáo & Hệ thống' },
   { code: 'audit:read',         name: 'Xem nhật ký hoạt động',           group: 'Báo cáo & Hệ thống' },
+  { code: 'emaillog:read',      name: 'Xem nhật ký email',               group: 'Báo cáo & Hệ thống' },
 ];
 
 // ——— Quyền mặc định của từng vai trò (VaiTro_Quyen) ———
@@ -67,7 +70,9 @@ export const ROLE_DEFAULTS = {
     'partner:read', 'partner:create', 'partner:update', 'partner:delete',
     // Nhập kho
     'receipt:read', 'receipt:create', 'receipt:update', 'receipt:approve',
-    // Xuất kho
+    // Yêu cầu xuất kho (xem tất cả yêu cầu từ Sale)
+    'delivery-request:read',
+    // Phiếu xuất kho (tạo phiếu từ yêu cầu, duyệt)
     'delivery:read', 'delivery:create', 'delivery:update', 'delivery:approve',
     // Kiểm kê & Điều chỉnh
     'stocktake:read', 'stocktake:create', 'stocktake:approve',
@@ -88,7 +93,9 @@ export const ROLE_DEFAULTS = {
     'partner:read', 'partner:create', 'partner:update',
     // Nhập kho (lập + sửa, không phê duyệt)
     'receipt:read', 'receipt:create', 'receipt:update',
-    // Xuất kho (lập + sửa, không phê duyệt)
+    // Yêu cầu xuất kho (xem)
+    'delivery-request:read',
+    // Phiếu xuất kho (lập + sửa, không phê duyệt)
     'delivery:read', 'delivery:create', 'delivery:update',
     // Kiểm kê & Điều chỉnh (lập, không phê duyệt)
     'stocktake:read', 'stocktake:create',
@@ -104,8 +111,11 @@ export const ROLE_DEFAULTS = {
     'product:read',
     'category:read',
     'warehouse:read',
-    // Nhập/xuất (chỉ lập)
+    // Nhập kho (lập)
     'receipt:read', 'receipt:create',
+    // Yêu cầu xuất kho (xem)
+    'delivery-request:read',
+    // Phiếu xuất kho (lập)
     'delivery:read', 'delivery:create',
     // Kiểm kê (chỉ xem)
     'stocktake:read',
@@ -115,22 +125,34 @@ export const ROLE_DEFAULTS = {
     'inventory:read',
   ],
 
-  // VT005 — QC (Kiểm tra chất lượng): chỉ xem tồn kho và báo cáo sự cố
+  // VT005 — QC: chức năng nhân viên kho + lập phiếu sự cố
   QC: [
+    // Xem cơ bản
     'product:read',
     'category:read',
     'warehouse:read',
-    'inventory:read',
+    // Nhập kho (lập)
+    'receipt:read', 'receipt:create',
+    // Yêu cầu xuất kho (xem)
+    'delivery-request:read',
+    // Phiếu xuất kho (lập)
+    'delivery:read', 'delivery:create',
+    // Kiểm kê (chỉ xem)
+    'stocktake:read',
+    // Sự cố (lập + xem)
     'incident:read', 'incident:create',
+    // Tồn kho
+    'inventory:read',
   ],
 
-  // VT006 — Sale (Kinh doanh): tạo yêu cầu xuất kho + xem tồn kho
+  // VT006 — Sale: TẠO yêu cầu xuất kho — KHÔNG truy cập phiếu xuất kho
   Sale: [
     'product:read',
     'category:read',
     'warehouse:read',
     'inventory:read',
-    'delivery:read', 'delivery:create',
+    'delivery-request:read',
+    'delivery-request:create',
     'incident:read',
   ],
 };

@@ -816,6 +816,14 @@
         ""
       ],
       [
+        "⭐ Thoi_han_bao_hanh",
+        "INT",
+        "NULL, DEFAULT NULL",
+        "[THÊM MỚI v2.0] Thời hạn bảo hành tính bằng tháng. NULL = không bảo hành. VD: 12/24/36",
+        "Số nguyên ≥ 0",
+        ""
+      ],
+      [
         "Trang_thai",
         "BIT",
         "DEFAULT 1",
@@ -877,6 +885,22 @@
         "Ngày sản xuất đơn vị",
         "Ngày",
         ""
+      ],
+      [
+        "⭐ Ma_lo (FK)",
+        "CHAR(15)",
+        "NULL, FK → LoSanXuat",
+        "[THÊM MỚI v2.0] Lô sản xuất chứa serial này. NULL nếu không theo dõi lô",
+        "Chữ và số",
+        "IDX"
+      ],
+      [
+        "⭐ Han_bao_hanh",
+        "DATE",
+        "NULL",
+        "[THÊM MỚI v2.0] Ngày hết hạn bảo hành. Tính: Ngay_san_xuat + Thoi_han_bao_hanh tháng",
+        "YYYY-MM-DD",
+        "IDX"
       ],
       [
         "Ghi_chu",
@@ -1105,6 +1129,14 @@
         "DEFAULT 0",
         "Số lượng nhân viên kho đếm thực tế",
         "Số",
+        ""
+      ],
+      [
+        "⭐ Ma_lo (FK)",
+        "CHAR(15)",
+        "NULL, FK → LoSanXuat",
+        "[THÊM MỚI v2.0] Lô sản xuất tương ứng với dòng nhập này. Hỗ trợ truy xuất nguồn gốc lô",
+        "Chữ và số",
         ""
       ],
       [
@@ -2003,6 +2035,180 @@
         "NOT NULL",
         "Tăng / Giảm tồn kho",
         "Chuỗi ký tự",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 33,
+    "name": "NhatKyEmail",
+    "title": "Bảng 3.33. Đề xuất kiểu dữ liệu cho bảng NhatKyEmail.",
+    "rows": [
+      [
+        "Ma_nhat_ky",
+        "INT",
+        "PK, IDENTITY(1,1)",
+        "Khóa chính tự tăng",
+        "Số nguyên",
+        "PK"
+      ],
+      [
+        "Loai_email",
+        "NVARCHAR(30)",
+        "NOT NULL",
+        "welcome/adminReset/forgotPassword/⭐stockLow/⭐stockHigh/⭐warrantyExpiring/⭐slowMoving",
+        "Chuỗi enum",
+        "IDX"
+      ],
+      [
+        "Email_nguoi_nhan",
+        "VARCHAR(255)",
+        "NOT NULL",
+        "Địa chỉ email người nhận",
+        "Email hợp lệ",
+        ""
+      ],
+      [
+        "Tieu_de",
+        "VARCHAR(500)",
+        "NOT NULL",
+        "Tiêu đề (subject) của email",
+        "Chuỗi UTF-8",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(10)",
+        "NOT NULL, DEFAULT 'success'",
+        "success / failed",
+        "Chuỗi",
+        "IDX"
+      ],
+      [
+        "Thong_bao_loi",
+        "NVARCHAR(MAX)",
+        "NULL",
+        "Mô tả lỗi SMTP nếu gửi thất bại",
+        "Văn bản",
+        ""
+      ],
+      [
+        "Ma_nguoi_dung (FK)",
+        "CHAR(10)",
+        "NULL, FK → NguoiDung",
+        "Người dùng liên quan (nullable)",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Nguoi_trigger",
+        "VARCHAR(255)",
+        "NULL",
+        "Email admin hoặc \"system\" (job tự động)",
+        "Email/system",
+        ""
+      ],
+      [
+        "⭐ Ma_san_pham (FK)",
+        "CHAR(15)",
+        "NULL, FK → SanPham",
+        "[THÊM MỚI v2.0] Sản phẩm liên quan – chỉ điền cho cảnh báo nghiệp vụ",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "⭐ Ma_vi_tri (FK)",
+        "CHAR(15)",
+        "NULL, FK → ViTriTrongKho",
+        "[THÊM MỚI v2.0] Vị trí kho liên quan đến cảnh báo (nếu có)",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "⭐ Da_xu_ly",
+        "BIT",
+        "DEFAULT 0",
+        "[THÊM MỚI v2.0] 0: Chưa xử lý / 1: Đã xem và xử lý (cho cảnh báo nghiệp vụ)",
+        "0 hoặc 1",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "NOT NULL, DEFAULT GETDATE()",
+        "Thời điểm ghi nhận – không có updatedAt (append-only)",
+        "YYYY-MM-DD HH:mm",
+        "IDX"
+      ]
+    ]
+  },
+  {
+    "id": 34,
+    "name": "LoSanXuat",
+    "title": "Bảng 3.34. Đề xuất kiểu dữ liệu cho bảng LoSanXuat.",
+    "rows": [
+      [
+        "Ma_lo",
+        "CHAR(15)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã lô sản xuất. VD: LSX-2026-001",
+        "Chữ và số",
+        "PK"
+      ],
+      [
+        "Ma_san_pham (FK)",
+        "CHAR(15)",
+        "NOT NULL, FK → SanPham",
+        "Lô này thuộc sản phẩm nào",
+        "Chữ và số",
+        "IDX"
+      ],
+      [
+        "So_lo_nha_may",
+        "NVARCHAR(50)",
+        "NOT NULL",
+        "Số lô do nhà máy đặt. VD: LOT-A0326-02",
+        "Chữ và số + ký tự đặc biệt",
+        "IDX"
+      ],
+      [
+        "Ngay_san_xuat",
+        "DATE",
+        "NOT NULL",
+        "Ngày sản xuất lô – làm cơ sở FIFO và tính bảo hành",
+        "YYYY-MM-DD",
+        "IDX"
+      ],
+      [
+        "So_luong_san_xuat",
+        "INT",
+        "DEFAULT 0",
+        "Tổng số đơn vị sản phẩm trong lô",
+        "Số nguyên ≥ 0",
+        ""
+      ],
+      [
+        "Nguon_goc",
+        "NVARCHAR(200)",
+        "NULL",
+        "Thông tin line sản xuất. VD: Line 2 – Xưởng A, ca sáng",
+        "Văn bản",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "NULL",
+        "Ghi chú QC đặc biệt nếu có",
+        "Văn bản",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Tự động khi tạo bản ghi lô",
+        "YYYY-MM-DD HH:mm",
         ""
       ]
     ]

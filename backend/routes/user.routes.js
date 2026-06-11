@@ -11,7 +11,8 @@ import {
   removeUserWarehouse,
   getUserPermissions,
   saveUserPermissions,
-  resetUserPermissions
+  resetUserPermissions,
+  getResetRequestsCount
 } from '../controllers/user.controller.js';
 import { authenticate, requirePermission } from '../middlewares/auth.middleware.js';
 
@@ -19,6 +20,9 @@ export const userRouter = express.Router();
 
 userRouter.use(authenticate);
 userRouter.use(requirePermission('user:manage'));
+
+// Đếm yêu cầu cấp lại MK (đặt TRƯỚC /:userId để tránh bị nhận nhầm là userId)
+userRouter.get('/reset-requests-count', getResetRequestsCount);
 
 // CRUD tài khoản
 userRouter.get('/', getAllUsers);

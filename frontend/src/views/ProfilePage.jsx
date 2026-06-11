@@ -1,14 +1,48 @@
 import React, { useState } from 'react';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { UserModel } from '../models/user.model.js';
-import { Eye, EyeOff, CheckCircle2, AlertCircle, User, ShieldCheck, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, AlertCircle, User, ShieldCheck, KeyRound, Circle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+
+// Kiểm tra từng tiêu chí mật khẩu
+const pwChecks = [
+  { id: 'len',     label: 'Ít nhất 8 ký tự',         test: (v) => v.length >= 8 },
+  { id: 'upper',   label: 'Ít nhất 1 chữ in hoa',     test: (v) => /[A-Z]/.test(v) },
+  { id: 'digit',   label: 'Ít nhất 1 chữ số',         test: (v) => /[0-9]/.test(v) },
+  { id: 'special', label: 'Ít nhất 1 ký tự đặc biệt', test: (v) => /[^A-Za-z0-9]/.test(v) },
+];
+const validatePassword = (v) => pwChecks.every(c => c.test(v));
+
+// ⚠️ Phải định nghĩa NGOÀI component — nếu để trong ProfilePage thì mỗi lần
+//    state thay đổi React sẽ tạo lại function → input unmount/remount → mất focus
+const PasswordInput = ({ value, onChange, show, onToggle, placeholder, autoComplete }) => (
+  <div className="relative">
+    <input
+      type={show ? 'text' : 'password'}
+      value={value}
+      onChange={onChange}
+      autoComplete={autoComplete}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
+    />
+    <button
+      type="button"
+      onClick={onToggle}
+      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+      tabIndex={-1}
+    >
+      {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+    </button>
+  </div>
+);
 
 const ROLE_LABELS = {
   Admin:       { label: 'Quản trị viên', color: 'bg-purple-100 text-purple-700 ring-purple-200' },
   QuanLyKho:   { label: 'Quản lý kho',   color: 'bg-blue-100 text-blue-700 ring-blue-200' },
   KeToanKho:   { label: 'Kế toán kho',   color: 'bg-teal-100 text-teal-700 ring-teal-200' },
   NhanVienKho: { label: 'Nhân viên kho', color: 'bg-slate-100 text-slate-700 ring-slate-200' },
+  QC:          { label: 'QC – Kiểm tra CL', color: 'bg-orange-100 text-orange-700 ring-orange-200' },
+  Sale:        { label: 'Sale – Kinh doanh', color: 'bg-green-100 text-green-700 ring-green-200' },
 };
 
 export const ProfilePage = () => {
@@ -24,7 +58,7 @@ export const ProfilePage = () => {
   const [formError, setFormError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const roleInfo = ROLE_LABELS[user?.role] || ROLE_LABELS.Staff;
+  const roleInfo = ROLE_LABELS[user?.role] || { label: user?.role || 'Không xác định', color: 'bg-slate-100 text-slate-700 ring-slate-200' };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -35,8 +69,8 @@ export const ProfilePage = () => {
       setFormError('Vui lòng điền đầy đủ tất cả các trường.');
       return;
     }
-    if (newPassword.length < 6) {
-      setFormError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+    if (!validatePassword(newPassword)) {
+      setFormError('Mật khẩu chưa đáp ứng đủ yêu cầu bên dưới.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -62,27 +96,6 @@ export const ProfilePage = () => {
       setSaving(false);
     }
   };
-
-  const PasswordInput = ({ value, onChange, show, onToggle, placeholder, autoComplete }) => (
-    <div className="relative">
-      <input
-        type={show ? 'text' : 'password'}
-        value={value}
-        onChange={onChange}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-12 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:bg-white transition-all"
-      />
-      <button
-        type="button"
-        onClick={onToggle}
-        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-        tabIndex={-1}
-      >
-        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-      </button>
-    </div>
-  );
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -195,7 +208,7 @@ export const ProfilePage = () => {
                 onChange={(e) => { setNewPassword(e.target.value); setFormError(''); setSuccess(false); }}
                 show={showNew}
                 onToggle={() => setShowNew((v) => !v)}
-                placeholder="Tối thiểu 6 ký tự"
+                placeholder="Tối thiểu 8 ký tự"
                 autoComplete="new-password"
               />
             </div>
@@ -216,24 +229,21 @@ export const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Password strength hint */}
+          {/* Password requirements checklist */}
           {newPassword && (
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <div className="flex gap-1">
-                {[1, 2, 3, 4].map((level) => (
-                  <div
-                    key={level}
-                    className={`h-1 w-8 rounded-full transition-colors ${
-                      newPassword.length >= level * 3
-                        ? newPassword.length >= 10 ? 'bg-emerald-400' : newPassword.length >= 7 ? 'bg-yellow-400' : 'bg-red-400'
-                        : 'bg-slate-200'
-                    }`}
-                  />
-                ))}
-              </div>
-              <span>
-                {newPassword.length < 6 ? 'Quá ngắn' : newPassword.length < 8 ? 'Yếu' : newPassword.length < 12 ? 'Trung bình' : 'Mạnh'}
-              </span>
+            <div className="rounded-xl bg-slate-50 ring-1 ring-slate-200 px-4 py-3 grid grid-cols-2 gap-1.5">
+              {pwChecks.map(({ id, label, test }) => {
+                const ok = test(newPassword);
+                return (
+                  <div key={id} className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${ok ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {ok
+                      ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      : <Circle className="w-3.5 h-3.5 shrink-0" />
+                    }
+                    {label}
+                  </div>
+                );
+              })}
             </div>
           )}
 

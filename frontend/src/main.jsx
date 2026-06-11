@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './controllers/auth.context.jsx';
 import { LoginPage } from './views/LoginPage.jsx';
 import { DashboardLayout } from './views/DashboardLayout.jsx';
@@ -21,11 +21,14 @@ import { ProfilePage } from './views/ProfilePage.jsx';
 import { ForgotPasswordPage } from './views/ForgotPasswordPage.jsx';
 import { ResetPasswordPage } from './views/ResetPasswordPage.jsx';
 import { EmailLogsPage } from './views/EmailLogsPage.jsx'; // [THÊM MỚI]
+import { ForceChangePasswordPage } from './views/ForceChangePasswordPage.jsx';
+import { DeliveryRequestsPage } from './views/DeliveryRequestsPage.jsx';
 import './index.css';
 
 // Guard for authenticated routes
 const ProtectedRoute = ({ permission, children }) => {
   const { user, loading, hasPermission } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -37,6 +40,11 @@ const ProtectedRoute = ({ permission, children }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Nếu phải đổi MK bắt buộc → chặn toàn bộ route, chuyển đến trang đổi MK
+  if (user.mustChangePassword && location.pathname !== '/force-change-password') {
+    return <Navigate to="/force-change-password" replace />;
   }
 
   if (permission && !hasPermission(permission)) {
@@ -60,6 +68,12 @@ const App = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          {/* Buộc đổi MK — cần đăng nhập, không cần DashboardLayout */}
+          <Route path="/force-change-password" element={
+            <ProtectedRoute>
+              <ForceChangePasswordPage />
+            </ProtectedRoute>
+          } />
           
           <Route path="/" element={
             <ProtectedRoute>
@@ -80,6 +94,12 @@ const App = () => {
               </ProtectedRoute>
             } />
             
+            <Route path="delivery-requests" element={
+              <ProtectedRoute permission="delivery-request:read">
+                <DeliveryRequestsPage />
+              </ProtectedRoute>
+            } />
+
             <Route path="deliveries" element={
               <ProtectedRoute permission="delivery:read">
                 <DeliveriesPage />
@@ -130,7 +150,7 @@ const App = () => {
 
             {/* [THÊM MỚI] Nhật ký email — chỉ Admin */}
             <Route path="email-logs" element={
-              <ProtectedRoute permission="user:manage">
+              <ProtectedRoute permission="emaillog:read">
                 <EmailLogsPage />
               </ProtectedRoute>
             } />

@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle, Lock } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, CheckCircle, CheckCircle2, Circle, AlertCircle, Lock } from 'lucide-react';
 import { UserModel } from '../models/user.model.js';
+
+const pwChecks = [
+  { id: 'len',     label: 'Ít nhất 8 ký tự',         test: (v) => v.length >= 8 },
+  { id: 'upper',   label: 'Ít nhất 1 chữ in hoa',     test: (v) => /[A-Z]/.test(v) },
+  { id: 'digit',   label: 'Ít nhất 1 chữ số',         test: (v) => /[0-9]/.test(v) },
+  { id: 'special', label: 'Ít nhất 1 ký tự đặc biệt', test: (v) => /[^A-Za-z0-9]/.test(v) },
+];
+const validatePassword = (v) => pwChecks.every(c => c.test(v));
 
 const DropboxMark = ({ size = 24, color = '#0061fe' }) => (
   <svg width={size} height={size * 0.9} viewBox="0 0 40 36" fill="none">
@@ -32,7 +40,7 @@ export const ResetPasswordPage = () => {
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 6) { setError('Mật khẩu phải có ít nhất 6 ký tự'); return; }
+    if (!validatePassword(newPassword)) { setError('Mật khẩu chưa đáp ứng đủ yêu cầu bảo mật.'); return; }
     if (newPassword !== confirmPassword) { setError('Mật khẩu xác nhận không khớp'); return; }
 
     setLoading(true);
@@ -74,7 +82,7 @@ export const ResetPasswordPage = () => {
             Tạo mật khẩu<br />mới.
           </h1>
           <p style={{ color: '#716b61', fontSize: '14px', lineHeight: 1.7, marginTop: '20px' }}>
-            Mật khẩu mới phải có ít nhất 6 ký tự. Sau khi đặt lại thành công, bạn sẽ được chuyển về trang đăng nhập.
+            Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm chữ in hoa, chữ số và ký tự đặc biệt. Sau khi đặt lại thành công, bạn sẽ được chuyển về trang đăng nhập.
           </p>
         </div>
         <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>© 2024 MVC Warehouse Management System</p>
@@ -143,7 +151,7 @@ export const ResetPasswordPage = () => {
                         type={showNew ? 'text' : 'password'}
                         value={newPassword}
                         onChange={e => { setNewPassword(e.target.value); setError(''); }}
-                        placeholder="Tối thiểu 6 ký tự"
+                        placeholder="Tối thiểu 8 ký tự"
                         className="w-full text-sm outline-none transition-colors duration-150"
                         style={{ ...inputStyle, paddingRight: '44px' }}
                         onFocus={e => { e.target.style.background='#fff'; e.target.style.borderColor='#1e1919'; }}
@@ -157,6 +165,26 @@ export const ResetPasswordPage = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Password requirements checklist */}
+                  {newPassword && (
+                    <div style={{ background: '#f7f5f2', border: '1px solid #eee9e2', borderRadius: '8px', padding: '12px 14px' }}
+                      className="grid grid-cols-2 gap-1.5">
+                      {pwChecks.map(({ id, label, test }) => {
+                        const ok = test(newPassword);
+                        return (
+                          <div key={id} className="flex items-center gap-1.5 text-xs font-medium"
+                            style={{ color: ok ? '#16a34a' : '#b8b2aa', transition: 'color 0.15s' }}>
+                            {ok
+                              ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              : <Circle className="w-3.5 h-3.5 shrink-0" />
+                            }
+                            {label}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {/* Xác nhận mật khẩu */}
                   <div>
@@ -195,7 +223,7 @@ export const ResetPasswordPage = () => {
                   <div className="pt-1">
                     <button
                       type="submit"
-                      disabled={loading || !token || !newPassword || newPassword !== confirmPassword}
+                      disabled={loading || !token || !validatePassword(newPassword) || newPassword !== confirmPassword}
                       className="w-full flex items-center justify-center gap-2 text-sm font-medium text-white transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ background: '#0061fe', borderRadius: '10px', padding: '12px 24px' }}
                       onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#0052d9'; }}

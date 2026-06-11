@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../controllers/auth.context.jsx';
+import { UserModel } from '../models/user.model.js';
 import {
   Users, Package, Warehouse, ShoppingBag, Database,
   ArrowDownLeft, ArrowUpRight, LogOut, ClipboardList,
   ArrowLeftRight, LayoutDashboard, AlertTriangle, History,
-  BarChart2, ScanLine, KeyRound, ChevronRight, Mail, // [THÊM MỚI] Mail
+  BarChart2, ScanLine, KeyRound, ChevronRight, Mail, FileText,
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -29,12 +30,13 @@ const NAV_GROUPS = [
   {
     label: 'Nghiệp vụ kho',
     items: [
-      { path: '/inventory',   label: 'Tồn kho',          icon: Database,      permission: 'inventory:read'  },
-      { path: '/receipts',    label: 'Phiếu nhập kho',   icon: ArrowDownLeft, permission: 'receipt:read'    },
-      { path: '/deliveries',  label: 'Phiếu xuất kho',   icon: ArrowUpRight,  permission: 'delivery:read'   },
-      { path: '/stocktakes',  label: 'Kiểm kê kho',      icon: ClipboardList, permission: 'stocktake:read'  },
-      { path: '/adjustments', label: 'Điều chỉnh tồn',   icon: ArrowLeftRight,permission: 'adjustment:read' },
-      { path: '/incidents',   label: 'Báo cáo sự cố',    icon: AlertTriangle, permission: 'incident:read'   },
+      { path: '/inventory',          label: 'Tồn kho',               icon: Database,      permission: 'inventory:read'         },
+      { path: '/receipts',           label: 'Phiếu nhập kho',        icon: ArrowDownLeft, permission: 'receipt:read'            },
+      { path: '/delivery-requests',  label: 'Yêu cầu xuất kho',      icon: FileText,      permission: 'delivery-request:read'  },
+      { path: '/deliveries',         label: 'Phiếu xuất kho',        icon: ArrowUpRight,  permission: 'delivery:read'          },
+      { path: '/stocktakes',         label: 'Kiểm kê kho',           icon: ClipboardList, permission: 'stocktake:read'         },
+      { path: '/adjustments',        label: 'Điều chỉnh tồn',        icon: ArrowLeftRight,permission: 'adjustment:read'        },
+      { path: '/incidents',          label: 'Báo cáo sự cố',         icon: AlertTriangle, permission: 'incident:read'          },
     ],
   },
   {
@@ -50,7 +52,7 @@ const NAV_GROUPS = [
       { path: '/reports',    label: 'Báo cáo',          icon: BarChart2, permission: null         },
       { path: '/users',      label: 'Tài khoản & Phân quyền', icon: Users, permission: 'user:manage'},
       { path: '/audit-logs',  label: 'Nhật ký hoạt động', icon: History, permission: 'audit:read'  },
-      { path: '/email-logs',  label: 'Nhật ký Email',      icon: Mail,    permission: 'user:manage' }, // [THÊM MỚI]
+      { path: '/email-logs',  label: 'Nhật ký Email',      icon: Mail,    permission: 'emaillog:read' }, // [THÊM MỚI]
     ],
   },
 ];
@@ -58,12 +60,48 @@ const NAV_GROUPS = [
 // flatten for title lookup
 const ALL_NAV = NAV_GROUPS.flatMap(g => g.items);
 
+// localStorage key lưu số yêu cầu đã xem
+const SEEN_KEY = 'resetRequestsSeenCount';
+
+// Label ghi đè theo role — key là path (có thể mở rộng sau)
+const ROLE_LABEL_OVERRIDES = {};
+
 export const DashboardLayout = () => {
   const { user, logout, hasPermission } = useAuth();
   const location = useLocation();
   const navigate  = useNavigate();
+  const [resetCount, setResetCount] = useState(0);
+  const [seenCount, setSeenCount]   = useState(() => parseInt(localStorage.getItem(SEEN_KEY) || '0'));
 
   const handleLogout = () => { logout(); navigate('/login'); };
+
+  // Fetch số yêu cầu reset MK (chỉ Admin mới gọi)
+  const fetchResetCount = useCallback(async () => {
+    if (!hasPermission('user:manage')) return;
+    try {
+      const { count } = await UserModel.getResetRequestsCount();
+      setResetCount(count);
+    } catch { /* silent */ }
+  }, [hasPermission]);
+
+  useEffect(() => { fetchResetCount(); }, [fetchResetCount]);
+
+  // Poll mỗi 30 giây
+  useEffect(() => {
+    const timer = setInterval(fetchResetCount, 30000);
+    return () => clearInterval(timer);
+  }, [fetchResetCount]);
+
+  // Khi admin vào trang Users → đánh dấu đã xem
+  useEffect(() => {
+    if (location.pathname === '/users' && resetCount > 0) {
+      localStorage.setItem(SEEN_KEY, String(resetCount));
+      setSeenCount(resetCount);
+    }
+  }, [location.pathname, resetCount]);
+
+  // Badge hiện khi có yêu cầu mới chưa xem
+  const showBadge = resetCount > 0 && resetCount > seenCount;
 
   const isActive = (item) => item.exact
     ? location.pathname === item.path
@@ -78,7 +116,7 @@ export const DashboardLayout = () => {
 
       {/* ── Sidebar ── Dark Warm Ink ──────────────────────────── */}
       <aside
-        className="w-60 flex flex-col shrink-0"
+        className="w-64 flex flex-col shrink-0"
         style={{ background: '#1e1919' }}
       >
         {/* Wordmark */}
@@ -130,7 +168,15 @@ export const DashboardLayout = () => {
                         onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(255,255,255,0.55)'; }}}
                       >
                         <Icon className="w-4 h-4 shrink-0" />
-                        <span className="truncate">{item.label}</span>
+                        <span className="truncate flex-1">
+                          {ROLE_LABEL_OVERRIDES[user?.role]?.[item.path] || item.label}
+                        </span>
+                        {/* Badge đỏ — chỉ hiện trên mục Users khi có yêu cầu reset MK mới */}
+                        {item.path === '/users' && showBadge && (
+                          <span className="shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                            {resetCount}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

@@ -22,6 +22,16 @@ export const getAllUsers = async (req, res, next) => {
   }
 };
 
+// ——— Đếm số tài khoản đang yêu cầu cấp lại MK ———
+export const getResetRequestsCount = async (req, res, next) => {
+  try {
+    const count = await User.count({ where: { passwordResetRequested: true, isActive: true } });
+    res.json({ count });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ——— Admin tạo tài khoản mới — password tự sinh + gửi email ———
 export const createUser = async (req, res, next) => {
   try {
@@ -53,6 +63,7 @@ export const createUser = async (req, res, next) => {
       fullName: fullName?.trim() || null,
       phone: phone?.trim() || null,
       isActive: true,
+      mustChangePassword: true,   // bắt buộc đổi MK ngay khi đăng nhập lần đầu
       createdBy: req.user._id
     });
 
@@ -161,6 +172,8 @@ export const adminResetPassword = async (req, res, next) => {
     user.password = plainPassword;
     user.loginAttempts = 0;
     user.lockedUntil = null;
+    user.mustChangePassword = true;        // bắt buộc đổi MK sau khi admin reset
+    user.passwordResetRequested = false;   // xóa cờ yêu cầu (đã được xử lý)
     await user.save();
 
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
@@ -398,7 +411,7 @@ export const saveUserPermissions = async (req, res, next) => {
     }
 
     // Bảo vệ: không cho grant/revoke quyền admin-only
-    const ADMIN_ONLY = new Set(['audit:read', 'user:manage']);
+    const ADMIN_ONLY = new Set(['audit:read', 'user:manage', 'emaillog:read']);
     const safeGrants = grants.filter(c => !ADMIN_ONLY.has(c));
     const safeRevokes = revokes.filter(c => !ADMIN_ONLY.has(c));
 

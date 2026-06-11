@@ -18,6 +18,16 @@ export const UserModel = {
     return await api.put('/auth/change-password', { currentPassword, newPassword });
   },
 
+  // Buộc đổi MK lần đầu — không cần nhập MK cũ (admin đã tạo/reset)
+  forceChangePassword: async (newPassword) => {
+    return await api.put('/auth/force-change-password', { newPassword });
+  },
+
+  // Đếm số tài khoản đang yêu cầu cấp lại MK
+  getResetRequestsCount: async () => {
+    return await api.get('/users/reset-requests-count');
+  },
+
   // Quên mật khẩu — gửi link reset qua email
   forgotPassword: async (email) => {
     return await api.post('/auth/forgot-password', { email });

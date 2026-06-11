@@ -73,8 +73,8 @@ export const ReportsPage = () => {
     deliveries.filter(d => d.status === 'completed' && isInRange(d.createdAt)), [deliveries, dateFrom, dateTo]);
 
   // Summary stats
-  const totalReceiptValue = filteredReceipts.reduce((s, r) => s + (r.totalAmount || 0), 0);
-  const totalDeliveryValue = filteredDeliveries.reduce((s, d) => s + (d.totalAmount || 0), 0);
+  const totalReceiptValue = filteredReceipts.reduce((s, r) => s + (parseFloat(r.totalAmount) || 0), 0);
+  const totalDeliveryValue = filteredDeliveries.reduce((s, d) => s + (parseFloat(d.totalAmount) || 0), 0);
   const totalInventoryQty = inventory.reduce((s, i) => s + (i.quantity || 0), 0);
   const zeroStockCount = inventory.filter(i => i.quantity === 0).length;
 

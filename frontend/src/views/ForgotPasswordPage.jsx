@@ -62,7 +62,7 @@ export const ForgotPasswordPage = () => {
             Đặt lại<br />mật khẩu.
           </h1>
           <p style={{ color: '#716b61', fontSize: '14px', lineHeight: 1.7, marginTop: '20px' }}>
-            Nhập email công ty để nhận link đặt lại mật khẩu. Link có hiệu lực trong 60 phút.
+            Nhập email công ty, hệ thống sẽ thông báo cho quản trị viên. Admin sẽ cấp lại mật khẩu và liên hệ với bạn.
           </p>
         </div>
         <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>© 2024 MVC Warehouse Management System</p>
@@ -81,21 +81,18 @@ export const ForgotPasswordPage = () => {
           <div style={{ background: '#ffffff', border: '1px solid #eee9e2', borderRadius: '12px', padding: '36px' }}>
 
             {sent ? (
-              /* ── Trạng thái đã gửi ── */
+              /* ── Trạng thái đã gửi yêu cầu ── */
               <div className="text-center">
                 <div className="flex justify-center mb-4">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: '#f0fdf4' }}>
-                    <CheckCircle className="w-7 h-7" style={{ color: '#16a34a' }} />
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: '#fff7ed' }}>
+                    <CheckCircle className="w-7 h-7" style={{ color: '#ea580c' }} />
                   </div>
                 </div>
                 <h2 style={{ color: '#1e1919', fontSize: '22px', fontWeight: 500, lineHeight: 1.3, margin: '0 0 10px' }}>
-                  Kiểm tra hộp thư
+                  Yêu cầu đã được ghi nhận
                 </h2>
                 <p style={{ color: '#716b61', fontSize: '14px', lineHeight: 1.6, margin: '0 0 24px' }}>
-                  Nếu địa chỉ <strong>{email}</strong> tồn tại trong hệ thống, link đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra cả thư mục <em>Spam</em>.
-                </p>
-                <p style={{ color: '#b8b2aa', fontSize: '13px', margin: '0 0 24px' }}>
-                  Link có hiệu lực trong <strong>60 phút</strong>.
+                  Quản trị viên sẽ thấy yêu cầu của bạn và cấp lại mật khẩu mới. Vui lòng chờ liên hệ từ bộ phận quản lý.
                 </p>
                 <Link
                   to="/login"
@@ -116,7 +113,7 @@ export const ForgotPasswordPage = () => {
                     Quên mật khẩu?
                   </h2>
                   <p className="mt-1.5 text-sm" style={{ color: '#716b61' }}>
-                    Nhập email công ty — chúng tôi sẽ gửi link đặt lại mật khẩu cho bạn.
+                    Nhập email công ty — quản trị viên sẽ được thông báo và cấp lại mật khẩu cho bạn.
                   </p>
                 </div>
 
@@ -160,7 +157,7 @@ export const ForgotPasswordPage = () => {
                     >
                       {loading
                         ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        : <><Mail className="w-4 h-4" /><span>Gửi link đặt lại mật khẩu</span></>
+                        : <><Mail className="w-4 h-4" /><span>Gửi yêu cầu cấp lại mật khẩu</span></>
                       }
                     </button>
                   </div>

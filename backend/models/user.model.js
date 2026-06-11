@@ -68,6 +68,20 @@ export const User = sequelize.define('User', {
     comment: 'ID Admin đã tạo tài khoản này'
   },
 
+  // ——— Yêu cầu cấp lại mật khẩu (quên mật khẩu — chờ admin xử lý) ———
+  passwordResetRequested: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'true = nhân viên đã gửi yêu cầu quên MK, chờ admin đặt lại'
+  },
+
+  // ——— Buộc đổi mật khẩu ———
+  mustChangePassword: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'true = bắt buộc đổi MK ngay khi đăng nhập (sau khi admin tạo TK hoặc reset MK)'
+  },
+
   // ——— Đặt lại mật khẩu (forgot password flow) ———
   resetPasswordToken: {
     type: DataTypes.STRING(255),

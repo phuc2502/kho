@@ -48,6 +48,7 @@ export const connectDB = async () => {
     await import('../models/warehouseNode.model.js');
     await import('../models/inventory.model.js');
     await import('../models/receipt.model.js');
+    await import('../models/deliveryRequest.model.js');
     await import('../models/delivery.model.js');
     await import('../models/auditLog.model.js');
     await import('../models/stocktake.model.js');

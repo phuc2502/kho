@@ -559,25 +559,6 @@ export const WarehouseStructurePage = () => {
                 onViewGrid={setGridNode}
                 highlightId={highlightId}
               />
-              {/* Children */}
-              {wh.children?.length > 0 && expandedIds.has(wh._id) && (
-                <div>
-                  {wh.children.map(child => (
-                    <WarehouseNodeRow
-                      key={child._id}
-                      node={child}
-                      depth={1}
-                      expandedIds={expandedIds}
-                      onToggle={toggleExpanded}
-                      onAddChild={openAddChild}
-                      onEdit={openEdit}
-                      onDelete={handleDelete}
-                      onViewGrid={setGridNode}
-                      highlightId={highlightId}
-                    />
-                  ))}
-                </div>
-              )}
               {wh.children?.length === 0 && (
                 <div className="px-10 py-3 text-xs text-slate-400 italic border-b border-slate-100">
                   Kho này chưa có khu vực con — nhấn <strong>"Thêm con"</strong> để thêm

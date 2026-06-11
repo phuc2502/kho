@@ -1,4 +1,5 @@
 import { Delivery, DeliveryItem } from '../models/delivery.model.js';
+import { DeliveryRequest } from '../models/deliveryRequest.model.js';
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
 import { User } from '../models/user.model.js';
@@ -10,7 +11,7 @@ export const getDeliveries = async (req, res, next) => {
   try {
     const deliveries = await Delivery.findAll({
       include: [
-        { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
+        { model: User, as: 'createdByUser', attributes: ['username', 'fullName', 'role'] },
         {
           model: DeliveryItem,
           as: 'items',
@@ -18,7 +19,8 @@ export const getDeliveries = async (req, res, next) => {
             { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
             { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
           ]
-        }
+        },
+        { model: DeliveryRequest, as: 'fromRequest', attributes: ['_id', 'code', 'status'] }
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -32,7 +34,7 @@ export const getDeliveries = async (req, res, next) => {
 export const createDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { tenKhachHang, items } = req.body;
+    const { tenKhachHang, items, requestId } = req.body;
 
     if (!tenKhachHang || !tenKhachHang.trim()) {
       await t.rollback();
@@ -65,8 +67,17 @@ export const createDelivery = async (req, res, next) => {
       tenKhachHang: tenKhachHang.trim(),
       totalAmount,
       createdByUserId: req.user._id,
-      status: 'draft'
+      status: 'draft',
+      requestId: requestId || null
     }, { transaction: t });
+
+    // Nếu tạo từ yêu cầu → đánh dấu yêu cầu đang xử lý
+    if (requestId) {
+      await DeliveryRequest.update(
+        { status: 'processing' },
+        { where: { _id: requestId }, transaction: t }
+      );
+    }
 
     for (const mappedItem of mappedItems) {
       await DeliveryItem.create({
@@ -116,9 +127,10 @@ export const updateDelivery = async (req, res, next) => {
       return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
     }
 
-    if (delivery.status === 'completed' || delivery.status === 'cancelled' || delivery.status === 'rejected') {
+    // Chỉ được sửa nội dung (tenKhachHang, items) khi phiếu còn ở trạng thái Nháp
+    if ((tenKhachHang !== undefined || items !== undefined) && delivery.status !== 'draft') {
       await t.rollback();
-      return res.status(400).json({ message: 'Không thể sửa phiếu xuất kho đã hoàn tất hoặc đã hủy' });
+      return res.status(400).json({ message: 'Chỉ có thể sửa nội dung phiếu xuất kho khi đang ở trạng thái Nháp' });
     }
 
     if (tenKhachHang && tenKhachHang.trim()) delivery.tenKhachHang = tenKhachHang.trim();

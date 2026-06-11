@@ -72,11 +72,11 @@ export const runMigrations = async () => {
   // audit:read và user:manage chỉ thuộc về Admin; không được gán cho bất kỳ vai trò nào khác
   try {
     await sequelize.query(
-      "DELETE FROM RolePermissions WHERE permissionCode IN ('audit:read','user:manage') AND roleCode != 'Admin'"
+      "DELETE FROM RolePermissions WHERE permissionCode IN ('audit:read','user:manage','emaillog:read') AND roleCode != 'Admin'"
     );
     // Xóa cả ghi đè cá nhân (UserPermissions) nếu có grant admin-only cho user không phải Admin
     await sequelize.query(
-      "DELETE up FROM UserPermissions up JOIN Users u ON up.userId = u._id WHERE up.permissionCode IN ('audit:read','user:manage') AND u.role != 'Admin'"
+      "DELETE up FROM UserPermissions up JOIN Users u ON up.userId = u._id WHERE up.permissionCode IN ('audit:read','user:manage','emaillog:read') AND u.role != 'Admin'"
     );
     console.log('Migration: Removed admin-only permissions from non-Admin roles');
   } catch (err) {
@@ -142,6 +142,129 @@ export const runMigrations = async () => {
     console.log('Migration: EmailLogs table ready');
   } catch (err) {
     console.warn('Migration warning (EmailLogs):', err.message);
+  }
+
+  // ——— 7. Đồng bộ quyền QC: xóa set cũ → seeder sẽ re-seed đúng theo ROLE_DEFAULTS ———
+  // QC cũ chỉ có 6 quyền; nay phải bằng NhanVienKho (11 quyền) + incident:create
+  try {
+    const [[{ qcCount }]] = await sequelize.query(
+      "SELECT COUNT(*) AS qcCount FROM RolePermissions WHERE roleCode = 'QC'"
+    );
+    // Xóa nếu thiếu quyền (< 11) — seeder sẽ tạo lại đủ từ ROLE_DEFAULTS
+    if (Number(qcCount) < 11) {
+      await sequelize.query("DELETE FROM RolePermissions WHERE roleCode = 'QC'");
+      console.log('Migration: Cleared old QC role permissions — seeder will re-seed');
+    }
+    // Bảo đảm các quyền admin-only không bao giờ nằm trong role khác
+    await sequelize.query(
+      "DELETE FROM RolePermissions WHERE permissionCode IN ('audit:read','user:manage','emaillog:read') AND roleCode != 'Admin'"
+    );
+  } catch (err) {
+    console.warn('Migration warning (QC re-seed):', err.message);
+  }
+
+  // ——— 8. Thêm cột passwordResetRequested + mustChangePassword vào Users ———
+  try {
+    const tableDesc8a = await qi.describeTable('Users');
+    if (!tableDesc8a.passwordResetRequested) {
+      await qi.addColumn('Users', 'passwordResetRequested', {
+        type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false, after: 'isActive'
+      });
+      console.log('Migration: Added Users.passwordResetRequested');
+    }
+  } catch (err) {
+    console.warn('Migration warning (passwordResetRequested):', err.message);
+  }
+
+  // ——— (tiếp 8) mustChangePassword ———
+  try {
+    const tableDesc8 = await qi.describeTable('Users');
+    if (!tableDesc8.mustChangePassword) {
+      await qi.addColumn('Users', 'mustChangePassword', {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false,
+        allowNull: false,
+        after: 'isActive'
+      });
+      console.log('Migration: Added Users.mustChangePassword');
+    }
+  } catch (err) {
+    console.warn('Migration warning (mustChangePassword):', err.message);
+  }
+
+  // ——— 9. Tạo bảng DeliveryRequests và DeliveryRequestItems ———
+  try {
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS DeliveryRequests (
+        _id          INT AUTO_INCREMENT PRIMARY KEY,
+        code         VARCHAR(50) NOT NULL UNIQUE,
+        tenKhachHang VARCHAR(200) NOT NULL DEFAULT '',
+        status       ENUM('pending','processing','completed','cancelled') NOT NULL DEFAULT 'pending',
+        note         TEXT NULL,
+        totalAmount  DECIMAL(15,2) NOT NULL DEFAULT 0,
+        createdByUser INT NOT NULL,
+        createdAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_dr_status (status),
+        INDEX idx_dr_createdByUser (createdByUser),
+        INDEX idx_dr_createdAt (createdAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS DeliveryRequestItems (
+        _id               INT AUTO_INCREMENT PRIMARY KEY,
+        deliveryRequest   INT NOT NULL,
+        product           INT NOT NULL,
+        quantity          INT NOT NULL,
+        priceEstimate     DECIMAL(15,2) NOT NULL DEFAULT 0,
+        INDEX idx_dri_request (deliveryRequest),
+        INDEX idx_dri_product (product)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    console.log('Migration: DeliveryRequests & DeliveryRequestItems tables ready');
+  } catch (err) {
+    console.warn('Migration warning (DeliveryRequests):', err.message);
+  }
+
+  // ——— 10. Thêm cột requestId vào Deliveries ———
+  try {
+    const delivDesc = await qi.describeTable('Deliveries');
+    if (!delivDesc.requestId) {
+      await qi.addColumn('Deliveries', 'requestId', {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        after: 'createdByUser'
+      });
+      console.log('Migration: Added Deliveries.requestId');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Deliveries.requestId):', err.message);
+  }
+
+  // ——— 11. Cập nhật quyền Sale: xóa delivery:read/create, thêm delivery-request:read/create ———
+  try {
+    // Xóa quyền delivery cũ của Sale
+    await sequelize.query(
+      "DELETE FROM RolePermissions WHERE roleCode = 'Sale' AND permissionCode IN ('delivery:read','delivery:create')"
+    );
+    console.log('Migration: Removed delivery:read/create from Sale role');
+  } catch (err) {
+    console.warn('Migration warning (Sale delivery cleanup):', err.message);
+  }
+
+  // ——— 12. Seed quyền delivery-request mới vào catalog ———
+  try {
+    await sequelize.query(`
+      INSERT IGNORE INTO Permissions (code, name, \`group\`, createdAt, updatedAt)
+      VALUES
+        ('delivery-request:read',   'Xem yêu cầu xuất kho',          'Vận hành Nhập & Xuất', NOW(), NOW()),
+        ('delivery-request:create', 'Tạo yêu cầu xuất kho (Sale)',   'Vận hành Nhập & Xuất', NOW(), NOW())
+    `);
+    console.log('Migration: Seeded delivery-request permissions');
+  } catch (err) {
+    console.warn('Migration warning (delivery-request permissions):', err.message);
   }
 
   console.log('Migrations completed.');

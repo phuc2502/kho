@@ -42,6 +42,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Cập nhật một phần thông tin user trong state (dùng sau khi đổi MK bắt buộc)
+  const updateUser = (patch) => setUser(prev => prev ? { ...prev, ...patch } : prev);
+
   const hasPermission = (permission) => {
     if (!user) return false;
     if (user.role === 'Admin') return true;
@@ -49,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

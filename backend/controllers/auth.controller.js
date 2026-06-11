@@ -4,7 +4,7 @@ import { Op } from 'sequelize';
 import { User } from '../models/user.model.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { getEffectivePermissions } from '../utils/permission.helper.js';
-import { sendMail, buildResetPasswordEmail } from '../utils/mailer.js';
+// sendMail/buildResetPasswordEmail không còn dùng trong forgotPassword (Admin xử lý thủ công)
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_me_in_production';
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -12,6 +12,15 @@ const LOCKOUT_MINUTES = 10;
 
 const generateToken = (id, rememberMe = false) =>
   jwt.sign({ id }, JWT_SECRET, { expiresIn: rememberMe ? '30d' : '8h' });
+
+// Kiểm tra độ mạnh mật khẩu: ≥8 ký tự, 1 chữ in hoa, 1 số, 1 ký tự đặc biệt
+const validatePassword = (password) => {
+  if (password.length < 8)            return 'Mật khẩu phải có ít nhất 8 ký tự';
+  if (!/[A-Z]/.test(password))        return 'Mật khẩu phải có ít nhất 1 chữ in hoa';
+  if (!/[0-9]/.test(password))        return 'Mật khẩu phải có ít nhất 1 chữ số';
+  if (!/[^A-Za-z0-9]/.test(password)) return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt (!@#$%...)';
+  return null; // hợp lệ
+};
 
 // ——— Tạo tài khoản đầu tiên (mở, không cần auth) ———
 export const register = async (req, res, next) => {
@@ -111,6 +120,7 @@ export const login = async (req, res, next) => {
         fullName: user.fullName,
         role: user.role,
         permissions: permissions || [],
+        mustChangePassword: !!user.mustChangePassword,
         token: generateToken(user._id, !!rememberMe)
       });
     } else {
@@ -155,9 +165,8 @@ export const changePassword = async (req, res, next) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
     }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
-    }
+    const pwErr = validatePassword(newPassword);
+    if (pwErr) return res.status(400).json({ message: pwErr });
 
     const user = await User.findByPk(req.user._id);
     if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
@@ -168,6 +177,7 @@ export const changePassword = async (req, res, next) => {
     }
 
     user.password = newPassword;
+    user.mustChangePassword = false; // đã đổi tự nguyện → xóa cờ
     await user.save();
 
     await recordAudit({
@@ -185,7 +195,39 @@ export const changePassword = async (req, res, next) => {
   }
 };
 
-// ——— Quên mật khẩu — gửi link đặt lại qua email ———
+// ——— Buộc đổi mật khẩu lần đầu (không cần nhập MK cũ, đã xác thực bằng token) ———
+export const forceChangePassword = async (req, res, next) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword) {
+      return res.status(400).json({ message: 'Vui lòng nhập mật khẩu mới' });
+    }
+    const pwErr = validatePassword(newPassword);
+    if (pwErr) return res.status(400).json({ message: pwErr });
+
+    const user = await User.findByPk(req.user._id);
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
+
+    user.password = newPassword;
+    user.mustChangePassword = false;
+    await user.save();
+
+    await recordAudit({
+      action: 'auth.forceChangePassword',
+      userId: user._id,
+      username: user.username,
+      entity: 'user',
+      entityId: user._id,
+      payload: { note: 'Đổi mật khẩu bắt buộc lần đầu' }
+    });
+
+    res.json({ message: 'Đổi mật khẩu thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ——— Quên mật khẩu — đánh dấu yêu cầu để Admin xử lý (không tự gửi email) ———
 export const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -193,26 +235,25 @@ export const forgotPassword = async (req, res, next) => {
       return res.status(400).json({ message: 'Vui lòng nhập email công ty' });
     }
 
-    // Luôn trả cùng một response — không lộ tài khoản tồn tại hay không
+    // Luôn trả cùng một response — không lộ email có tồn tại hay không
     const genericOk = {
-      message: 'Nếu email hợp lệ, link đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra hộp thư (cả thư mục Spam).'
+      message: 'Yêu cầu đã được ghi nhận. Quản trị viên sẽ cấp lại mật khẩu và liên hệ với bạn.'
     };
 
     const user = await User.findOne({ where: { email: email.toLowerCase().trim() } });
     if (!user || !user.isActive) return res.json(genericOk);
 
-    // Sinh token ngẫu nhiên, lưu hash SHA-256
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 60 phút
+    // Đánh dấu yêu cầu — Admin sẽ thấy trong giao diện và xử lý thủ công
+    await user.update({ passwordResetRequested: true });
 
-    await user.update({ resetPasswordToken: hashedToken, resetPasswordExpires: expiresAt });
-
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${rawToken}`;
-    const { subject, html } = buildResetPasswordEmail({ fullName: user.fullName, resetUrl });
-
-    // [THAY ĐỔI] Thêm logType/logUserId/logSentBy để ghi EmailLog tự động
-    await sendMail({ to: user.email, subject, html, logType: 'forgotPassword', logUserId: user._id, logSentBy: 'system' });
+    await recordAudit({
+      action: 'auth.forgotPasswordRequest',
+      userId: user._id,
+      username: user.username,
+      entity: 'user',
+      entityId: user._id,
+      payload: { note: 'Gửi yêu cầu cấp lại mật khẩu' }
+    });
 
     res.json(genericOk);
   } catch (error) {
@@ -228,9 +269,8 @@ export const resetPassword = async (req, res, next) => {
     if (!token || !newPassword) {
       return res.status(400).json({ message: 'Thiếu token hoặc mật khẩu mới' });
     }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
-    }
+    const pwErr2 = validatePassword(newPassword);
+    if (pwErr2) return res.status(400).json({ message: pwErr2 });
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 

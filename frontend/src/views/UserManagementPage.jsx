@@ -7,7 +7,7 @@ import {
   UserPlus, Shield, Key, KeyRound, Eye, EyeOff,
   ChevronRight, RotateCcw, Check, X, Minus,
   UserCheck, UserX, ShieldAlert, ShieldCheck, AlertTriangle,
-  Warehouse, Plus, Trash2, MapPin, Ban, RefreshCw, Users
+  Warehouse, Plus, Trash2, MapPin, Ban, RefreshCw, Users, Search
 } from 'lucide-react';
 
 // ——— Cấu hình 6 vai trò ———
@@ -57,7 +57,14 @@ const ROLE_CONFIG = {
 };
 
 // Quyền chỉ dành riêng cho Admin — không được gán/hiển thị cho vai trò khác
-const ADMIN_ONLY_PERMS = new Set(['audit:read', 'user:manage']);
+const ADMIN_ONLY_PERMS = new Set(['audit:read', 'user:manage', 'emaillog:read']);
+
+// Chuẩn hóa chuỗi: bỏ dấu, chuyển thường — hỗ trợ tìm kiếm không dấu
+const normalize = (str) =>
+  (str ?? '').normalize('NFD')
+     .replace(/[̀-ͯ]/g, '')
+     .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+     .toLowerCase();
 
 const RoleBadge = ({ role, size = 'sm' }) => {
   const cfg = ROLE_CONFIG[role] || ROLE_CONFIG.NhanVienKho;
@@ -99,6 +106,10 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.fullName.trim()) {
+      toast.error('Vui lòng nhập họ và tên nhân viên');
+      return;
+    }
     if (!form.email.trim()) {
       toast.error('Vui lòng nhập email công ty của nhân viên');
       return;
@@ -165,8 +176,8 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
           </div>
           {/* Hồ sơ nhân viên */}
           <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Hồ sơ nhân viên (tùy chọn)</p>
-            <ModalField label="Họ và tên" value={form.fullName} onChange={set('fullName')} placeholder="Nguyễn Văn An" />
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Hồ sơ nhân viên</p>
+            <ModalField label="Họ và tên" value={form.fullName} onChange={set('fullName')} placeholder="Nguyễn Văn An" required />
             <ModalField label="Số điện thoại" value={form.phone} onChange={set('phone')} placeholder="0912 345 678" />
           </div>
           <div className="flex gap-3 pt-2">
@@ -619,6 +630,26 @@ export const UserManagementPage = () => {
   const [panelUserId, setPanelUserId] = useState(null);
   // Pending role change: { [userId]: newRole } — phải ấn Xác nhận mới lưu
   const [pendingRole, setPendingRole] = useState({});
+  // Tìm kiếm & bộ lọc
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [filterRole, setFilterRole]     = useState('');   // '' = tất cả
+  const [filterStatus, setFilterStatus] = useState('');   // '' | 'active' | 'inactive' | 'reset'
+
+  const filteredUsers = useMemo(() => users.filter(u => {
+    if (searchQuery.trim()) {
+      const q = normalize(searchQuery.trim());
+      const hit =
+        normalize(u.fullName).includes(q)  ||
+        normalize(u.email).includes(q)     ||
+        normalize(u.username).includes(q);
+      if (!hit) return false;
+    }
+    if (filterRole && u.role !== filterRole) return false;
+    if (filterStatus === 'active'   && (!u.isActive || u.passwordResetRequested)) return false;
+    if (filterStatus === 'inactive' && u.isActive)                return false;
+    if (filterStatus === 'reset'    && !u.passwordResetRequested) return false;
+    return true;
+  }), [users, searchQuery, filterRole, filterStatus]);
 
   const fetchUsers = async () => {
     try {
@@ -759,9 +790,6 @@ export const UserManagementPage = () => {
       <div className="flex justify-between items-center shrink-0">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Tài khoản & Phân quyền</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            RBAC mở rộng · 6 vai trò · Phân công theo kho · Không xóa tài khoản
-          </p>
         </div>
         <button onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm shadow-primary-500/20">
@@ -775,11 +803,61 @@ export const UserManagementPage = () => {
 
         {/* ——— Bảng tài khoản ——— */}
         <div className={`bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 flex flex-col min-h-0 ${panelOpen ? 'flex-1' : 'w-full'}`}>
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <p className="font-semibold text-slate-800 text-sm">{users.length} tài khoản</p>
-            <span className="text-xs text-slate-400">
-              {users.filter(u => u.isActive).length} hoạt động · {users.filter(u => !u.isActive).length} vô hiệu
-            </span>
+          <div className="px-5 pt-4 pb-3 border-b border-slate-100 flex flex-col gap-3 shrink-0">
+            {/* Dòng đầu: đếm + stats */}
+            <div className="flex items-center justify-between">
+              <p className="font-semibold text-slate-800 text-sm">
+                {filteredUsers.length < users.length
+                  ? <>{filteredUsers.length} <span className="font-normal text-slate-400">/ {users.length} tài khoản</span></>
+                  : <>{users.length} tài khoản</>
+                }
+              </p>
+              <span className="text-xs text-slate-400">
+                {users.filter(u => u.isActive).length} hoạt động · {users.filter(u => !u.isActive).length} vô hiệu
+              </span>
+            </div>
+            {/* Thanh tìm kiếm + bộ lọc */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Tìm theo tên, email..."
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-500/15 focus:bg-white transition-all"
+                />
+              </div>
+              <select
+                value={filterRole}
+                onChange={e => setFilterRole(e.target.value)}
+                className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:border-primary-400 cursor-pointer"
+              >
+                <option value="">Tất cả vai trò</option>
+                {Object.entries(ROLE_CONFIG).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+              <select
+                value={filterStatus}
+                onChange={e => setFilterStatus(e.target.value)}
+                className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 focus:outline-none focus:border-primary-400 cursor-pointer"
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Vô hiệu</option>
+                <option value="reset">Quên mật khẩu</option>
+              </select>
+              {(searchQuery || filterRole || filterStatus) && (
+                <button
+                  onClick={() => { setSearchQuery(''); setFilterRole(''); setFilterStatus(''); }}
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors shrink-0"
+                  title="Xóa bộ lọc"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {loading ? (
@@ -791,32 +869,45 @@ export const UserManagementPage = () => {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 z-10">
                   <tr>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-5 py-3">Tài khoản</th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3">Vai trò</th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3 w-32"></th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-5 py-3 w-48">Tài khoản</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3">Email</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-40">Vai trò</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-36">Trạng thái</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-28">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {users.map(u => {
+                  {filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-sm text-slate-400">
+                        Không tìm thấy tài khoản phù hợp
+                      </td>
+                    </tr>
+                  )}
+                  {filteredUsers.map(u => {
                     const isSelf = currentUser?._id === u._id;
                     const isPanelOpen = panelUserId === u._id;
                     const hasPending = !!pendingRole[u._id];
                     return (
                       <tr key={u._id}
                         className={`transition-colors ${isPanelOpen ? 'bg-primary-50/50' : 'hover:bg-slate-50/60'} ${!u.isActive ? 'opacity-60' : ''}`}>
-                        {/* Tài khoản */}
+                        {/* Cột 1: Tài khoản — hiển thị tên nhân viên */}
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-3">
                             <Avatar name={u.fullName || u.username} />
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-slate-900 truncate">{u.username}</span>
-                                {isSelf && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-600 font-bold">Bạn</span>}
+                                <span className="font-semibold text-slate-900 truncate">
+                                  {u.fullName || u.username}
+                                </span>
+                                {isSelf && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-600 font-bold shrink-0">Bạn</span>}
                               </div>
-                              <p className="text-xs text-slate-400 truncate">{u.fullName || u.email}</p>
                             </div>
                           </div>
+                        </td>
+                        {/* Cột 2: Email */}
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-slate-600 truncate block max-w-[220px]">{u.email}</span>
                         </td>
                         {/* Vai trò — phải ấn xác nhận mới lưu */}
                         <td className="px-4 py-3">
@@ -860,11 +951,7 @@ export const UserManagementPage = () => {
                         </td>
                         {/* Trạng thái */}
                         <td className="px-4 py-3">
-                          {u.isActive ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">
-                              <UserCheck className="w-3 h-3" /> Hoạt động
-                            </span>
-                          ) : (
+                          {!u.isActive ? (
                             <div>
                               <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ring-1 bg-red-50 text-red-600 ring-red-200">
                                 <Ban className="w-3 h-3" /> Vô hiệu
@@ -875,6 +962,14 @@ export const UserManagementPage = () => {
                                 </p>
                               )}
                             </div>
+                          ) : u.passwordResetRequested ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ring-1 bg-orange-50 text-orange-600 ring-orange-200">
+                              <KeyRound className="w-3 h-3" /> Quên mật khẩu
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-semibold ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">
+                              <UserCheck className="w-3 h-3" /> Hoạt động
+                            </span>
                           )}
                         </td>
                         {/* Actions */}

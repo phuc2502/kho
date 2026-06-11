@@ -64,13 +64,14 @@ const WorkflowBar = ({ currentStatus }) => {
 };
 
 export const DeliveriesPage = () => {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [deliveries, setDeliveries] = useState([]);
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingDelivery, setEditingDelivery] = useState(null); // null = tạo mới, object = sửa phiếu
   const [selectedDelivery, setSelectedDelivery] = useState(null);
 
   const [showIncidentModal, setShowIncidentModal] = useState(false);
@@ -113,6 +114,19 @@ export const DeliveriesPage = () => {
     setItems(newItems);
   };
 
+  // Mở modal sửa — chỉ gọi khi phiếu đang ở trạng thái nháp
+  const openEditModal = (delivery) => {
+    setEditingDelivery(delivery);
+    setTenKhachHang(delivery.tenKhachHang);
+    setItems(delivery.items?.map(i => ({
+      product: i.product?._id || i.productId,
+      quantity: i.quantity,
+      price: i.price,
+      warehouseNode: i.warehouseNode?._id || i.warehouseNodeId
+    })) || [{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+    setShowAddModal(true);
+  };
+
   const handleCreateDelivery = async (e) => {
     e.preventDefault();
     if (!tenKhachHang.trim()) return toast.error('Vui lòng nhập tên khách hàng');
@@ -120,22 +134,38 @@ export const DeliveriesPage = () => {
       return toast.error('Vui lòng điền đầy đủ sản phẩm, số lượng và khay lấy hàng');
 
     try {
-      await DeliveryModel.create({
-        tenKhachHang: tenKhachHang.trim(),
-        items: items.map(item => ({
-          product: item.product,
-          quantity: Number(item.quantity),
-          price: Number(item.price),
-          warehouseNode: item.warehouseNode
-        }))
-      });
-      toast.success('Lập phiếu xuất kho nháp thành công');
+      if (editingDelivery) {
+        // Sửa phiếu — chỉ khi đang draft (backend cũng kiểm tra lại)
+        await DeliveryModel.update(editingDelivery._id, {
+          tenKhachHang: tenKhachHang.trim(),
+          items: items.map(item => ({
+            product: item.product,
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+            warehouseNode: item.warehouseNode
+          }))
+        });
+        toast.success('Đã cập nhật phiếu xuất kho');
+      } else {
+        // Tạo mới
+        await DeliveryModel.create({
+          tenKhachHang: tenKhachHang.trim(),
+          items: items.map(item => ({
+            product: item.product,
+            quantity: Number(item.quantity),
+            price: Number(item.price),
+            warehouseNode: item.warehouseNode
+          }))
+        });
+        toast.success('Lập phiếu xuất kho nháp thành công');
+      }
       setShowAddModal(false);
+      setEditingDelivery(null);
       setTenKhachHang('');
       setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
       fetchData();
     } catch (error) {
-      toast.error('Lỗi khi lập phiếu xuất: ' + error.message);
+      toast.error('Lỗi: ' + error.message);
     }
   };
 
@@ -201,8 +231,7 @@ export const DeliveriesPage = () => {
             onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold transition-colors shadow-md shadow-primary-500/10"
           >
-            <Plus className="w-4 h-4" />
-            Lập phiếu xuất
+            <Plus className="w-4 h-4" /> Lập phiếu xuất
           </button>
         </PermissionGuard>
       </div>
@@ -215,43 +244,95 @@ export const DeliveriesPage = () => {
             <p className="mt-2">Đang tải danh sách phiếu xuất...</p>
           </div>
         ) : deliveries.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Chưa có phiếu xuất kho nào được tạo</div>
+          <div className="p-12 text-center text-slate-400 text-sm">
+            Chưa có phiếu xuất kho nào được tạo
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold uppercase">
-                  <th className="px-5 py-4">Mã phiếu</th>
-                  <th className="px-5 py-4">Khách hàng</th>
-                  <th className="px-5 py-4">Quy trình</th>
-                  <th className="px-5 py-4 text-right">Tổng tiền</th>
-                  <th className="px-5 py-4">Người lập</th>
-                  <th className="px-5 py-4 text-center">Thao tác</th>
+                <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wide">
+                  <th className="px-5 py-3.5">Mã phiếu</th>
+                  <th className="px-5 py-3.5">Khách hàng</th>
+                  <th className="px-5 py-3.5">Hàng hóa</th>
+                  <th className="px-5 py-3.5">Từ yêu cầu</th>
+                  <th className="px-5 py-3.5">Trạng thái</th>
+                  <th className="px-5 py-3.5">Ngày tạo</th>
+                  <th className="px-5 py-3.5 text-right">Tổng tiền</th>
+                  <th className="px-5 py-3.5">Người lập</th>
+                  <th className="px-5 py-3.5 text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {deliveries.map(d => (
-                  <tr key={d._id} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-4 font-mono font-bold text-slate-900">{d.code}</td>
-                    <td className="px-5 py-4 font-semibold text-slate-800">{d.tenKhachHang}</td>
-                    <td className="px-5 py-4">
-                      <WorkflowBar currentStatus={d.status} />
+                {deliveries.map(d => {
+                  const itemCount = d.items?.length || 0;
+                  const itemSummary = d.items?.slice(0, 2).map(i => i.product?.name || '').filter(Boolean).join(', ');
+                  const createdDate = d.createdAt
+                    ? new Date(d.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    : '—';
+                  const createdTime = d.createdAt
+                    ? new Date(d.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                    : '';
+                  return (
+                  <tr key={d._id} className="hover:bg-slate-50/50 transition-colors">
+                    {/* Mã phiếu */}
+                    <td className="px-5 py-3.5">
+                      <span className="font-mono font-bold text-slate-900 text-xs bg-slate-100 px-2 py-0.5 rounded">
+                        {d.code}
+                      </span>
                     </td>
-                    <td className="px-5 py-4 text-right font-bold text-slate-900">{formatCurrency(d.totalAmount)}</td>
-                    <td className="px-5 py-4 text-slate-500">
-                      <p className="font-medium">{d.createdByUser?.username}</p>
+                    {/* Khách hàng */}
+                    <td className="px-5 py-3.5">
+                      <span className="font-semibold text-slate-800">{d.tenKhachHang}</span>
+                    </td>
+                    {/* Hàng hóa */}
+                    <td className="px-5 py-3.5">
+                      <p className="text-slate-700 text-xs font-medium truncate max-w-[160px]" title={itemSummary}>
+                        {itemSummary || '—'}
+                        {itemCount > 2 && <span className="text-slate-400"> +{itemCount - 2}</span>}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{itemCount} sản phẩm</p>
+                    </td>
+                    {/* Từ yêu cầu */}
+                    <td className="px-5 py-3.5">
+                      {d.fromRequest ? (
+                        <span className="font-mono text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded">
+                          {d.fromRequest.code}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 text-xs">—</span>
+                      )}
+                    </td>
+                    {/* Trạng thái */}
+                    <td className="px-5 py-3.5">
+                      {renderStatusBadge(d.status)}
+                    </td>
+                    {/* Ngày tạo */}
+                    <td className="px-5 py-3.5">
+                      <p className="text-slate-700 text-xs font-medium">{createdDate}</p>
+                      <p className="text-[10px] text-slate-400">{createdTime}</p>
+                    </td>
+                    {/* Tổng tiền */}
+                    <td className="px-5 py-3.5 text-right font-bold text-slate-900">
+                      {formatCurrency(d.totalAmount)}
+                    </td>
+                    {/* Người lập */}
+                    <td className="px-5 py-3.5 text-slate-500">
+                      <p className="font-medium text-xs">{d.createdByUser?.fullName || d.createdByUser?.username}</p>
                       <p className="text-[10px] uppercase font-bold text-slate-400">{d.createdByUser?.role}</p>
                     </td>
-                    <td className="px-5 py-4 text-center">
+                    {/* Thao tác */}
+                    <td className="px-5 py-3.5 text-center">
                       <button
                         onClick={() => setSelectedDelivery(d)}
-                        className="p-1.5 bg-slate-100 hover:bg-primary-100 hover:text-primary-600 rounded-lg text-slate-600 transition-colors text-xs flex items-center gap-1 font-semibold"
+                        className="p-1.5 bg-slate-100 hover:bg-primary-100 hover:text-primary-600 rounded-lg text-slate-600 transition-colors text-xs flex items-center gap-1 font-semibold mx-auto"
                       >
                         <Eye className="w-3.5 h-3.5" /> Chi tiết
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -265,9 +346,9 @@ export const DeliveriesPage = () => {
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <Clipboard className="w-5 h-5 text-primary-500" />
-                Lập Phiếu Xuất Kho
+                {editingDelivery ? `Sửa phiếu ${editingDelivery.code}` : 'Lập Phiếu Xuất Kho'}
               </h3>
-              <button onClick={() => setShowAddModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
               <div>
@@ -347,8 +428,10 @@ export const DeliveriesPage = () => {
                   <strong className="text-slate-900">{formatCurrency(items.reduce((s, i) => s + (Number(i.quantity) * Number(i.price) || 0), 0))}</strong>
                 </span>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
-                  <button type="submit" className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-primary-500/10">Tạo phiếu</button>
+                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
+                  <button type="submit" className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-primary-500/10">
+                    {editingDelivery ? 'Lưu thay đổi' : 'Tạo phiếu'}
+                  </button>
                 </div>
               </div>
             </form>
@@ -428,6 +511,18 @@ export const DeliveriesPage = () => {
                 </span>
 
                 <div className="flex flex-wrap gap-2">
+                  {/* Sửa nội dung — CHỈ khi đang Nháp */}
+                  {selectedDelivery.status === 'draft' && (
+                    <PermissionGuard permission="delivery:update">
+                      <button
+                        onClick={() => { setSelectedDelivery(null); openEditModal(selectedDelivery); }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        ✏️ Sửa phiếu
+                      </button>
+                    </PermissionGuard>
+                  )}
+
                   <PermissionGuard permission="incident:create">
                     <button
                       onClick={() => {

@@ -3,6 +3,7 @@ import { sequelize } from '../config/db.js';
 import { Product } from './product.model.js';
 import { User } from './user.model.js';
 import { WarehouseNode } from './warehouseNode.model.js';
+import { DeliveryRequest } from './deliveryRequest.model.js';
 
 export const Delivery = sequelize.define('Delivery', {
   _id: {
@@ -35,6 +36,14 @@ export const Delivery = sequelize.define('Delivery', {
     field: 'createdByUser',
     references: {
       model: User,
+      key: '_id'
+    }
+  },
+  requestId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: DeliveryRequest,
       key: '_id'
     }
   }
@@ -97,6 +106,8 @@ export const DeliveryItem = sequelize.define('DeliveryItem', {
 // Setup relationships
 Delivery.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
 Delivery.hasMany(DeliveryItem, { foreignKey: 'deliveryId', as: 'items', onDelete: 'CASCADE' });
+Delivery.belongsTo(DeliveryRequest, { foreignKey: 'requestId', as: 'fromRequest' });
+DeliveryRequest.hasMany(Delivery, { foreignKey: 'requestId', as: 'deliveries' });
 
 DeliveryItem.belongsTo(Delivery, { foreignKey: 'deliveryId', as: 'delivery' });
 DeliveryItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });

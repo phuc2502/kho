@@ -10,9 +10,9 @@ import { authenticate, requirePermission } from '../middlewares/auth.middleware.
 
 export const emailLogRouter = express.Router();
 
-// Tất cả routes yêu cầu đăng nhập + quyền user:manage (chỉ Admin có quyền này)
+// Tất cả routes yêu cầu đăng nhập + quyền emaillog:read (chỉ Admin)
 emailLogRouter.use(authenticate);
-emailLogRouter.use(requirePermission('user:manage'));
+emailLogRouter.use(requirePermission('emaillog:read'));
 
 emailLogRouter.get('/stats',      getEmailStats);    // GET /email-logs/stats
 emailLogRouter.get('/',           getEmailLogs);     // GET /email-logs?type=&status=&page=

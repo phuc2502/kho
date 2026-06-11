@@ -4,16 +4,17 @@ import { ReceiptModel }   from '../models/receipt.model.js';
 import { DeliveryModel }  from '../models/delivery.model.js';
 import { StocktakeModel } from '../models/stocktake.model.js';
 import { InventoryModel } from '../models/inventory.model.js';
-import { AuditLogModel }  from '../models/auditLog.model.js';
 import { IncidentModel }  from '../models/incident.model.js';
+import { DashboardModel } from '../models/dashboard.model.js';
 import { useAuth } from '../controllers/auth.context.jsx';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
+  BarChart, Bar,
 } from 'recharts';
 import {
   ArrowDownLeft, ArrowUpRight, ClipboardList, AlertTriangle,
-  Database, TrendingUp, Clock, ChevronRight, Activity, Package,
+  Database, ChevronRight, TrendingDown, Zap, Clock, ShieldAlert, Trophy,
 } from 'lucide-react';
 
 // ── Chart helpers ────────────────────────────────────────────────
@@ -137,6 +138,54 @@ const ACTION_LABELS = {
   'auth.login':        { text: 'Đăng nhập',          bg: '#f7f5f2', color: '#716b61' },
 };
 
+// ── Gap-5 helpers ─────────────────────────────────────────────────
+
+/** Thanh tiến trình % so với max item trong danh sách */
+const PctBar = ({ value, max, color = '#0061fe' }) => {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
+  return (
+    <div style={{ background: '#f7f5f2', borderRadius: 4, height: 6, flex: 1, minWidth: 60 }}>
+      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width .3s' }} />
+    </div>
+  );
+};
+
+/** Badge màu theo mức độ khẩn */
+const Badge = ({ text, type = 'warn' }) => {
+  const styles = {
+    warn:    { background: '#fffbeb', color: '#d97706' },
+    danger:  { background: '#fef2f2', color: '#dc2626' },
+    ok:      { background: '#ecfdf5', color: '#059669' },
+    info:    { background: '#eff5ff', color: '#0061fe' },
+  };
+  const s = styles[type] || styles.info;
+  return (
+    <span style={{ ...s, fontSize: 10, padding: '2px 7px', borderRadius: 9999, fontWeight: 600 }}>
+      {text}
+    </span>
+  );
+};
+
+/** Section header dùng chung */
+const SectionHeader = ({ icon: Icon, title, sub, iconColor = '#0061fe', iconBg = '#eff5ff' }) => (
+  <div className="flex items-center gap-3 mb-4">
+    <div style={{ background: iconBg, color: iconColor, borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon size={15} />
+    </div>
+    <div>
+      <h3 style={{ color: '#1e1919', fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>{title}</h3>
+      {sub && <p style={{ color: '#b8b2aa', fontSize: 11, marginTop: 1 }}>{sub}</p>}
+    </div>
+  </div>
+);
+
+/** Dòng trống khi không có dữ liệu */
+const EmptyRow = ({ text }) => (
+  <div className="flex items-center justify-center py-8">
+    <p style={{ color: '#b8b2aa', fontSize: 12 }}>{text}</p>
+  </div>
+);
+
 // ── Main component ────────────────────────────────────────────────
 export const DashboardPage = () => {
   const { user } = useAuth();
@@ -148,18 +197,27 @@ export const DashboardPage = () => {
   });
   const [chartData, setChartData]   = useState([]);
   const [pieData, setPieData]       = useState([]);
-  const [recentLogs, setRecentLogs] = useState([]);
+
+  // ── Gap-5 state ────────────────────────────────────────────────
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  useEffect(() => {
+    DashboardModel.getStats()
+      .then(data => setAnalytics(data))
+      .catch(() => setAnalytics(null))
+      .finally(() => setAnalyticsLoading(false));
+  }, []);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [receipts, deliveries, stocktakes, incidents, inventory, logsRes] = await Promise.all([
+        const [receipts, deliveries, stocktakes, incidents, inventory] = await Promise.all([
           ReceiptModel.getAll().catch(() => []),
           DeliveryModel.getAll().catch(() => []),
           StocktakeModel.getAll().catch(() => []),
           IncidentModel.getAll().catch(() => []),
           InventoryModel.getStock().catch(() => []),
-          AuditLogModel.getAll({ limit: 10 }).catch(() => ({ data: [], total: 0 })),
         ]);
 
         const rcArr  = Array.isArray(receipts)   ? receipts   : [];
@@ -186,7 +244,6 @@ export const DashboardPage = () => {
         ].filter(d => d.value > 0);
         setPieData(pieRaw.length > 0 ? pieRaw : [{ name: 'Chưa có dữ liệu', value: 1 }]);
 
-        setRecentLogs((logsRes?.data || []).slice(0, 8));
       } catch (_) {
         // silent
       } finally {
@@ -243,36 +300,6 @@ export const DashboardPage = () => {
             : 'Tất cả phiếu đã được xử lý — kho đang hoạt động ổn định.'}
         </p>
 
-        {/* Mini stat row */}
-        <div
-          className="flex flex-wrap gap-px mt-6 overflow-hidden"
-          style={{ borderRadius: '8px', border: '1px solid rgba(255,255,255,0.18)' }}
-        >
-          {[
-            { label: 'Nhập kho chờ',  value: stats.pendingReceipts   },
-            { label: 'Xuất kho chờ',  value: stats.pendingDeliveries },
-            { label: 'Kiểm kê chờ',   value: stats.pendingStocktakes },
-            { label: 'Sự cố đang mở', value: stats.openIncidents     },
-          ].map((item, i) => (
-            <div
-              key={item.label}
-              className="flex-1 min-w-[100px] px-5 py-3 text-center"
-              style={{
-                background: i % 2 === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)',
-              }}
-            >
-              <p
-                className="text-xl font-semibold leading-none"
-                style={{ color: '#ffffff', letterSpacing: '-0.02em' }}
-              >
-                {loading ? '—' : item.value}
-              </p>
-              <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                {item.label}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* ── KPI Cards ──────────────────────────────────────── */}
@@ -464,102 +491,243 @@ export const DashboardPage = () => {
         </div>
       </div>
 
-      {/* ── Quick Actions + Recent Activity ──────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* ════════════════════════════════════════════════════════════
+          GAP 5 — PHÂN TÍCH VẬN HÀNH (v2.0)
+          Nguồn: /api/v1/dashboard/stats
+      ═════════════════════════════════════════════════════════════ */}
+      <div
+        className="flex items-center gap-2 px-1"
+        style={{ borderLeft: '3px solid #0061fe', paddingLeft: 10 }}
+      >
+        <p style={{ color: '#1e1919', fontSize: 13, fontWeight: 600 }}>Phân tích vận hành kho</p>
+        <span style={{ color: '#b8b2aa', fontSize: 11 }}>— cập nhật theo dữ liệu thực tế</span>
+      </div>
 
-        {/* Quick Actions */}
-        <div className="p-6" style={cardStyle}>
-          <h3 className="text-sm font-medium mb-4 flex items-center gap-2" style={{ color: '#1e1919' }}>
-            <TrendingUp className="w-4 h-4" style={{ color: '#0061fe' }} />
-            Truy cập nhanh
-          </h3>
-          <div className="space-y-1">
-            {[
-              { label: 'Tồn kho thực tế',    path: '/inventory',   icon: Database      },
-              { label: 'Lập phiếu nhập kho', path: '/receipts',    icon: ArrowDownLeft },
-              { label: 'Lập phiếu xuất kho', path: '/deliveries',  icon: ArrowUpRight  },
-              { label: 'Kiểm kê kho',        path: '/stocktakes',  icon: ClipboardList },
-              { label: 'Điều chỉnh tồn kho', path: '/adjustments', icon: Package       },
-            ].map(item => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.path}
-                  onClick={() => navigate(item.path)}
-                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-left transition-colors duration-100"
-                  style={{ borderRadius: '8px', color: '#716b61' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#f7f5f2'; e.currentTarget.style.color = '#1e1919'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#716b61'; }}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {item.label}
-                  <ChevronRight className="w-3.5 h-3.5 ml-auto opacity-40" />
-                </button>
-              );
-            })}
-          </div>
+      {analyticsLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-48 animate-pulse" style={{ background: '#eee9e2', borderRadius: 8 }} />
+          ))}
         </div>
+      ) : !analytics ? (
+        <div className="p-6 text-center" style={cardStyle}>
+          <p style={{ color: '#b8b2aa', fontSize: 12 }}>Không tải được dữ liệu phân tích.</p>
+        </div>
+      ) : (
+        <>
+          {/* ── Row 1: Cảnh báo (3 cards) ───────────────────────── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
 
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 p-6" style={cardStyle}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium flex items-center gap-2" style={{ color: '#1e1919' }}>
-              <Activity className="w-4 h-4" style={{ color: '#0061fe' }} />
-              Hoạt động gần đây
-            </h3>
-            <button
-              onClick={() => navigate('/audit-logs')}
-              className="flex items-center gap-1 text-xs font-medium transition-colors"
-              style={{ color: '#0061fe' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#0052d9'}
-              onMouseLeave={e => e.currentTarget.style.color = '#0061fe'}
-            >
-              Xem tất cả <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
+            {/* Widget 1 — Tồn kho dưới ngưỡng
+                Nguồn: Inventory WHERE quantity < 20
+                Điều kiện: quantity < LOW_STOCK_THRESHOLD (20 đơn vị) */}
+            <div className="p-5" style={cardStyle}>
+              <SectionHeader
+                icon={TrendingDown}
+                title="Tồn kho dưới ngưỡng"
+                sub={`Dưới ${analytics.lowStock.threshold} đơn vị — cần bổ sung`}
+                iconColor="#dc2626" iconBg="#fef2f2"
+              />
+              {analytics.lowStock.items.length === 0 ? (
+                <EmptyRow text="Tất cả mặt hàng đủ tồn kho ✓" />
+              ) : (
+                <div className="space-y-2.5">
+                  {analytics.lowStock.items.map(item => (
+                    <div key={`${item.productId}-${item.location}`} className="flex items-center gap-3">
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ color: '#1e1919', fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.name || item.sku}
+                        </p>
+                        <p style={{ color: '#b8b2aa', fontSize: 10 }}>{item.location} · {item.unit}</p>
+                      </div>
+                      <Badge
+                        text={`${item.quantity} còn lại`}
+                        type={item.quantity <= 5 ? 'danger' : 'warn'}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-9 animate-pulse" style={{ background: '#f7f5f2', borderRadius: '6px' }} />
-              ))}
-            </div>
-          ) : recentLogs.length === 0 ? (
-            <div className="text-center py-8" style={{ color: '#b8b2aa' }}>
-              <Clock className="w-7 h-7 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Chưa có hoạt động nào được ghi nhận</p>
-            </div>
-          ) : (
-            <div>
-              {recentLogs.map((log, idx) => {
-                const act = ACTION_LABELS[log.action] || { text: log.action, bg: '#f7f5f2', color: '#716b61' };
+            {/* Widget 2 — Tốc độ tiêu thụ 30 ngày
+                Nguồn: DeliveryItem JOIN Delivery WHERE status='completed'
+                        AND updatedAt >= NOW()-30d GROUP BY productId SUM(quantity)
+                Điều kiện: chỉ tính phiếu xuất hoàn thành */}
+            <div className="p-5" style={cardStyle}>
+              <SectionHeader
+                icon={Zap}
+                title="Tốc độ tiêu thụ 30 ngày"
+                sub="Sản phẩm xuất nhiều nhất (phiếu đã hoàn thành)"
+                iconColor="#d97706" iconBg="#fffbeb"
+              />
+              {analytics.consumption30d.items.length === 0 ? (
+                <EmptyRow text="Chưa có phiếu xuất hoàn thành trong 30 ngày" />
+              ) : (() => {
+                const maxQty = Math.max(...analytics.consumption30d.items.map(i => i.qty30d), 1);
                 return (
-                  <div
-                    key={log._id || idx}
-                    className="flex items-center gap-3 py-2.5"
-                    style={{ borderBottom: idx < recentLogs.length - 1 ? '1px solid #f7f5f2' : 'none' }}
-                  >
-                    <span
-                      className="shrink-0 text-[10px] font-medium px-2 py-1 whitespace-nowrap"
-                      style={{ background: act.bg, color: act.color, borderRadius: '6px' }}
-                    >
-                      {act.text}
-                    </span>
-                    <span className="text-xs font-medium flex-1 truncate" style={{ color: '#1e1919' }}>
-                      {log.username}
-                    </span>
-                    <span className="shrink-0 text-[10px] tabular-nums" style={{ color: '#b8b2aa' }}>
-                      {log.createdAt ? new Date(log.createdAt).toLocaleString('vi-VN', {
-                        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                      }) : ''}
-                    </span>
+                  <div className="space-y-2.5">
+                    {analytics.consumption30d.items.slice(0, 6).map(item => (
+                      <div key={item.productId} className="flex items-center gap-3">
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="flex items-center justify-between mb-1">
+                            <p style={{ color: '#1e1919', fontSize: 11, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
+                              {item.name || item.sku}
+                            </p>
+                            <span style={{ color: '#716b61', fontSize: 10, flexShrink: 0 }}>
+                              {item.qty30d.toLocaleString('vi-VN')} {item.unit}
+                            </span>
+                          </div>
+                          <PctBar value={item.qty30d} max={maxQty} color="#f59e0b" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 );
-              })}
+              })()}
             </div>
-          )}
-        </div>
-      </div>
+
+            {/* Widget 3 — Sắp hết bảo hành
+                Nguồn: SoSerial WHERE Han_bao_hanh BETWEEN NOW() AND NOW()+30d
+                Điều kiện: cột Han_bao_hanh (v2.0 migration) — hiển thị stub đến khi migrate */}
+            <div className="p-5" style={cardStyle}>
+              <SectionHeader
+                icon={ShieldAlert}
+                title="Sắp hết bảo hành"
+                sub={`Serial hết hạn trong ${analytics.warrantyExpiring.days} ngày tới`}
+                iconColor="#7c3aed" iconBg="#f5f3ff"
+              />
+              {analytics.warrantyExpiring.items.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 gap-2">
+                  <div style={{ background: '#f5f3ff', borderRadius: 8, padding: 10, color: '#7c3aed' }}>
+                    <ShieldAlert size={20} />
+                  </div>
+                  <p style={{ color: '#b8b2aa', fontSize: 11, textAlign: 'center', lineHeight: 1.5 }}>
+                    Chưa có dữ liệu bảo hành.
+                    <br />
+                    <span style={{ color: '#7c3aed', fontSize: 10 }}>
+                      Cần migrate cột <code>Han_bao_hanh</code> vào bảng SoSerial (v2.0).
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {analytics.warrantyExpiring.items.map(item => (
+                    <div key={item.serialId} className="flex items-center gap-3">
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ color: '#1e1919', fontSize: 12, fontWeight: 500 }}>{item.serialCode}</p>
+                        <p style={{ color: '#b8b2aa', fontSize: 10 }}>{item.productName}</p>
+                      </div>
+                      <Badge text={`còn ${item.daysLeft}d`} type={item.daysLeft <= 7 ? 'danger' : 'warn'} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Row 2: Phân tích xuất kho (2 cards) ─────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+            {/* Widget 4 — Hàng tồn lâu ngày
+                Nguồn: Inventory WHERE updatedAt < NOW()-30d AND quantity > 0
+                Điều kiện: sắp xếp theo updatedAt ASC (lâu nhất trước) */}
+            <div className="p-5" style={cardStyle}>
+              <SectionHeader
+                icon={Clock}
+                title="Hàng tồn lâu ngày"
+                sub={`Không xuất trên ${analytics.slowMoving.days} ngày, quantity > 0`}
+                iconColor="#716b61" iconBg="#f7f5f2"
+              />
+              {analytics.slowMoving.items.length === 0 ? (
+                <EmptyRow text="Không có hàng tồn kho lâu ngày" />
+              ) : (
+                <div className="space-y-0">
+                  {/* Header row */}
+                  <div className="flex gap-2 pb-2 mb-1" style={{ borderBottom: '1px solid #f0ebe3' }}>
+                    <span style={{ color: '#b8b2aa', fontSize: 10, flex: 2 }}>Sản phẩm</span>
+                    <span style={{ color: '#b8b2aa', fontSize: 10, flex: 1, textAlign: 'center' }}>Số lượng</span>
+                    <span style={{ color: '#b8b2aa', fontSize: 10, flex: 1, textAlign: 'right' }}>Tồn kho (ngày)</span>
+                  </div>
+                  {analytics.slowMoving.items.map(item => (
+                    <div key={`${item.productId}-${item.location}`}
+                      className="flex items-center gap-2 py-2"
+                      style={{ borderBottom: '1px solid #faf8f5' }}
+                    >
+                      <div style={{ flex: 2, minWidth: 0 }}>
+                        <p style={{ color: '#1e1919', fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.name || item.sku}
+                        </p>
+                        <p style={{ color: '#b8b2aa', fontSize: 10 }}>{item.location}</p>
+                      </div>
+                      <span style={{ flex: 1, textAlign: 'center', color: '#1e1919', fontSize: 12, fontWeight: 500 }}>
+                        {item.quantity.toLocaleString('vi-VN')} {item.unit}
+                      </span>
+                      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+                        <Badge
+                          text={`${item.daysSinceUpdate} ngày`}
+                          type={item.daysSinceUpdate > 90 ? 'danger' : item.daysSinceUpdate > 60 ? 'warn' : 'info'}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Widget 5 — Top 10 sản phẩm xuất nhiều nhất
+                Nguồn: DeliveryItem JOIN Delivery WHERE status='completed'
+                        GROUP BY productId SUM(quantity) DESC LIMIT 10
+                Điều kiện: tính tổng cộng tất cả phiếu xuất đã hoàn thành */}
+            <div className="p-5" style={cardStyle}>
+              <SectionHeader
+                icon={Trophy}
+                title="Top 10 xuất nhiều nhất"
+                sub="Tổng số lượng xuất kho (tất cả thời gian, phiếu hoàn thành)"
+                iconColor="#059669" iconBg="#ecfdf5"
+              />
+              {analytics.top10Deliveries.items.length === 0 ? (
+                <EmptyRow text="Chưa có phiếu xuất hoàn thành" />
+              ) : (() => {
+                const maxQty = Math.max(...analytics.top10Deliveries.items.map(i => i.totalQty), 1);
+                const RANK_COLORS = ['#f59e0b', '#b8b2aa', '#cd7c2e'];
+                return (
+                  <div className="space-y-2">
+                    {analytics.top10Deliveries.items.map((item, idx) => (
+                      <div key={item.productId} className="flex items-center gap-3">
+                        {/* Rank */}
+                        <span
+                          style={{
+                            width: 20, height: 20, borderRadius: '50%',
+                            background: idx < 3 ? RANK_COLORS[idx] : '#f7f5f2',
+                            color:      idx < 3 ? '#ffffff' : '#b8b2aa',
+                            fontSize: 10, fontWeight: 700, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}
+                        >
+                          {item.rank}
+                        </span>
+                        {/* Name + bar */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="flex items-center justify-between mb-1">
+                            <p style={{ color: '#1e1919', fontSize: 11, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                              {item.name || item.sku}
+                            </p>
+                            <span style={{ color: '#716b61', fontSize: 10, flexShrink: 0 }}>
+                              {item.totalQty.toLocaleString('vi-VN')} {item.unit}
+                            </span>
+                          </div>
+                          <PctBar value={item.totalQty} max={maxQty} color="#10b981" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
