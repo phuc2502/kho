@@ -20,12 +20,34 @@ export const Stocktake = sequelize.define('Stocktake', {
     allowNull: false
   },
   status: {
-    type: DataTypes.ENUM('pending_approval', 'counting', 'pass', 'diff'),
+    type: DataTypes.ENUM('pending_approval', 'counting', 'submitted', 'approved', 'rejected'),
     allowNull: false,
     defaultValue: 'pending_approval'
   },
   note: {
     type: DataTypes.TEXT,
+    allowNull: true
+  },
+  hasDiff: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
+  },
+  rejectNote: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  submittedByUserId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'submittedByUser',
+    references: {
+      model: User,
+      key: '_id'
+    }
+  },
+  submittedAt: {
+    type: DataTypes.DATE,
     allowNull: true
   },
   approvedByUserId: {
@@ -105,6 +127,7 @@ export const StocktakeItem = sequelize.define('StocktakeItem', {
 // Relationships
 Stocktake.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
 Stocktake.belongsTo(User, { foreignKey: 'approvedByUserId', as: 'approvedByUser' });
+Stocktake.belongsTo(User, { foreignKey: 'submittedByUserId', as: 'submittedByUser' });
 Stocktake.hasMany(StocktakeItem, { foreignKey: 'stocktakeId', as: 'items', onDelete: 'CASCADE' });
 
 StocktakeItem.belongsTo(Stocktake, { foreignKey: 'stocktakeId', as: 'stocktake' });

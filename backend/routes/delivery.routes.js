@@ -38,4 +38,4 @@ deliveryRouter.patch('/:id/ship', requirePermission('delivery:ship'), shipDelive
 
 // Nhân viên kho hoàn tất sau khi nhận phiếu ký nhận (shipping → completed)
 // Hệ thống tự động trừ tồn kho và ghi lịch sử giao dịch
-deliveryRouter.patch('/:id/complete', requirePermission('delivery:ship'), completeDelivery);
+deliveryRouter.patch('/:id/complete', requirePermission('delivery:complete'), completeDelivery);

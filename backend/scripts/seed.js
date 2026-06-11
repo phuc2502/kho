@@ -7,6 +7,8 @@ import { Inventory }               from '../models/inventory.model.js';
 import { Receipt, ReceiptItem }    from '../models/receipt.model.js';
 import { Delivery, DeliveryItem }  from '../models/delivery.model.js';
 import { Stocktake, StocktakeItem }from '../models/stocktake.model.js';
+import { StocktakeMinutes }        from '../models/stocktakeMinutes.model.js';
+import { StocktakeReport }         from '../models/stocktakeReport.model.js';
 import { Incident, IncidentItem }  from '../models/incident.model.js';
 import { DeliveryRequest, DeliveryRequestItem } from '../models/deliveryRequest.model.js';
 
@@ -67,15 +69,22 @@ const seed = async () => {
     const zoneA = await WarehouseNode.create({ name:'Khu A – Trục xoay',               code:'ZONE-A',     type:'zone', parentId:wh._id });
     const zoneB = await WarehouseNode.create({ name:'Khu B – Thanh trượt',             code:'ZONE-B',     type:'zone', parentId:wh._id });
     const zoneC = await WarehouseNode.create({ name:'Khu C – MIM',                     code:'ZONE-C',     type:'zone', parentId:wh._id });
-    const binA101 = await WarehouseNode.create({ name:'Kệ A1, Hàng 1', code:'VT-A1-01', type:'bin', parentId:zoneA._id });
-    const binA102 = await WarehouseNode.create({ name:'Kệ A1, Hàng 2', code:'VT-A1-02', type:'bin', parentId:zoneA._id });
-    const binA201 = await WarehouseNode.create({ name:'Kệ A2, Hàng 1', code:'VT-A2-01', type:'bin', parentId:zoneA._id });
-    const binB101 = await WarehouseNode.create({ name:'Kệ B1, Hàng 1', code:'VT-B1-01', type:'bin', parentId:zoneB._id });
-    const binB102 = await WarehouseNode.create({ name:'Kệ B1, Hàng 2', code:'VT-B1-02', type:'bin', parentId:zoneB._id });
-    const binB201 = await WarehouseNode.create({ name:'Kệ B2, Hàng 1', code:'VT-B2-01', type:'bin', parentId:zoneB._id });
-    const binC101 = await WarehouseNode.create({ name:'Kệ C1, Hàng 1', code:'VT-C1-01', type:'bin', parentId:zoneC._id });
-    const binC102 = await WarehouseNode.create({ name:'Kệ C1, Hàng 2', code:'VT-C1-02', type:'bin', parentId:zoneC._id });
-    console.log('✓ Warehouse: WH-FST-HN → A/B/C → 8 bins');
+    // Racks (kệ chứa) — cấp trung gian giữa zone và bin
+    const rackA1 = await WarehouseNode.create({ name:'Kệ A1', code:'RACK-A1', type:'rack', parentId:zoneA._id });
+    const rackA2 = await WarehouseNode.create({ name:'Kệ A2', code:'RACK-A2', type:'rack', parentId:zoneA._id });
+    const rackB1 = await WarehouseNode.create({ name:'Kệ B1', code:'RACK-B1', type:'rack', parentId:zoneB._id });
+    const rackB2 = await WarehouseNode.create({ name:'Kệ B2', code:'RACK-B2', type:'rack', parentId:zoneB._id });
+    const rackC1 = await WarehouseNode.create({ name:'Kệ C1', code:'RACK-C1', type:'rack', parentId:zoneC._id });
+    // Bins (khay chứa) — cấp lá
+    const binA101 = await WarehouseNode.create({ name:'Kệ A1, Hàng 1', code:'VT-A1-01', type:'bin', parentId:rackA1._id });
+    const binA102 = await WarehouseNode.create({ name:'Kệ A1, Hàng 2', code:'VT-A1-02', type:'bin', parentId:rackA1._id });
+    const binA201 = await WarehouseNode.create({ name:'Kệ A2, Hàng 1', code:'VT-A2-01', type:'bin', parentId:rackA2._id });
+    const binB101 = await WarehouseNode.create({ name:'Kệ B1, Hàng 1', code:'VT-B1-01', type:'bin', parentId:rackB1._id });
+    const binB102 = await WarehouseNode.create({ name:'Kệ B1, Hàng 2', code:'VT-B1-02', type:'bin', parentId:rackB1._id });
+    const binB201 = await WarehouseNode.create({ name:'Kệ B2, Hàng 1', code:'VT-B2-01', type:'bin', parentId:rackB2._id });
+    const binC101 = await WarehouseNode.create({ name:'Kệ C1, Hàng 1', code:'VT-C1-01', type:'bin', parentId:rackC1._id });
+    const binC102 = await WarehouseNode.create({ name:'Kệ C1, Hàng 2', code:'VT-C1-02', type:'bin', parentId:rackC1._id });
+    console.log('✓ Warehouse: WH-FST-HN → ZONE A/B/C → 5 racks → 8 bins');
 
     // ══════════════════════════════════════════════════════════════
     // 5. INVENTORY (tồn kho hiện tại)
@@ -266,45 +275,124 @@ const seed = async () => {
     console.log('  Lịch sử (>30d): DL-001→007 | Gần đây (≤30d): DL-008→012 | Chờ: DL-013/014');
 
     // ══════════════════════════════════════════════════════════════
-    // 8. STOCKTAKES (4 phiếu kiểm kê)
+    // 8. STOCKTAKES (5 phiếu kiểm kê) + Biên bản + Báo cáo
     // ══════════════════════════════════════════════════════════════
+    // ST-001: approved, không chênh lệch
     const st1 = await Stocktake.create({
       code:'ST-2026-00001', date:'2026-03-15',
-      status:'pass', note:'Kiểm kê định kỳ Q1/2026. Kết quả: Tất cả khớp hệ thống.',
-      createdByUserId:accountant1._id, approvedByUserId:manager._id, approvedAt:new Date('2026-03-16')
+      status:'approved', hasDiff:false,
+      note:'Kiểm kê định kỳ Q1/2026. Kết quả: Tất cả khớp hệ thống.',
+      createdByUserId:accountant1._id,
+      approvedByUserId:manager._id, approvedAt:new Date('2026-03-16'),
+      submittedByUserId:accountant1._id, submittedAt:new Date('2026-03-17')
     });
     await StocktakeItem.create({ stocktakeId:st1._id, productId:p1._id, warehouseNodeId:binA101._id, systemQty:97,  countedQty:97  });
     await StocktakeItem.create({ stocktakeId:st1._id, productId:p2._id, warehouseNodeId:binA201._id, systemQty:200, countedQty:200 });
     await setDates('Stocktakes', st1._id, 87, 86);
 
+    // ST-002: approved, có chênh lệch (SLK-380 thiếu 5)
     const st2 = await Stocktake.create({
       code:'ST-2026-00002', date:'2026-04-20',
-      status:'diff', note:'Kiểm kê đột xuất Khu B. Phát hiện lệch 5 bộ SLK-380 tại VT-B1-01.',
-      createdByUserId:staff1._id, approvedByUserId:manager._id, approvedAt:new Date('2026-04-22')
+      status:'approved', hasDiff:true,
+      note:'Kiểm kê đột xuất Khu B. Phát hiện lệch 5 bộ SLK-380 tại VT-B1-01.',
+      createdByUserId:staff1._id,
+      approvedByUserId:manager._id, approvedAt:new Date('2026-04-22'),
+      submittedByUserId:accountant1._id, submittedAt:new Date('2026-04-23')
     });
     await StocktakeItem.create({ stocktakeId:st2._id, productId:p3._id, warehouseNodeId:binB101._id, systemQty:305, countedQty:300 });
     await StocktakeItem.create({ stocktakeId:st2._id, productId:p4._id, warehouseNodeId:binB201._id, systemQty:200, countedQty:200 });
     await setDates('Stocktakes', st2._id, 51, 49);
 
+    // ST-003: counting (đang đếm)
     const st3 = await Stocktake.create({
       code:'ST-2026-00003', date:'2026-05-28',
-      status:'counting', note:'Kiểm kê định kỳ Q2/2026 – đang đếm.',
-      createdByUserId:accountant2._id
+      status:'counting', hasDiff:false,
+      note:'Kiểm kê định kỳ Q2/2026 – đang đếm.',
+      createdByUserId:accountant2._id,
+      approvedByUserId:manager._id, approvedAt:new Date('2026-05-29')
     });
     await StocktakeItem.create({ stocktakeId:st3._id, productId:p5._id, warehouseNodeId:binC101._id, systemQty:7, countedQty:0 });
     await StocktakeItem.create({ stocktakeId:st3._id, productId:p6._id, warehouseNodeId:binC102._id, systemQty:5, countedQty:0 });
     await setDates('Stocktakes', st3._id, 14, 14);
 
+    // ST-004: pending_approval (chờ quản lý duyệt)
     const st4 = await Stocktake.create({
       code:'ST-2026-00004', date:'2026-06-10',
-      status:'pending_approval', note:'Kiểm kê Khu A trước lô nhập tháng 6 – chờ quản lý duyệt.',
+      status:'pending_approval', hasDiff:false,
+      note:'Kiểm kê Khu A trước lô nhập tháng 6 – chờ quản lý duyệt.',
       createdByUserId:staff2._id
     });
     await StocktakeItem.create({ stocktakeId:st4._id, productId:p1._id, warehouseNodeId:binA101._id, systemQty:97,  countedQty:97  });
     await StocktakeItem.create({ stocktakeId:st4._id, productId:p1._id, warehouseNodeId:binA102._id, systemQty:200, countedQty:200 });
     await setDates('Stocktakes', st4._id, 1, 0);
 
-    console.log('✓ Stocktakes (4): pass×1, diff×1, counting×1, pending_approval×1');
+    // ST-005: submitted (chờ duyệt biên bản, có chênh lệch)
+    const st5 = await Stocktake.create({
+      code:'ST-2026-00005', date:'2026-06-08',
+      status:'submitted', hasDiff:true,
+      note:'Kiểm kê đột xuất Khu C tháng 6 – phát hiện chênh lệch, chờ duyệt biên bản.',
+      createdByUserId:accountant2._id,
+      approvedByUserId:manager._id, approvedAt:new Date('2026-06-09'),
+      submittedByUserId:accountant2._id, submittedAt:new Date('2026-06-10')
+    });
+    await StocktakeItem.create({ stocktakeId:st5._id, productId:p5._id, warehouseNodeId:binC101._id, systemQty:7, countedQty:5 });
+    await StocktakeItem.create({ stocktakeId:st5._id, productId:p6._id, warehouseNodeId:binC102._id, systemQty:5, countedQty:7 });
+    await setDates('Stocktakes', st5._id, 2, 1);
+
+    console.log('✓ Stocktakes (5): approved×2, counting×1, pending_approval×1, submitted×1');
+
+    // ── Biên bản kiểm kê (3 biên bản) ────────────────────────────
+    // BB-001: cho ST-001 (approved, không chênh lệch)
+    const bb1 = await StocktakeMinutes.create({
+      code:'BB-ST-2026-00001', stocktakeId:st1._id,
+      summary:'Số liệu kiểm đếm khớp hoàn toàn với hệ thống.',
+      status:'approved',
+      createdByUserId:accountant1._id, approvedByUserId:manager._id, approvedAt:new Date('2026-03-18')
+    });
+    await setDates('StocktakeMinutes', bb1._id, 85, 84);
+
+    // BB-002: cho ST-002 (approved, có chênh lệch SLK-380)
+    const bb2 = await StocktakeMinutes.create({
+      code:'BB-ST-2026-00002', stocktakeId:st2._id,
+      summary:'Phát hiện 5 bộ SLK-380 thiếu tại VT-B1-01. Đề xuất điều chỉnh giảm 5 đơn vị.',
+      status:'approved',
+      createdByUserId:accountant1._id, approvedByUserId:manager._id, approvedAt:new Date('2026-04-24')
+    });
+    await setDates('StocktakeMinutes', bb2._id, 49, 48);
+
+    // BB-005: cho ST-005 (pending_approval, chờ duyệt)
+    const bb5 = await StocktakeMinutes.create({
+      code:'BB-ST-2026-00005', stocktakeId:st5._id,
+      summary:'Phát hiện chênh lệch 2 sản phẩm: MIM-HB14 thiếu 2 cái, MIM-CB01 thừa 2 cái. Chờ Quản lý xem xét.',
+      status:'pending_approval',
+      createdByUserId:accountant2._id
+    });
+    await setDates('StocktakeMinutes', bb5._id, 1, 0);
+
+    console.log('✓ StocktakeMinutes (3): approved×2, pending_approval×1');
+
+    // ── Báo cáo kiểm kê (2 báo cáo) ─────────────────────────────
+    // BC-001: cho ST-001 (không chênh lệch)
+    const rpt1 = await StocktakeReport.create({
+      code:'BC-ST-2026-00001', stocktakeId:st1._id, adjustmentId:null,
+      totalItems:2, matchedItems:2, discrepancyItems:0,
+      totalShortage:0, totalSurplus:0,
+      note:'Kết quả kiểm kê Q1/2026: tất cả sản phẩm khớp hệ thống.',
+      generatedByUserId:manager._id
+    });
+    await setDates('StocktakeReports', rpt1._id, 84, 84);
+
+    // BC-002: cho ST-002 (có chênh lệch — điều chỉnh tạo riêng)
+    const rpt2 = await StocktakeReport.create({
+      code:'BC-ST-2026-00002', stocktakeId:st2._id, adjustmentId:null,
+      totalItems:2, matchedItems:1, discrepancyItems:1,
+      totalShortage:5, totalSurplus:0,
+      note:'Kết quả kiểm kê đột xuất Khu B: phát hiện thiếu 5 bộ SLK-380 tại VT-B1-01.',
+      generatedByUserId:manager._id
+    });
+    await setDates('StocktakeReports', rpt2._id, 48, 48);
+
+    console.log('✓ StocktakeReports (2): BC-001 (khớp), BC-002 (chênh lệch)');
 
     // ══════════════════════════════════════════════════════════════
     // 9. INCIDENTS (3 sự cố)

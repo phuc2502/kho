@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { IncidentModel } from '../models/incident.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ReceiptModel } from '../models/receipt.model.js';
@@ -6,7 +6,7 @@ import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
-import { Plus, Eye, Trash2, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Plus, Eye, Trash2, X, AlertTriangle, CheckCircle, Info, Search, Calendar } from 'lucide-react';
 
 export const IncidentsPage = () => {
   const { hasPermission } = useAuth();
@@ -15,6 +15,15 @@ export const IncidentsPage = () => {
   const [receipts, setReceipts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Bộ lọc & tìm kiếm ────────────────────────────────────────
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType]     = useState('');
+  const [filterFrom, setFilterFrom]     = useState('');
+  const [filterTo, setFilterTo]         = useState('');
+  const [showSugg, setShowSugg]         = useState(false);
+  const searchRef = useRef(null);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -54,6 +63,31 @@ export const IncidentsPage = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return incidents.filter(inc =>
+      inc.code?.toLowerCase().includes(q) ||
+      inc.note?.toLowerCase().includes(q) ||
+      inc.type?.toLowerCase().includes(q)
+    ).slice(0, 6);
+  }, [searchQuery, incidents]);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return incidents.filter(inc => {
+      const matchQ = !q ||
+        inc.code?.toLowerCase().includes(q) ||
+        inc.note?.toLowerCase().includes(q) ||
+        inc.type?.toLowerCase().includes(q);
+      const matchSt   = !filterStatus || inc.status === filterStatus;
+      const matchType = !filterType   || inc.type === filterType;
+      const matchFr   = !filterFrom   || new Date(inc.createdAt) >= new Date(filterFrom);
+      const matchTo_  = !filterTo     || new Date(inc.createdAt) <= new Date(filterTo + 'T23:59:59');
+      return matchQ && matchSt && matchType && matchFr && matchTo_;
+    });
+  }, [incidents, searchQuery, filterStatus, filterType, filterFrom, filterTo]);
 
   const handleAddItemRow = () => {
     setItems([...items, { productId: '', quantity: 1, _category: '' }]);
@@ -196,6 +230,73 @@ export const IncidentsPage = () => {
         </PermissionGuard>
       </div>
 
+      {/* ── Bộ lọc & Tìm kiếm ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[220px]" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setShowSugg(true); }}
+              onFocus={() => setShowSugg(true)}
+              onBlur={() => setTimeout(() => setShowSugg(false), 200)}
+              placeholder="Tìm theo mã sự cố, loại, ghi chú..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-400 focus:bg-white transition-colors"
+            />
+            {showSugg && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                {suggestions.map(inc => (
+                  <button key={inc._id} type="button"
+                    onMouseDown={() => { setSearchQuery(inc.code); setShowSugg(false); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-primary-50 border-b border-slate-50 last:border-0 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-mono font-bold text-slate-900 text-sm">{inc.code}</span>
+                    <span className="text-xs text-slate-400 truncate flex-1">— {renderTypeText(inc.type)}</span>
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${{ open: 'bg-red-100 text-red-700 border-red-200', resolved: 'bg-emerald-100 text-emerald-700 border-emerald-200', closed: 'bg-slate-100 text-slate-700 border-slate-200' }[inc.status]}`}>
+                      {{ open: 'Đang mở', resolved: 'Đã giải quyết', closed: 'Đã đóng' }[inc.status] || inc.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[160px]">
+            <option value="">Tất cả trạng thái</option>
+            <option value="open">Đang mở</option>
+            <option value="resolved">Đã giải quyết</option>
+            <option value="closed">Đã đóng</option>
+          </select>
+          <select value={filterType} onChange={e => setFilterType(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[170px]">
+            <option value="">Tất cả loại sự cố</option>
+            <option value="shortage">Thiếu hụt số lượng</option>
+            <option value="damage">Hàng bị hư hỏng</option>
+            <option value="wrong_product">Giao sai sản phẩm</option>
+            <option value="expired">Hàng đã hết hạn</option>
+            <option value="other">Sự cố khác</option>
+          </select>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+            <span className="text-slate-400 text-xs">—</span>
+            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+          </div>
+          {(searchQuery || filterStatus || filterType || filterFrom || filterTo) && (
+            <button onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterType(''); setFilterFrom(''); setFilterTo(''); }}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-semibold transition-colors">
+              <X className="w-4 h-4" /> Xóa lọc
+            </button>
+          )}
+          <span className="text-xs text-slate-400 ml-auto whitespace-nowrap">
+            {filtered.length} / {incidents.length} sự cố
+          </span>
+        </div>
+      </div>
+
       {/* Incidents Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
@@ -203,8 +304,10 @@ export const IncidentsPage = () => {
             <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block"></span>
             <p className="mt-2">Đang tải danh sách sự cố...</p>
           </div>
-        ) : incidents.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Chưa có sự cố nào được ghi nhận</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-sm">
+            {incidents.length === 0 ? 'Chưa có sự cố nào được ghi nhận' : 'Không tìm thấy sự cố phù hợp với bộ lọc'}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -219,7 +322,7 @@ export const IncidentsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {incidents.map(inc => (
+                {filtered.map(inc => (
                   <tr key={inc._id} className="hover:bg-slate-50/50">
                     <td className="px-6 py-4 font-mono font-bold text-slate-900">{inc.code}</td>
                     <td className="px-6 py-4 font-semibold text-slate-800">{renderTypeText(inc.type)}</td>

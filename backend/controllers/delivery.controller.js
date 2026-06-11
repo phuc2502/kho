@@ -90,7 +90,7 @@ export const createDelivery = async (req, res, next) => {
       tenKhachHang: tenKhachHang.trim(),
       totalAmount,
       createdByUserId: req.user._id,
-      status: 'draft',
+      status: 'preparing',
       requestId: requestId || null
     }, { transaction: t });
 
@@ -147,9 +147,9 @@ export const updateDelivery = async (req, res, next) => {
       await t.rollback();
       return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
     }
-    if (delivery.status !== 'draft') {
+    if (delivery.status !== 'preparing') {
       await t.rollback();
-      return res.status(400).json({ message: 'Chỉ có thể sửa nội dung phiếu xuất kho khi đang ở trạng thái Nháp' });
+      return res.status(400).json({ message: 'Chỉ có thể sửa nội dung phiếu xuất kho khi đang ở trạng thái Đang soạn' });
     }
 
     if (tenKhachHang && tenKhachHang.trim()) delivery.tenKhachHang = tenKhachHang.trim();
@@ -215,11 +215,13 @@ export const submitDelivery = async (req, res, next) => {
     const { id } = req.params;
     const delivery = await Delivery.findByPk(id);
     if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    if (delivery.status !== 'draft') {
-      return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang ở trạng thái Nháp' });
+    if (delivery.status !== 'preparing') {
+      return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang ở trạng thái Đang soạn' });
     }
 
-    // Đánh dấu đã gửi duyệt bằng audit log (draft giữ nguyên — Quản lý xem và duyệt)
+    // Chuyển trạng thái sang draft (Chờ phê duyệt) để Quản lý kho xem xét
+    await delivery.update({ status: 'draft' });
+
     await recordAudit({
       action: 'delivery.submitForApproval',
       userId: req.user._id,
@@ -271,13 +273,18 @@ export const rejectDelivery = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: 'Vui lòng nhập lý do từ chối' });
+    }
+
     const delivery = await Delivery.findByPk(id);
     if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
     if (delivery.status !== 'draft') {
-      return res.status(400).json({ message: 'Chỉ có thể từ chối phiếu đang ở trạng thái Nháp' });
+      return res.status(400).json({ message: 'Chỉ có thể từ chối phiếu đang ở trạng thái Chờ phê duyệt' });
     }
 
-    await delivery.update({ status: 'rejected' });
+    await delivery.update({ status: 'rejected', rejectNote: reason.trim() });
 
     await recordAudit({
       action: 'delivery.reject',
@@ -285,7 +292,7 @@ export const rejectDelivery = async (req, res, next) => {
       username: req.user.username,
       entity: 'delivery',
       entityId: Number(id),
-      payload: { code: delivery.code, reason: reason || 'Không có ghi chú' }
+      payload: { code: delivery.code, reason: reason.trim() }
     });
 
     const populated = await findDeliveryFull(id);

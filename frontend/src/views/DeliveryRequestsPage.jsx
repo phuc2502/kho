@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DeliveryRequestModel } from '../models/deliveryRequest.model.js';
 import { DeliveryModel } from '../models/delivery.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
-import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck, Ban, Clock } from 'lucide-react';
+import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck, Ban, Clock, Search, Calendar } from 'lucide-react';
 
 // ── Trạng thái yêu cầu ────────────────────────────────────────
 const REQ_STATUS = {
-  pending:    { label: 'Chờ xử lý',    color: 'bg-amber-100 text-amber-700 border-amber-200'   },
-  processing: { label: 'Đang xử lý',   color: 'bg-blue-100 text-blue-700 border-blue-200'      },
-  completed:  { label: 'Đã hoàn thành', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  cancelled:  { label: 'Đã hủy',       color: 'bg-slate-100 text-slate-500 border-slate-200'   },
+  pending:            { label: 'Chờ xử lý',      color: 'bg-amber-100 text-amber-700 border-amber-200'   },
+  processing:         { label: 'Đang xử lý',     color: 'bg-blue-100 text-blue-700 border-blue-200'      },
+  insufficient_stock: { label: 'Thiếu tồn kho',  color: 'bg-red-100 text-red-700 border-red-200'         },
+  completed:          { label: 'Đã hoàn thành',  color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  cancelled:          { label: 'Đã hủy',         color: 'bg-slate-100 text-slate-500 border-slate-200'   },
 };
 
 const StatusBadge = ({ status }) => {
@@ -44,6 +45,15 @@ export const DeliveryRequestsPage = () => {
   const [bins, setBins]                 = useState([]);
   const [allNodes, setAllNodes]         = useState([]);
   const [loading, setLoading]           = useState(true);
+
+  // ── Bộ lọc & tìm kiếm ────────────────────────────────────────
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterFrom, setFilterFrom]     = useState('');
+  const [filterTo, setFilterTo]         = useState('');
+  const [showSugg, setShowSugg]         = useState(false);
+  const searchRef = useRef(null);
+  const [filterWarehouse, setFilterWarehouse] = useState('');
 
   // Modals
   const [showCreateModal, setShowCreateModal]   = useState(false);
@@ -80,6 +90,53 @@ export const DeliveryRequestsPage = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return requests.filter(r =>
+      r.code?.toLowerCase().includes(q) ||
+      r.tenKhachHang?.toLowerCase().includes(q) ||
+      r.note?.toLowerCase().includes(q) ||
+      r.items?.some(i =>
+        i.product?.name?.toLowerCase().includes(q) ||
+        i.product?.sku?.toLowerCase().includes(q)
+      )
+    ).slice(0, 6);
+  }, [searchQuery, requests]);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let validBinCodes = null;
+    if (filterWarehouse) {
+      validBinCodes = new Set();
+      const bfsQ = [parseInt(filterWarehouse)], bfsSeen = new Set();
+      while (bfsQ.length) {
+        const id = bfsQ.shift();
+        if (bfsSeen.has(id)) continue;
+        bfsSeen.add(id);
+        allNodes.forEach(n => {
+          const pid = n.parentId ?? n.parent?._id;
+          if (pid === id) { if (n.type === 'bin') validBinCodes.add(n.code); else bfsQ.push(n._id); }
+        });
+      }
+    }
+    return requests.filter(r => {
+      const matchQ = !q ||
+        r.code?.toLowerCase().includes(q) ||
+        r.tenKhachHang?.toLowerCase().includes(q) ||
+        r.note?.toLowerCase().includes(q) ||
+        r.items?.some(i =>
+          i.product?.name?.toLowerCase().includes(q) ||
+          i.product?.sku?.toLowerCase().includes(q)
+        );
+      const matchSt  = !filterStatus || r.status === filterStatus;
+      const matchFr  = !filterFrom   || new Date(r.createdAt) >= new Date(filterFrom);
+      const matchTo_ = !filterTo     || new Date(r.createdAt) <= new Date(filterTo + 'T23:59:59');
+      const matchWH  = !validBinCodes || r.items?.some(i => validBinCodes.has(i.warehouseNode?.code));
+      return matchQ && matchSt && matchFr && matchTo_ && matchWH;
+    });
+  }, [requests, searchQuery, filterStatus, filterFrom, filterTo, filterWarehouse, allNodes]);
 
   // ── Tạo yêu cầu (Sale) ────────────────────────────────────
   const handleCreateRequest = async (e) => {
@@ -257,17 +314,83 @@ export const DeliveryRequestsPage = () => {
         ))}
       </div>
 
+      {/* ── Bộ lọc & Tìm kiếm ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[220px]" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setShowSugg(true); }}
+              onFocus={() => setShowSugg(true)}
+              onBlur={() => setTimeout(() => setShowSugg(false), 200)}
+              placeholder="Tìm theo mã yêu cầu, khách hàng, sản phẩm..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-400 focus:bg-white transition-colors"
+            />
+            {showSugg && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                {suggestions.map(r => (
+                  <button key={r._id} type="button"
+                    onMouseDown={() => { setSearchQuery(r.code); setShowSugg(false); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-primary-50 border-b border-slate-50 last:border-0 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-mono font-bold text-slate-900 text-sm">{r.code}</span>
+                    {r.tenKhachHang && <span className="text-xs text-slate-400 truncate flex-1">— {r.tenKhachHang}</span>}
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${REQ_STATUS[r.status]?.color}`}>{REQ_STATUS[r.status]?.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[160px]">
+            <option value="">Tất cả trạng thái</option>
+            <option value="pending">Chờ xử lý</option>
+            <option value="processing">Đang xử lý</option>
+            <option value="completed">Đã hoàn thành</option>
+            <option value="cancelled">Đã hủy</option>
+          </select>
+          <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[140px]">
+            <option value="">Tất cả kho</option>
+            {allNodes.filter(n => n.type === 'warehouse').map(n => (
+              <option key={n._id} value={n._id}>{n.name}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+            <span className="text-slate-400 text-xs">—</span>
+            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+          </div>
+          {(searchQuery || filterStatus || filterWarehouse || filterFrom || filterTo) && (
+            <button onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterWarehouse(''); setFilterFrom(''); setFilterTo(''); }}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-semibold transition-colors">
+              <X className="w-4 h-4" /> Xóa lọc
+            </button>
+          )}
+          <span className="text-xs text-slate-400 ml-auto whitespace-nowrap">
+            {filtered.length} / {requests.length} yêu cầu
+          </span>
+        </div>
+      </div>
+
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
           </div>
-        ) : requests.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <ClipboardList className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-sm font-medium">
-              {isSale ? 'Bạn chưa tạo yêu cầu xuất kho nào' : 'Chưa có yêu cầu xuất kho nào'}
+              {requests.length === 0
+                ? (isSale ? 'Bạn chưa tạo yêu cầu xuất kho nào' : 'Chưa có yêu cầu xuất kho nào')
+                : 'Không tìm thấy yêu cầu phù hợp với bộ lọc'}
             </p>
           </div>
         ) : (
@@ -286,7 +409,7 @@ export const DeliveryRequestsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {requests.map(req => {
+                {filtered.map(req => {
                   const itemCount = req.items?.length || 0;
                   const itemSummary = req.items?.slice(0, 2).map(i => i.product?.name || '').filter(Boolean).join(', ');
                   return (

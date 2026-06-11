@@ -23,12 +23,16 @@ export const Delivery = sequelize.define('Delivery', {
     defaultValue: ''
   },
   status: {
-    type: DataTypes.ENUM('draft', 'approved', 'shipping', 'completed', 'rejected', 'cancelled'),
-    defaultValue: 'draft'
+    type: DataTypes.ENUM('preparing', 'draft', 'approved', 'shipping', 'completed', 'rejected', 'cancelled'),
+    defaultValue: 'preparing'
   },
   totalAmount: {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0
+  },
+  rejectNote: {
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   createdByUserId: {
     type: DataTypes.INTEGER,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { DeliveryModel } from '../models/delivery.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
@@ -7,22 +7,24 @@ import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { IncidentModel } from '../models/incident.model.js';
 import toast from 'react-hot-toast';
-import { Plus, Eye, CheckCircle2, X, Clipboard, Truck, PackageCheck, CircleDot } from 'lucide-react';
+import { Plus, Eye, CheckCircle2, X, Clipboard, Truck, PackageCheck, CircleDot, Search, Calendar, PenLine, Send } from 'lucide-react';
 
 const STATUS_CONFIG = {
-  draft: { label: 'Chờ phê duyệt', color: 'bg-slate-100 text-slate-700 border-slate-200', step: 1 },
-  approved: { label: 'Đã phê duyệt', color: 'bg-blue-100 text-blue-700 border-blue-200', step: 2 },
-  shipping: { label: 'Đang vận chuyển', color: 'bg-amber-100 text-amber-700 border-amber-200', step: 3 },
-  completed: { label: 'Hoàn tất', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', step: 4 },
-  rejected: { label: 'Từ chối', color: 'bg-red-100 text-red-700 border-red-200', step: 0 },
-  cancelled: { label: 'Đã hủy', color: 'bg-gray-100 text-gray-600 border-gray-200', step: 0 },
+  preparing: { label: 'Đang soạn',       color: 'bg-violet-100 text-violet-700 border-violet-200', step: 1 },
+  draft:     { label: 'Chờ phê duyệt',   color: 'bg-slate-100 text-slate-700 border-slate-200',   step: 2 },
+  approved:  { label: 'Đã phê duyệt',    color: 'bg-blue-100 text-blue-700 border-blue-200',      step: 3 },
+  shipping:  { label: 'Đang vận chuyển', color: 'bg-amber-100 text-amber-700 border-amber-200',   step: 4 },
+  completed: { label: 'Hoàn tất',        color: 'bg-emerald-100 text-emerald-700 border-emerald-200', step: 5 },
+  rejected:  { label: 'Từ chối',         color: 'bg-red-100 text-red-700 border-red-200',         step: 0 },
+  cancelled: { label: 'Đã hủy',         color: 'bg-gray-100 text-gray-600 border-gray-200',      step: 0 },
 };
 
 const WORKFLOW_STEPS = [
-  { key: 'draft', label: 'Lập phiếu', icon: Clipboard },
-  { key: 'approved', label: 'Phê duyệt', icon: CheckCircle2 },
-  { key: 'shipping', label: 'Xuất hàng', icon: Truck },
-  { key: 'completed', label: 'Hoàn tất', icon: PackageCheck },
+  { key: 'preparing', label: 'Soạn phiếu', icon: PenLine },
+  { key: 'draft',     label: 'Chờ duyệt',  icon: Clipboard },
+  { key: 'approved',  label: 'Đã duyệt',   icon: CheckCircle2 },
+  { key: 'shipping',  label: 'Xuất hàng',  icon: Truck },
+  { key: 'completed', label: 'Hoàn tất',   icon: PackageCheck },
 ];
 
 const WorkflowBar = ({ currentStatus }) => {
@@ -73,9 +75,21 @@ export const DeliveriesPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ── Bộ lọc & tìm kiếm ────────────────────────────────────────
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterFrom, setFilterFrom]     = useState('');
+  const [filterTo, setFilterTo]         = useState('');
+  const [showSugg, setShowSugg]         = useState(false);
+  const searchRef = useRef(null);
+  const [filterWarehouse, setFilterWarehouse] = useState('');
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDelivery, setEditingDelivery] = useState(null); // null = tạo mới, object = sửa phiếu
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
 
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [incidentType, setIncidentType] = useState('damage');
@@ -107,6 +121,51 @@ export const DeliveriesPage = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return deliveries.filter(d =>
+      d.code?.toLowerCase().includes(q) ||
+      d.tenKhachHang?.toLowerCase().includes(q) ||
+      d.items?.some(i =>
+        i.product?.name?.toLowerCase().includes(q) ||
+        i.product?.sku?.toLowerCase().includes(q)
+      )
+    ).slice(0, 6);
+  }, [searchQuery, deliveries]);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let validBinCodes = null;
+    if (filterWarehouse) {
+      validBinCodes = new Set();
+      const bfsQ = [parseInt(filterWarehouse)], bfsSeen = new Set();
+      while (bfsQ.length) {
+        const id = bfsQ.shift();
+        if (bfsSeen.has(id)) continue;
+        bfsSeen.add(id);
+        allNodes.forEach(n => {
+          const pid = n.parentId ?? n.parent?._id;
+          if (pid === id) { if (n.type === 'bin') validBinCodes.add(n.code); else bfsQ.push(n._id); }
+        });
+      }
+    }
+    return deliveries.filter(d => {
+      const matchQ = !q ||
+        d.code?.toLowerCase().includes(q) ||
+        d.tenKhachHang?.toLowerCase().includes(q) ||
+        d.items?.some(i =>
+          i.product?.name?.toLowerCase().includes(q) ||
+          i.product?.sku?.toLowerCase().includes(q)
+        );
+      const matchSt  = !filterStatus || d.status === filterStatus;
+      const matchFr  = !filterFrom   || new Date(d.createdAt) >= new Date(filterFrom);
+      const matchTo_ = !filterTo     || new Date(d.createdAt) <= new Date(filterTo + 'T23:59:59');
+      const matchWH  = !validBinCodes || d.items?.some(i => validBinCodes.has(i.warehouseNode?.code));
+      return matchQ && matchSt && matchFr && matchTo_ && matchWH;
+    });
+  }, [deliveries, searchQuery, filterStatus, filterFrom, filterTo, filterWarehouse, allNodes]);
 
   const handleAddItemRow = () => setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
   const handleRemoveItemRow = (idx) => setItems(items.filter((_, i) => i !== idx));
@@ -146,7 +205,7 @@ export const DeliveriesPage = () => {
 
     try {
       if (editingDelivery) {
-        // Sửa phiếu — chỉ khi đang draft (backend cũng kiểm tra lại)
+        // Sửa phiếu — chỉ khi đang preparing (backend cũng kiểm tra lại)
         await DeliveryModel.update(editingDelivery._id, {
           tenKhachHang: tenKhachHang.trim(),
           items: items.map(item => ({
@@ -180,20 +239,27 @@ export const DeliveriesPage = () => {
     }
   };
 
-  const handleTransitionStatus = async (deliveryId, targetStatus) => {
+  const handleTransitionStatus = async (deliveryId, targetStatus, extra = {}) => {
     const labels = {
-      approved: 'Đã phê duyệt phiếu xuất',
-      shipping: 'Đã xác nhận xuất hàng – đang vận chuyển',
+      draft:     'Đã gửi phiếu xuất để Quản lý phê duyệt',
+      approved:  'Đã phê duyệt phiếu xuất',
+      shipping:  'Đã xác nhận xuất hàng – đang vận chuyển',
       completed: 'Hoàn tất xuất kho – đã trừ tồn kho',
-      rejected: 'Đã từ chối phiếu xuất',
+      rejected:  'Đã từ chối phiếu xuất',
     };
     try {
-      const updated = await DeliveryModel.update(deliveryId, { status: targetStatus });
-      toast.success(labels[targetStatus] || `Đã cập nhật trạng thái`);
-      setSelectedDelivery(updated);
+      let res;
+      if (targetStatus === 'draft')     res = await DeliveryModel.submit(deliveryId);
+      else if (targetStatus === 'approved')  res = await DeliveryModel.approve(deliveryId);
+      else if (targetStatus === 'rejected')  res = await DeliveryModel.reject(deliveryId, extra.rejectNote);
+      else if (targetStatus === 'shipping')  res = await DeliveryModel.ship(deliveryId);
+      else if (targetStatus === 'completed') res = await DeliveryModel.complete(deliveryId);
+      toast.success(labels[targetStatus] || 'Đã cập nhật trạng thái');
+      const updatedDelivery = res?.delivery || res;
+      setSelectedDelivery(updatedDelivery);
       fetchData();
     } catch (error) {
-      toast.error('Lỗi khi cập nhật trạng thái: ' + error.message);
+      toast.error('Lỗi: ' + error.message);
     }
   };
 
@@ -268,6 +334,73 @@ export const DeliveriesPage = () => {
         </PermissionGuard>
       </div>
 
+      {/* ── Bộ lọc & Tìm kiếm ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[220px]" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setShowSugg(true); }}
+              onFocus={() => setShowSugg(true)}
+              onBlur={() => setTimeout(() => setShowSugg(false), 200)}
+              placeholder="Tìm theo mã phiếu, tên khách hàng, sản phẩm..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-400 focus:bg-white transition-colors"
+            />
+            {showSugg && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                {suggestions.map(d => (
+                  <button key={d._id} type="button"
+                    onMouseDown={() => { setSearchQuery(d.code); setShowSugg(false); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-primary-50 border-b border-slate-50 last:border-0 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-mono font-bold text-slate-900 text-sm">{d.code}</span>
+                    {d.tenKhachHang && <span className="text-xs text-slate-400 truncate flex-1">— {d.tenKhachHang}</span>}
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_CONFIG[d.status]?.color}`}>{STATUS_CONFIG[d.status]?.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[170px]">
+            <option value="">Tất cả trạng thái</option>
+            <option value="preparing">Đang soạn</option>
+            <option value="draft">Chờ phê duyệt</option>
+            <option value="approved">Đã phê duyệt</option>
+            <option value="shipping">Đang vận chuyển</option>
+            <option value="completed">Hoàn tất</option>
+            <option value="rejected">Từ chối</option>
+            <option value="cancelled">Đã hủy</option>
+          </select>
+          <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[140px]">
+            <option value="">Tất cả kho</option>
+            {allNodes.filter(n => n.type === 'warehouse').map(n => (
+              <option key={n._id} value={n._id}>{n.name}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+            <span className="text-slate-400 text-xs">—</span>
+            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+          </div>
+          {(searchQuery || filterStatus || filterWarehouse || filterFrom || filterTo) && (
+            <button onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterWarehouse(''); setFilterFrom(''); setFilterTo(''); }}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-semibold transition-colors">
+              <X className="w-4 h-4" /> Xóa lọc
+            </button>
+          )}
+          <span className="text-xs text-slate-400 ml-auto whitespace-nowrap">
+            {filtered.length} / {deliveries.length} phiếu
+          </span>
+        </div>
+      </div>
+
       {/* Deliveries Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
@@ -275,9 +408,9 @@ export const DeliveriesPage = () => {
             <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block" />
             <p className="mt-2">Đang tải danh sách phiếu xuất...</p>
           </div>
-        ) : deliveries.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-sm">
-            Chưa có phiếu xuất kho nào được tạo
+            {deliveries.length === 0 ? 'Chưa có phiếu xuất kho nào được tạo' : 'Không tìm thấy phiếu phù hợp với bộ lọc'}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -296,7 +429,7 @@ export const DeliveriesPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {deliveries.map(d => {
+                {filtered.map(d => {
                   const itemCount = d.items?.length || 0;
                   const itemSummary = d.items?.slice(0, 2).map(i => i.product?.name || '').filter(Boolean).join(', ');
                   const createdDate = d.createdAt
@@ -572,6 +705,14 @@ export const DeliveriesPage = () => {
                 </div>
               </div>
 
+              {/* Lý do từ chối — hiển thị khi phiếu bị rejected */}
+              {selectedDelivery.status === 'rejected' && selectedDelivery.rejectNote && (
+                <div className="bg-red-50 border border-red-100 rounded-xl p-3.5">
+                  <p className="text-[10px] font-bold text-red-600 uppercase tracking-wide mb-1">Lý do từ chối</p>
+                  <p className="text-sm text-red-700">{selectedDelivery.rejectNote}</p>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-between items-center gap-3">
                 <span className="text-sm font-semibold text-slate-700">
@@ -579,14 +720,14 @@ export const DeliveriesPage = () => {
                 </span>
 
                 <div className="flex flex-wrap gap-2">
-                  {/* Sửa nội dung — CHỈ khi đang Nháp */}
-                  {selectedDelivery.status === 'draft' && (
+                  {/* Sửa nội dung — CHỈ khi đang soạn (preparing) */}
+                  {selectedDelivery.status === 'preparing' && (
                     <PermissionGuard permission="delivery:update">
                       <button
                         onClick={() => { setSelectedDelivery(null); openEditModal(selectedDelivery); }}
                         className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5"
                       >
-                        ✏️ Sửa phiếu
+                        <PenLine className="w-3.5 h-3.5" /> Sửa phiếu
                       </button>
                     </PermissionGuard>
                   )}
@@ -612,10 +753,23 @@ export const DeliveriesPage = () => {
                     </button>
                   </PermissionGuard>
 
-                  {(selectedDelivery.status === 'draft' || selectedDelivery.status === 'approved') && (
+                  {/* Gửi phê duyệt — CHỈ khi đang soạn (preparing), KeToanKho */}
+                  {selectedDelivery.status === 'preparing' && (
+                    <PermissionGuard permission="delivery:create">
+                      <button
+                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'draft')}
+                        className="px-3.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Gửi phê duyệt
+                      </button>
+                    </PermissionGuard>
+                  )}
+
+                  {/* Từ chối — CHỈ khi chờ phê duyệt (draft), QuanLyKho */}
+                  {selectedDelivery.status === 'draft' && (
                     <PermissionGuard permission="delivery:approve">
                       <button
-                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'rejected')}
+                        onClick={() => { setRejectNote(''); setShowRejectModal(true); }}
                         className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-semibold"
                       >
                         ✕ Từ chối
@@ -623,6 +777,7 @@ export const DeliveriesPage = () => {
                     </PermissionGuard>
                   )}
 
+                  {/* Duyệt phiếu — CHỈ khi chờ phê duyệt (draft), QuanLyKho */}
                   {selectedDelivery.status === 'draft' && (
                     <PermissionGuard permission="delivery:approve">
                       <button
@@ -634,8 +789,9 @@ export const DeliveriesPage = () => {
                     </PermissionGuard>
                   )}
 
+                  {/* Xác nhận xuất hàng — CHỈ khi approved, NhanVienKho */}
                   {selectedDelivery.status === 'approved' && (
-                    <PermissionGuard permission="delivery:update">
+                    <PermissionGuard permission="delivery:ship">
                       <button
                         onClick={() => handleTransitionStatus(selectedDelivery._id, 'shipping')}
                         className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
@@ -645,8 +801,9 @@ export const DeliveriesPage = () => {
                     </PermissionGuard>
                   )}
 
+                  {/* Hoàn tất xuất kho — CHỈ khi shipping, QuanLyKho */}
                   {selectedDelivery.status === 'shipping' && (
-                    <PermissionGuard permission="delivery:approve">
+                    <PermissionGuard permission="delivery:complete">
                       <button
                         onClick={() => handleTransitionStatus(selectedDelivery._id, 'completed')}
                         className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
@@ -658,6 +815,51 @@ export const DeliveriesPage = () => {
 
                   <button onClick={() => setSelectedDelivery(null)} className="px-3.5 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold">Đóng</button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Reason Modal */}
+      {showRejectModal && selectedDelivery && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-800">Từ chối phiếu xuất</h3>
+              <button onClick={() => setShowRejectModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600">
+                Vui lòng ghi rõ lý do để Kế toán kho biết và điều chỉnh:
+              </p>
+              <textarea
+                value={rejectNote}
+                onChange={e => setRejectNote(e.target.value)}
+                rows="3"
+                placeholder="Ví dụ: Số lượng vượt hạn mức cho phép, sản phẩm không khớp yêu cầu..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-red-400 text-sm resize-none"
+              />
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowRejectModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!rejectNote.trim()) { toast.error('Vui lòng nhập lý do từ chối'); return; }
+                    handleTransitionStatus(selectedDelivery._id, 'rejected', { rejectNote: rejectNote.trim() });
+                    setShowRejectModal(false);
+                    setRejectNote('');
+                  }}
+                  className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold"
+                >
+                  Xác nhận từ chối
+                </button>
               </div>
             </div>
           </div>

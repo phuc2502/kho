@@ -11,6 +11,8 @@ import { ProductsPage } from './views/ProductsPage.jsx';
 import { WarehouseStructurePage } from './views/WarehouseStructurePage.jsx';
 import { UserManagementPage } from './views/UserManagementPage.jsx';
 import { StocktakesPage } from './views/StocktakesPage.jsx';
+import { StocktakeMinutesPage } from './views/StocktakeMinutesPage.jsx';
+import { StocktakeReportsPage } from './views/StocktakeReportsPage.jsx';
 import { AdjustmentsPage } from './views/AdjustmentsPage.jsx';
 import { IncidentsPage } from './views/IncidentsPage.jsx';
 import { AuditLogsPage } from './views/AuditLogsPage.jsx';
@@ -127,6 +129,18 @@ const App = () => {
             <Route path="stocktakes" element={
               <ProtectedRoute permission="stocktake:read">
                 <StocktakesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="stocktake-minutes" element={
+              <ProtectedRoute permission="stocktake:read">
+                <StocktakeMinutesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="stocktake-reports" element={
+              <ProtectedRoute permission="stocktake:read">
+                <StocktakeReportsPage />
               </ProtectedRoute>
             } />
 

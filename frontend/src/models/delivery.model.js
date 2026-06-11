@@ -1,13 +1,12 @@
 import { api } from './api.js';
 
 export const DeliveryModel = {
-  getAll: async () => {
-    return await api.get('/deliveries');
-  },
-  create: async (deliveryData) => {
-    return await api.post('/deliveries', deliveryData);
-  },
-  update: async (id, deliveryData) => {
-    return await api.put(`/deliveries/${id}`, deliveryData);
-  }
+  getAll:   async ()           => await api.get('/deliveries'),
+  create:   async (data)       => await api.post('/deliveries', data),
+  update:   async (id, data)   => await api.put(`/deliveries/${id}`, data),
+  submit:   async (id)         => await api.patch(`/deliveries/${id}/submit`),
+  approve:  async (id)         => await api.patch(`/deliveries/${id}/approve`),
+  reject:   async (id, reason) => await api.patch(`/deliveries/${id}/reject`, { reason }),
+  ship:     async (id)         => await api.patch(`/deliveries/${id}/ship`),
+  complete: async (id)         => await api.patch(`/deliveries/${id}/complete`),
 };

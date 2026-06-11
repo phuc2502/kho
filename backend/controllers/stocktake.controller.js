@@ -1,4 +1,5 @@
 import { Stocktake, StocktakeItem } from '../models/stocktake.model.js';
+import { StocktakeMinutes } from '../models/stocktakeMinutes.model.js';
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
@@ -9,6 +10,7 @@ import { recordAudit } from '../utils/audit.helper.js';
 const stocktakeIncludes = [
   { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
   { model: User, as: 'approvedByUser', attributes: ['username', 'role'] },
+  { model: User, as: 'submittedByUser', attributes: ['username', 'role'] },
   {
     model: StocktakeItem,
     as: 'items',
@@ -16,6 +18,11 @@ const stocktakeIncludes = [
       { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
       { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
     ]
+  },
+  {
+    model: StocktakeMinutes,
+    as: 'minutes',
+    attributes: ['_id', 'code', 'status', 'rejectNote']
   }
 ];
 
@@ -106,12 +113,15 @@ export const approveStocktake = async (req, res, next) => {
     }
 
     // Snapshot current inventory values as systemQty
+    // Use raw SQL to bypass Sequelize field-alias mapping (productId → 'product', warehouseNodeId → 'warehouseNode')
     for (const item of stocktake.items) {
-      const inventoryRecord = await Inventory.findOne({
-        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
-        transaction: t
-      });
-      item.systemQty = inventoryRecord ? Number(inventoryRecord.quantity) : 0;
+      const productIdVal = item.get('productId') ?? item.product?._id ?? item.dataValues?.product;
+      const nodeIdVal    = item.get('warehouseNodeId') ?? item.warehouseNode?._id ?? item.dataValues?.warehouseNode;
+      const [invRows] = await sequelize.query(
+        'SELECT quantity FROM Inventories WHERE `product` = ? AND `warehouseNode` = ? LIMIT 1',
+        { replacements: [productIdVal, nodeIdVal], transaction: t }
+      );
+      item.systemQty = invRows.length > 0 ? Number(invRows[0].quantity) : 0;
       item.countedQty = 0;
       await item.save({ transaction: t });
     }
@@ -136,6 +146,42 @@ export const approveStocktake = async (req, res, next) => {
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
+    next(error);
+  }
+};
+
+export const rejectStocktake = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: 'Vui lòng nhập lý do từ chối' });
+    }
+
+    const stocktake = await Stocktake.findByPk(id);
+    if (!stocktake) {
+      return res.status(404).json({ message: 'Không tìm thấy phiếu kiểm kê' });
+    }
+
+    if (stocktake.status !== 'pending_approval') {
+      return res.status(400).json({ message: 'Chỉ có thể từ chối phiếu kiểm kê đang ở trạng thái chờ duyệt' });
+    }
+
+    await stocktake.update({ status: 'rejected', rejectNote: reason.trim() });
+
+    await recordAudit({
+      action: 'stocktake.reject',
+      entity: 'Stocktake',
+      entityId: stocktake._id,
+      userId: req.user._id,
+      username: req.user.username,
+      payload: { code: stocktake.code, reason: reason.trim() }
+    });
+
+    const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
+    res.json(populated);
+  } catch (error) {
     next(error);
   }
 };
@@ -193,7 +239,7 @@ export const updateStocktake = async (req, res, next) => {
   }
 };
 
-export const completeStocktake = async (req, res, next) => {
+export const submitStocktake = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
@@ -208,24 +254,39 @@ export const completeStocktake = async (req, res, next) => {
 
     if (stocktake.status !== 'counting') {
       await t.rollback();
-      return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang trong trạng thái "Đang kiểm kê"' });
+      return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang trong trạng thái "Đang kiểm kê"' });
     }
 
     const hasDiff = stocktake.items.some(
       item => Number(item.countedQty) !== Number(item.systemQty)
     );
 
-    stocktake.status = hasDiff ? 'diff' : 'pass';
+    stocktake.status = 'submitted';
+    stocktake.hasDiff = hasDiff;
+    stocktake.submittedByUserId = req.user._id;
+    stocktake.submittedAt = new Date();
     await stocktake.save({ transaction: t });
+
+    // Auto-create biên bản kiểm kê
+    await StocktakeMinutes.create({
+      code: 'BB-' + stocktake.code,
+      stocktakeId: stocktake._id,
+      summary: hasDiff
+        ? 'Phát hiện chênh lệch tồn kho sau kiểm đếm. Vui lòng xem xét biên bản.'
+        : 'Số liệu kiểm đếm khớp hoàn toàn với hệ thống.',
+      createdByUserId: req.user._id,
+      status: 'pending_approval'
+    }, { transaction: t });
+
     await t.commit();
 
     await recordAudit({
-      action: 'stocktake.complete',
+      action: 'stocktake.submit',
       entity: 'Stocktake',
       entityId: stocktake._id,
       userId: req.user._id,
       username: req.user.username,
-      payload: { code: stocktake.code, status: stocktake.status }
+      payload: { code: stocktake.code, hasDiff }
     });
 
     const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
