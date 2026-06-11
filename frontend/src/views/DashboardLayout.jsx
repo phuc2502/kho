@@ -7,6 +7,7 @@ import {
   ArrowDownLeft, ArrowUpRight, LogOut, ClipboardList,
   ArrowLeftRight, LayoutDashboard, AlertTriangle, History,
   BarChart2, ScanLine, KeyRound, ChevronRight, Mail, FileText,
+  Menu, X,
 } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -72,6 +73,7 @@ export const DashboardLayout = () => {
   const navigate  = useNavigate();
   const [resetCount, setResetCount] = useState(0);
   const [seenCount, setSeenCount]   = useState(() => parseInt(localStorage.getItem(SEEN_KEY) || '0'));
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
@@ -114,27 +116,46 @@ export const DashboardLayout = () => {
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: '#f7f5f2' }}>
 
+      {/* Backdrop for mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* ── Sidebar ── Dark Warm Ink ──────────────────────────── */}
       <aside
-        className="w-64 flex flex-col shrink-0"
+        className={`fixed md:static inset-y-0 left-0 z-40 w-64 flex flex-col shrink-0 transition-transform duration-300 transform md:transform-none ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
         style={{ background: '#1e1919' }}
       >
         {/* Wordmark */}
         <div
-          className="h-14 shrink-0 flex items-center px-5 gap-2.5"
+          className="h-14 shrink-0 flex items-center justify-between px-5 gap-2.5"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
         >
-          <svg width="20" height="18" viewBox="0 0 40 36" fill="none">
-            <path d="M20 6.5L10 13 20 19.5 10 26l-10-6.5L10 13 0 6.5 10 0z" fill="#0061fe"/>
-            <path d="M20 6.5L30 0l10 6.5L30 13l10 6.5-10 6.5-10-6.5L30 13z" fill="#0061fe"/>
-            <path d="M10 27.85L20 21.35l10 6.5-10 6.5z" fill="#0061fe"/>
-          </svg>
-          <span
-            className="font-semibold text-sm"
-            style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}
+          <div className="flex items-center gap-2.5">
+            <svg width="20" height="18" viewBox="0 0 40 36" fill="none">
+              <path d="M20 6.5L10 13 20 19.5 10 26l-10-6.5L10 13 0 6.5 10 0z" fill="#0061fe"/>
+              <path d="M20 6.5L30 0l10 6.5L30 13l10 6.5-10 6.5-10-6.5L30 13z" fill="#0061fe"/>
+              <path d="M10 27.85L20 21.35l10 6.5-10 6.5z" fill="#0061fe"/>
+            </svg>
+            <span
+              className="font-semibold text-sm"
+              style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}
+            >
+              MVC Warehouse
+            </span>
+          </div>
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close sidebar"
           >
-            MVC Warehouse
-          </span>
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Nav groups */}
@@ -159,6 +180,7 @@ export const DashboardLayout = () => {
                       <Link
                         key={item.path}
                         to={item.path}
+                        onClick={() => setIsSidebarOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors duration-100"
                         style={active
                           ? { background: '#0061fe', color: '#ffffff', borderRadius: '8px' }
@@ -193,6 +215,7 @@ export const DashboardLayout = () => {
         >
           <Link
             to="/profile"
+            onClick={() => setIsSidebarOpen(false)}
             className="flex items-center gap-3 px-3 py-2.5 transition-colors duration-100"
             style={{ borderRadius: '8px', color: 'rgba(255,255,255,0.55)' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = '#ffffff'; }}
@@ -217,7 +240,10 @@ export const DashboardLayout = () => {
           </Link>
 
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              setIsSidebarOpen(false);
+              handleLogout();
+            }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors duration-100"
             style={{ borderRadius: '8px', color: 'rgba(255,255,255,0.45)' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#fca5a5'; }}
@@ -234,26 +260,33 @@ export const DashboardLayout = () => {
 
         {/* Header — White with stronger bottom border */}
         <header
-          className="h-14 shrink-0 flex items-center justify-between px-8"
+          className="h-14 shrink-0 flex items-center justify-between px-4 md:px-8"
           style={{ background: '#ffffff', borderBottom: '1px solid #d9d3cb' }}
         >
           {/* Breadcrumb */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-1.5 -ml-1.5 rounded-md text-[#1e1919] hover:bg-gray-100 transition-colors"
+              aria-label="Open sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <span
-              className="text-[11px] font-medium"
+              className="text-[11px] font-medium hidden sm:inline"
               style={{ color: '#b8b2aa', letterSpacing: '0.04em' }}
             >
               MVC WAREHOUSE
             </span>
-            <ChevronRight className="w-3 h-3" style={{ color: '#c9c3bb' }} />
-            <h1 className="text-sm font-semibold" style={{ color: '#1e1919' }}>
+            <ChevronRight className="w-3 h-3 hidden sm:inline" style={{ color: '#c9c3bb' }} />
+            <h1 className="text-sm font-semibold truncate max-w-[180px] xs:max-w-none" style={{ color: '#1e1919' }}>
               {pageTitle}
             </h1>
           </div>
 
           {/* Role pill */}
           <span
-            className="px-3 py-1 text-[11px] font-medium"
+            className="px-3 py-1 text-[11px] font-medium truncate max-w-[120px] sm:max-w-none"
             style={{
               background:    '#f7f5f2',
               color:         '#716b61',
@@ -268,7 +301,7 @@ export const DashboardLayout = () => {
 
         {/* Page canvas — Cream Paper */}
         <div
-          className="flex-1 overflow-y-auto p-8"
+          className="flex-1 overflow-y-auto p-4 md:p-8"
           style={{ background: '#f7f5f2' }}
         >
           <Outlet />
