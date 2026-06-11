@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryModel } from '../models/inventory.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
 import { BarcodeInput } from '../components/BarcodeInput.jsx';
 import { exportToCSV } from '../utils/exportCSV.js';
 import toast from 'react-hot-toast';
-import { Database, MapPin, Layers, Download, ScanLine } from 'lucide-react';
+import { Database, MapPin, Layers, Download, ScanLine, Search } from 'lucide-react';
 
 export const InventoryPage = () => {
   const [stock, setStock] = useState([]);
@@ -17,6 +17,8 @@ export const InventoryPage = () => {
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedNode, setSelectedNode] = useState('');
   const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState(''); // '' | 'out' | 'low' | 'ok'
 
   const fetchData = async () => {
     try {
@@ -62,7 +64,7 @@ export const InventoryPage = () => {
 
   const handleExportCSV = () => {
     const headers = ['SKU', 'Tên sản phẩm', 'Mã vị trí (Bin)', 'Tên vị trí', 'Đơn vị', 'Số lượng tồn'];
-    const rows = stock.map(item => [
+    const rows = displayedStock.map(item => [
       item.product?.sku || '',
       item.product?.name || '',
       item.warehouseNode?.code || '',
@@ -76,6 +78,22 @@ export const InventoryPage = () => {
 
   const totalSkuCount = new Set(stock.map(item => item.product?._id)).size;
   const totalQuantity = stock.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Client-side filtering: tìm kiếm theo tên/SKU và lọc theo tình trạng tồn
+  const displayedStock = useMemo(() => {
+    let result = stock;
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      result = result.filter(item =>
+        item.product?.name?.toLowerCase().includes(q) ||
+        item.product?.sku?.toLowerCase().includes(q)
+      );
+    }
+    if (filterStatus === 'out') result = result.filter(item => item.quantity === 0);
+    if (filterStatus === 'low') result = result.filter(item => item.quantity > 0 && item.quantity < 5);
+    if (filterStatus === 'ok') result = result.filter(item => item.quantity >= 5);
+    return result;
+  }, [stock, searchText, filterStatus]);
 
   return (
     <div className="space-y-6">
@@ -103,6 +121,40 @@ export const InventoryPage = () => {
 
       {/* Filters */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        {/* Search row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              placeholder="Tìm theo tên sản phẩm hoặc mã SKU..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-500 transition-colors"
+            />
+          </div>
+          <div className="sm:w-52">
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500"
+            >
+              <option value="">Tất cả tình trạng</option>
+              <option value="ok">Còn hàng</option>
+              <option value="low">Sắp hết</option>
+              <option value="out">Hết hàng</option>
+            </select>
+          </div>
+          {(searchText || filterStatus) && (
+            <button
+              onClick={() => { setSearchText(''); setFilterStatus(''); }}
+              className="px-3 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors shrink-0"
+            >
+              ✕ Xoá
+            </button>
+          )}
+        </div>
+
         {/* Barcode row */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -145,10 +197,14 @@ export const InventoryPage = () => {
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <span className="text-xs text-slate-500 font-semibold">{stock.length} vị trí hiển thị</span>
+          <span className="text-xs text-slate-500 font-semibold">
+            {displayedStock.length < stock.length
+              ? `${displayedStock.length} / ${stock.length} vị trí`
+              : `${stock.length} vị trí hiển thị`}
+          </span>
           <button
             onClick={handleExportCSV}
-            disabled={stock.length === 0}
+            disabled={displayedStock.length === 0}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold disabled:opacity-40 shadow-md shadow-blue-500/10"
           >
             <Download className="w-3.5 h-3.5" /> Xuất CSV
@@ -160,7 +216,7 @@ export const InventoryPage = () => {
             <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block" />
             <p className="mt-2 text-sm">Đang truy vấn tồn kho...</p>
           </div>
-        ) : stock.length === 0 ? (
+        ) : displayedStock.length === 0 ? (
           <div className="p-12 text-center text-slate-400 text-sm">Không tìm thấy tồn kho theo bộ lọc hiện tại</div>
         ) : (
           <div className="overflow-x-auto">
@@ -176,7 +232,7 @@ export const InventoryPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {stock.map(item => (
+                {displayedStock.map(item => (
                   <tr key={item._id} className={`hover:bg-slate-50/50 ${item.quantity === 0 ? 'bg-red-50/30' : ''}`}>
                     <td className="px-5 py-4 font-mono font-bold text-slate-900">{item.product?.sku || 'N/A'}</td>
                     <td className="px-5 py-4 font-semibold text-slate-800">{item.product?.name || 'Đã bị xóa'}</td>

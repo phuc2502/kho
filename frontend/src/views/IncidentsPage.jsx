@@ -159,9 +159,9 @@ export const IncidentsPage = () => {
       closed: 'bg-slate-100 text-slate-700 border-slate-200'
     };
     const labels = {
-      open: 'Đang mở (Open)',
-      resolved: 'Đã giải quyết (Resolved)',
-      closed: 'Đã đóng (Closed)'
+      open: 'Đang mở',
+      resolved: 'Đã giải quyết',
+      closed: 'Đã đóng'
     };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase ${styles[status]}`}>
@@ -187,7 +187,7 @@ export const IncidentsPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Báo cáo Sự cố (Incidents)</h2>
+          <h2 className="text-xl font-bold text-slate-800">Báo cáo Sự cố</h2>
           <p className="text-sm text-slate-500">Quản lý và giải quyết các lỗi/sự cố liên quan đến hàng hỏng, thiếu hụt</p>
         </div>
         <PermissionGuard permission="incident:create">
@@ -287,11 +287,11 @@ export const IncidentsPage = () => {
                     onChange={(e) => setType(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
                   >
-                    <option value="damage">Hàng bị hư hỏng (Damage)</option>
-                    <option value="shortage">Thiếu hụt số lượng (Shortage)</option>
-                    <option value="wrong_product">Sai sản phẩm (Wrong product)</option>
-                    <option value="expired">Hàng hết hạn (Expired)</option>
-                    <option value="other">Sự cố khác (Other)</option>
+                    <option value="damage">Hàng bị hư hỏng</option>
+                    <option value="shortage">Thiếu hụt số lượng</option>
+                    <option value="wrong_product">Sai sản phẩm</option>
+                    <option value="expired">Hàng hết hạn</option>
+                    <option value="other">Sự cố khác</option>
                   </select>
                 </div>
                 <div>
@@ -305,8 +305,8 @@ export const IncidentsPage = () => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
                   >
                     <option value="">-- Không liên kết --</option>
-                    <option value="receipt">Phiếu Nhập Kho (Receipt)</option>
-                    <option value="delivery">Phiếu Xuất Kho (Delivery)</option>
+                    <option value="receipt">Phiếu Nhập Kho</option>
+                    <option value="delivery">Phiếu Xuất Kho</option>
                   </select>
                 </div>
                 <div>
@@ -496,9 +496,9 @@ export const IncidentsPage = () => {
                       onChange={(e) => setEditStatus(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
                     >
-                      <option value="open">Đang mở (Open)</option>
-                      <option value="resolved">Đã giải quyết (Resolved)</option>
-                      <option value="closed">Đã đóng (Closed)</option>
+                      <option value="open">Đang mở</option>
+                      <option value="resolved">Đã giải quyết</option>
+                      <option value="closed">Đã đóng</option>
                     </select>
                   </div>
                   <div>
@@ -508,11 +508,11 @@ export const IncidentsPage = () => {
                       onChange={(e) => setEditAction(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
                     >
-                      <option value="pending">Đang chờ xử lý (Pending)</option>
-                      <option value="reorder">Đặt hàng lại (Reorder)</option>
-                      <option value="dispose">Tiêu hủy hàng lỗi (Dispose)</option>
-                      <option value="return_supplier">Trả lại nhà cung cấp (Return supplier)</option>
-                      <option value="write_off">Khấu trừ tài sản (Write-off)</option>
+                      <option value="pending">Đang chờ xử lý</option>
+                      <option value="reorder">Đặt hàng lại</option>
+                      <option value="dispose">Tiêu hủy hàng lỗi</option>
+                      <option value="return_supplier">Trả lại nhà cung cấp</option>
+                      <option value="write_off">Khấu trừ tài sản</option>
                     </select>
                   </div>
                 </div>

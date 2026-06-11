@@ -146,8 +146,8 @@ export const AdjustmentsPage = () => {
       completed: 'bg-emerald-100 text-emerald-700 border-emerald-200'
     };
     const labels = {
-      draft: 'Bản nháp (Draft)',
-      completed: 'Đã hoàn tất (Completed)'
+      draft: 'Bản nháp',
+      completed: 'Đã hoàn tất'
     };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase ${styles[status]}`}>
@@ -160,7 +160,7 @@ export const AdjustmentsPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Quản lý Điều chỉnh tồn kho (Adjustment)</h2>
+          <h2 className="text-xl font-bold text-slate-800">Quản lý Điều chỉnh tồn kho</h2>
           <p className="text-sm text-slate-500">Tăng/giảm trực tiếp tồn kho của từng sản phẩm tại vị trí cụ thể</p>
         </div>
         <PermissionGuard permission="adjustment:create">
@@ -260,13 +260,13 @@ export const AdjustmentsPage = () => {
                     onChange={(e) => setReason(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
                   >
-                    <option value="count_correction">Hiệu chỉnh sai số đếm (Count Correction)</option>
-                    <option value="damaged">Hàng bị hư hỏng (Damaged)</option>
-                    <option value="expired">Hàng hết hạn (Expired)</option>
-                    <option value="lost">Thất thoát / Mất mát (Lost)</option>
-                    <option value="found">Tìm thấy hàng thừa (Found)</option>
-                    <option value="return_supplier">Trả hàng nhà cung cấp (Return supplier)</option>
-                    <option value="other">Lý do khác (Other)</option>
+                    <option value="count_correction">Hiệu chỉnh sai số đếm</option>
+                    <option value="damaged">Hàng bị hư hỏng</option>
+                    <option value="expired">Hàng hết hạn</option>
+                    <option value="lost">Thất thoát / Mất mát</option>
+                    <option value="found">Tìm thấy hàng thừa</option>
+                    <option value="return_supplier">Trả hàng nhà cung cấp</option>
+                    <option value="other">Lý do khác</option>
                   </select>
                 </div>
                 <div>

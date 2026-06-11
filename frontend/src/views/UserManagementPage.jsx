@@ -343,10 +343,13 @@ const PermissionPanel = ({ userId, onClose, onSaved }) => {
     if (!data?.catalog) return [];
     const map = {};
     for (const p of data.catalog) {
+      // Bỏ qua quyền đối tác — chức năng đã bị gỡ bỏ
+      if (p.code.startsWith('partner:')) continue;
       if (!map[p.group]) map[p.group] = [];
       map[p.group].push(p);
     }
-    return Object.entries(map);
+    // Lọc bỏ các nhóm rỗng (ví dụ nhóm chỉ có quyền đối tác)
+    return Object.entries(map).filter(([, perms]) => perms.length > 0);
   }, [data]);
 
   const getPermSource = (code) => {
@@ -555,13 +558,15 @@ const WarehousePanel = ({ user, onClose, onSaved }) => {
             <div className="p-4 border-b border-slate-100 shrink-0">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Thêm kho phụ trách</p>
               <div className="flex gap-2">
-                <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
-                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary-500 focus:bg-white transition-all">
-                  <option value="">— Chọn kho —</option>
-                  {available.map(w => (
-                    <option key={w._id} value={w._id}>{w.name} ({w.code})</option>
-                  ))}
-                </select>
+                <div className="flex-1 min-w-0">
+                  <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:outline-none focus:border-primary-500 focus:bg-white transition-all">
+                    <option value="">— Chọn kho —</option>
+                    {available.map(w => (
+                      <option key={w._id} value={w._id}>{w.name} ({w.code})</option>
+                    ))}
+                  </select>
+                </div>
                 <button onClick={handleAssign} disabled={!selectedId || saving}
                   className="px-3 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white disabled:opacity-50 transition-colors flex items-center gap-1">
                   {saving ? <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
@@ -1045,7 +1050,7 @@ export const UserManagementPage = () => {
 
         {/* ——— Panel bên (Phân quyền hoặc Phân công kho) ——— */}
         {panelOpen && (
-          <div className="w-80 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 flex flex-col min-h-0 shrink-0">
+          <div className="w-80 bg-white rounded-2xl shadow-sm ring-1 ring-slate-200 flex flex-col min-h-0 shrink-0 overflow-x-hidden">
             {panelMode === 'perm' && (
               <PermissionPanel userId={panelUserId} onClose={closePanel} onSaved={fetchUsers} />
             )}

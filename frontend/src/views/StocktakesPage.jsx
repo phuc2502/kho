@@ -288,7 +288,7 @@ export const StocktakesPage = () => {
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold uppercase">
                   <th className="px-5 py-4">Mã phiếu</th>
                   <th className="px-5 py-4">Ngày kiểm</th>
-                  <th className="px-5 py-4">Quy trình</th>
+                  <th className="px-5 py-4">Trạng thái</th>
                   <th className="px-5 py-4">Ghi chú</th>
                   <th className="px-5 py-4">Người lập</th>
                   <th className="px-5 py-4 text-center">Thao tác</th>
@@ -300,7 +300,7 @@ export const StocktakesPage = () => {
                     <td className="px-5 py-4 font-mono font-bold text-slate-900">{st.code}</td>
                     <td className="px-5 py-4 text-slate-500">{new Date(st.date).toLocaleDateString('vi-VN')}</td>
                     <td className="px-5 py-4">
-                      <WorkflowBar currentStatus={st.status} />
+                      {renderStatusBadge(st.status)}
                     </td>
                     <td className="px-5 py-4 text-slate-500 max-w-[200px] truncate">{st.note || '—'}</td>
                     <td className="px-5 py-4">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuditLogModel } from '../models/auditLog.model.js';
 import toast from 'react-hot-toast';
-import { History, Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { History, Search, ChevronLeft, ChevronRight, FileText, X, User, Clock, Tag } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────
 // Action labels
@@ -97,11 +97,13 @@ const ENTITY_MAP = {
 const getEntityIdentifier = (log) => {
   if (!log.payload) return log.entityId ? `#${log.entityId}` : '—';
   const entityKey = (log.entity || '').toLowerCase();
-  // Tài khoản: hiển thị tên đăng nhập thay vì ID
+  // Tài khoản: ưu tiên hiển thị họ tên đầy đủ, nếu không có dùng tên đăng nhập
   if (entityKey === 'user') {
-    return log.payload.username
+    return log.payload.fullName         // createUser audit
+      || log.payload.targetFullName     // updateUser / deactivate / reactivate audit
+      || log.payload.username
       || log.payload.targetUsername
-      || log.payload.targetUser   // user.controller dùng targetUser
+      || log.payload.targetUser         // user.controller dùng targetUser
       || (log.entityId ? `#${log.entityId}` : '—');
   }
   // Yêu cầu xuất kho: có thể có code hoặc chỉ có entityId
@@ -127,6 +129,9 @@ const FIELD_LABELS = {
   note:               'Ghi chú',
   username:           'Tài khoản',
   targetUsername:     'Tài khoản tác động',
+  targetUser:         'Tài khoản tác động',
+  fullName:           'Họ và tên',
+  targetFullName:     'Tên nhân viên',
   role:               'Vai trò',
   description:        'Mô tả',
   type:               'Loại',
@@ -156,6 +161,94 @@ const formatFieldValue = (key, value) => {
 const ITEMS_PER_PAGE = 25;
 
 // ──────────────────────────────────────────────────────────────
+// Detail Modal
+// ──────────────────────────────────────────────────────────────
+const DetailModal = ({ log, onClose }) => {
+  if (!log) return null;
+  const entityKey = (log.entity || '').toLowerCase();
+  const entityInfo = ENTITY_MAP[entityKey];
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between shrink-0">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Chi tiết thao tác</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{new Date(log.createdAt).toLocaleString('vi-VN')}</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 shrink-0">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Meta info */}
+        <div className="px-6 py-3 border-b border-slate-100 bg-slate-50/60 shrink-0">
+          <div className="flex flex-wrap gap-3">
+            {/* Hành động */}
+            <div className="flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-slate-400" />
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getActionBadgeColor(log.action)}`}>
+                {ACTION_MAP[log.action] || log.action}
+              </span>
+            </div>
+            {/* Tài khoản thực hiện */}
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-700">{log.username || 'System'}</span>
+              {log.user?.role && <span className="text-[10px] text-slate-400 uppercase font-bold">({log.user.role})</span>}
+            </div>
+            {/* Đối tượng */}
+            {log.entity && (
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${entityInfo?.color || 'bg-slate-100 text-slate-600'}`}>
+                  {entityInfo?.label || log.entity}
+                </span>
+                <span className="font-mono font-bold text-slate-800 text-xs">{getEntityIdentifier(log)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Payload fields */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {log.payload && Object.keys(log.payload).length > 0 ? (
+            <>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                Thông tin ghi nhận
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(log.payload).map(([key, value]) => (
+                  <div key={key} className="bg-slate-50 rounded-xl border border-slate-200 px-3 py-2.5">
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                      {FIELD_LABELS[key] || key}
+                    </p>
+                    <p
+                      className="text-sm font-bold text-slate-800 mt-0.5 break-words"
+                      title={String(value ?? '—')}
+                    >
+                      {formatFieldValue(key, value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400 text-center py-6">Không có thông tin chi tiết</p>
+          )}
+        </div>
+
+        <div className="px-6 py-3 border-t border-slate-100 flex justify-end shrink-0">
+          <button onClick={onClose} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors">
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ──────────────────────────────────────────────────────────────
 // Main Component
 // ──────────────────────────────────────────────────────────────
 export const AuditLogsPage = () => {
@@ -164,7 +257,7 @@ export const AuditLogsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState('');
-  const [expandedLogId, setExpandedLogId] = useState(null);
+  const [detailLog, setDetailLog] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const fetchLogs = async (page = 1) => {
@@ -257,7 +350,7 @@ export const AuditLogsPage = () => {
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold uppercase">
                   <th className="px-4 py-3 w-8"></th>
                   <th className="px-4 py-3">Thời gian</th>
-                  <th className="px-4 py-3">Tài khoản</th>
+                  <th className="px-4 py-3">Tài khoản thực hiện</th>
                   <th className="px-4 py-3">Hành động</th>
                   <th className="px-4 py-3">Đối tượng</th>
                   <th className="px-4 py-3">Chi tiết</th>
@@ -265,107 +358,69 @@ export const AuditLogsPage = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {filteredLogs.map(log => {
-                  const isExpanded = expandedLogId === log._id;
                   const hasPayload = log.payload && Object.keys(log.payload).length > 0;
                   // Tra cứu entity không phân biệt hoa thường (backend có thể gửi 'DeliveryRequest')
                   const entityKey = (log.entity || '').toLowerCase();
                   const entityInfo = ENTITY_MAP[entityKey];
 
                   return (
-                    <React.Fragment key={log._id}>
-                      <tr
-                        className={`hover:bg-slate-50/50 ${hasPayload ? 'cursor-pointer' : ''}`}
-                        onClick={() => hasPayload && setExpandedLogId(isExpanded ? null : log._id)}
-                      >
-                        {/* Expand toggle */}
-                        <td className="px-4 py-3 text-center">
-                          {hasPayload ? (
-                            isExpanded
-                              ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" />
-                              : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                          ) : <span />}
-                        </td>
+                    <tr key={log._id} className="hover:bg-slate-50/50">
+                      {/* Icon */}
+                      <td className="px-4 py-3 text-center">
+                        {hasPayload
+                          ? <FileText className="w-3.5 h-3.5 text-slate-300" />
+                          : <span />}
+                      </td>
 
-                        {/* Thời gian */}
-                        <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
-                          {new Date(log.createdAt).toLocaleString('vi-VN')}
-                        </td>
+                      {/* Thời gian */}
+                      <td className="px-4 py-3 text-xs font-mono text-slate-500 whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleString('vi-VN')}
+                      </td>
 
-                        {/* Tài khoản */}
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-slate-800">{log.username || 'System'}</p>
-                          <p className="text-[10px] uppercase font-bold text-slate-400">{log.user?.role || '—'}</p>
-                        </td>
+                      {/* Tài khoản */}
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-slate-800">{log.username || 'System'}</p>
+                        <p className="text-[10px] uppercase font-bold text-slate-400">{log.user?.role || '—'}</p>
+                      </td>
 
-                        {/* Hành động */}
-                        <td className="px-4 py-3">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getActionBadgeColor(log.action)}`}>
-                            {ACTION_MAP[log.action] || log.action}
-                          </span>
-                        </td>
+                      {/* Hành động */}
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getActionBadgeColor(log.action)}`}>
+                          {ACTION_MAP[log.action] || log.action}
+                        </span>
+                      </td>
 
-                        {/* Đối tượng — hiển thị loại + mã/tên thay vì chỉ ID */}
-                        <td className="px-4 py-3">
-                          {log.entity ? (
-                            <div>
-                              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${entityInfo?.color || 'bg-slate-100 text-slate-600'}`}>
-                                {entityInfo?.label || log.entity}
-                              </span>
-                              <p className="font-mono font-bold text-slate-900 text-sm mt-0.5">
-                                {getEntityIdentifier(log)}
-                              </p>
-                            </div>
-                          ) : (
-                            <span className="text-slate-300 text-xs">—</span>
-                          )}
-
-                        </td>
-
-                        {/* Chi tiết */}
-                        <td className="px-4 py-3">
-                          {hasPayload ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setExpandedLogId(isExpanded ? null : log._id); }}
-                              className={`flex items-center gap-1 text-xs font-bold transition-colors ${
-                                isExpanded ? 'text-slate-400' : 'text-primary-500 hover:text-primary-600'
-                              }`}
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              {isExpanded ? 'Thu gọn' : 'Xem chi tiết'}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-300">—</span>
-                          )}
-                        </td>
-                      </tr>
-
-                      {/* Expanded detail row — card layout thay vì terminal */}
-                      {isExpanded && hasPayload && (
-                        <tr className="bg-primary-50/20">
-                          <td colSpan="6" className="px-8 py-5 border-t border-primary-100/60">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5" />
-                              Thông tin ghi nhận · {ACTION_MAP[log.action] || log.action}
+                      {/* Đối tượng — hiển thị loại + mã/tên thay vì chỉ ID */}
+                      <td className="px-4 py-3">
+                        {log.entity ? (
+                          <div>
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${entityInfo?.color || 'bg-slate-100 text-slate-600'}`}>
+                              {entityInfo?.label || log.entity}
+                            </span>
+                            <p className="font-semibold text-slate-900 text-sm mt-0.5">
+                              {getEntityIdentifier(log)}
                             </p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-w-3xl">
-                              {Object.entries(log.payload).map(([key, value]) => (
-                                <div key={key} className="bg-white rounded-xl border border-slate-200 px-3 py-2.5 shadow-sm">
-                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                                    {FIELD_LABELS[key] || key}
-                                  </p>
-                                  <p
-                                    className="text-sm font-bold text-slate-800 mt-0.5 truncate"
-                                    title={String(value ?? '—')}
-                                  >
-                                    {formatFieldValue(key, value)}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 text-xs">—</span>
+                        )}
+                      </td>
+
+                      {/* Chi tiết — mở popup */}
+                      <td className="px-4 py-3">
+                        {hasPayload ? (
+                          <button
+                            onClick={() => setDetailLog(log)}
+                            className="flex items-center gap-1 text-xs font-bold text-primary-500 hover:text-primary-600 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Xem chi tiết
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
@@ -396,6 +451,9 @@ export const AuditLogsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Detail Popup Modal */}
+      {detailLog && <DetailModal log={detailLog} onClose={() => setDetailLog(null)} />}
     </div>
   );
 };

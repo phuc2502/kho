@@ -91,7 +91,7 @@ export const createUser = async (req, res, next) => {
       username: req.user.username,
       entity: 'user',
       entityId: user._id,
-      payload: { username: user.username, role: user.role, createdBy: req.user.username, emailSent }
+      payload: { username: user.username, fullName: user.fullName, role: user.role, createdBy: req.user.username, emailSent }
     });
 
     res.status(201).json({
@@ -138,7 +138,7 @@ export const updateUser = async (req, res, next) => {
       username: req.user.username,
       entity: 'user',
       entityId: user._id,
-      payload: { targetUser: user.username, role: user.role }
+      payload: { targetUser: user.username, targetFullName: user.fullName, role: user.role }
     });
 
     res.json({
@@ -250,7 +250,7 @@ export const deactivateUser = async (req, res, next) => {
       username: req.user.username,
       entity: 'user',
       entityId: user._id,
-      payload: { targetUser: user.username, reason: reason.trim(), deactivatedBy: req.user.username }
+      payload: { targetUser: user.username, targetFullName: user.fullName, reason: reason.trim(), deactivatedBy: req.user.username }
     });
 
     res.json({
@@ -290,7 +290,7 @@ export const reactivateUser = async (req, res, next) => {
       username: req.user.username,
       entity: 'user',
       entityId: user._id,
-      payload: { targetUser: user.username, reactivatedBy: req.user.username }
+      payload: { targetUser: user.username, targetFullName: user.fullName, reactivatedBy: req.user.username }
     });
 
     res.json({ message: `Đã kích hoạt lại tài khoản "${user.username}"`, _id: user._id, isActive: true });
@@ -347,7 +347,7 @@ export const assignUserWarehouse = async (req, res, next) => {
     await recordAudit({
       action: 'user.assignWarehouse', userId: req.user._id, username: req.user.username,
       entity: 'user', entityId: Number(userId),
-      payload: { targetUser: user.username, warehouse: warehouse.name }
+      payload: { targetUser: user.username, targetFullName: user.fullName, warehouse: warehouse.name }
     });
 
     res.status(201).json({ message: `Đã phân công kho "${warehouse.name}" cho tài khoản "${user.username}"` });
