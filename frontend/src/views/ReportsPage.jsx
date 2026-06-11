@@ -66,11 +66,12 @@ export const ReportsPage = () => {
   };
 
   // Filtered data in date range
+  // Dùng updatedAt (ngày hoàn tất) thay vì createdAt (ngày lập) để tính đúng kỳ báo cáo
   const filteredReceipts = useMemo(() =>
-    receipts.filter(r => r.status === 'completed' && isInRange(r.createdAt)), [receipts, dateFrom, dateTo]);
+    receipts.filter(r => r.status === 'completed' && isInRange(r.updatedAt || r.createdAt)), [receipts, dateFrom, dateTo]);
 
   const filteredDeliveries = useMemo(() =>
-    deliveries.filter(d => d.status === 'completed' && isInRange(d.createdAt)), [deliveries, dateFrom, dateTo]);
+    deliveries.filter(d => d.status === 'completed' && isInRange(d.updatedAt || d.createdAt)), [deliveries, dateFrom, dateTo]);
 
   // Summary stats
   const totalReceiptValue = filteredReceipts.reduce((s, r) => s + (parseFloat(r.totalAmount) || 0), 0);

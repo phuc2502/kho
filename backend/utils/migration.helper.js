@@ -268,5 +268,90 @@ export const runMigrations = async () => {
     console.warn('Migration warning (delivery-request permissions):', err.message);
   }
 
+  // ——— 13. Thêm Dãy kệ + Kệ chứa vào cấu trúc kho (nếu chưa có) ———
+  // Cấu trúc hiện tại: Kho → Khu vực → Khay (Bin) — bỏ qua 2 cấp giữa.
+  // Migration này thêm: Dãy kệ (aisle) và Kệ chứa (rack), rồi gán lại cha cho các Khay.
+  try {
+    // Tạo Dãy kệ (aisle) cho mỗi Khu vực
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'DA-A', 'Dãy A', 'aisle', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'ZONE-A'
+    `);
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'DA-B', 'Dãy B', 'aisle', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'ZONE-B'
+    `);
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'DA-C', 'Dãy C', 'aisle', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'ZONE-C'
+    `);
+
+    // Tạo Kệ chứa (rack) cho mỗi Dãy kệ
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'KE-A1', 'Kệ A1', 'rack', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'DA-A'
+    `);
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'KE-A2', 'Kệ A2', 'rack', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'DA-A'
+    `);
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'KE-B1', 'Kệ B1', 'rack', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'DA-B'
+    `);
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'KE-B2', 'Kệ B2', 'rack', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'DA-B'
+    `);
+    await sequelize.query(`
+      INSERT IGNORE INTO WarehouseNodes (code, name, type, parent, createdAt, updatedAt)
+      SELECT 'KE-C1', 'Kệ C1', 'rack', _id, NOW(), NOW()
+      FROM WarehouseNodes WHERE code = 'DA-C'
+    `);
+
+    // Gán lại cha cho Khay (Bin) → thuộc về Kệ chứa tương ứng
+    await sequelize.query(`
+      UPDATE WarehouseNodes t1
+      JOIN WarehouseNodes t2 ON t2.code = 'KE-A1'
+      SET t1.parent = t2._id, t1.updatedAt = NOW()
+      WHERE t1.code IN ('VT-A1-01', 'VT-A1-02')
+    `);
+    await sequelize.query(`
+      UPDATE WarehouseNodes t1
+      JOIN WarehouseNodes t2 ON t2.code = 'KE-A2'
+      SET t1.parent = t2._id, t1.updatedAt = NOW()
+      WHERE t1.code IN ('VT-A2-01')
+    `);
+    await sequelize.query(`
+      UPDATE WarehouseNodes t1
+      JOIN WarehouseNodes t2 ON t2.code = 'KE-B1'
+      SET t1.parent = t2._id, t1.updatedAt = NOW()
+      WHERE t1.code IN ('VT-B1-01', 'VT-B1-02')
+    `);
+    await sequelize.query(`
+      UPDATE WarehouseNodes t1
+      JOIN WarehouseNodes t2 ON t2.code = 'KE-B2'
+      SET t1.parent = t2._id, t1.updatedAt = NOW()
+      WHERE t1.code IN ('VT-B2-01')
+    `);
+    await sequelize.query(`
+      UPDATE WarehouseNodes t1
+      JOIN WarehouseNodes t2 ON t2.code = 'KE-C1'
+      SET t1.parent = t2._id, t1.updatedAt = NOW()
+      WHERE t1.code IN ('VT-C1-01', 'VT-C1-02')
+    `);
+
+    console.log('Migration: Warehouse structure expanded with aisle + rack levels');
+  } catch (err) {
+    console.warn('Migration warning (warehouse structure):', err.message);
+  }
+
   console.log('Migrations completed.');
 };

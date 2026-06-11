@@ -122,10 +122,11 @@ export const createDeliveryRequest = async (req, res, next) => {
 
     await recordAudit({
       userId: req.user._id,
-      action: 'CREATE',
-      entity: 'DeliveryRequest',
+      username: req.user.username,
+      action: 'deliveryrequest.create',
+      entity: 'deliveryrequest',
       entityId: request._id,
-      detail: `Tạo yêu cầu xuất kho ${code}`
+      payload: { code, tenKhachHang: req.body.tenKhachHang }
     });
 
     // Trả về record đầy đủ
@@ -161,10 +162,11 @@ export const cancelDeliveryRequest = async (req, res, next) => {
 
     await recordAudit({
       userId: req.user._id,
-      action: 'UPDATE',
-      entity: 'DeliveryRequest',
+      username: req.user.username,
+      action: 'deliveryrequest.cancel',
+      entity: 'deliveryrequest',
       entityId: request._id,
-      detail: `Huỷ yêu cầu xuất kho ${request.code}`
+      payload: { code: request.code }
     });
 
     res.json({ message: 'Đã huỷ yêu cầu', request });
@@ -192,10 +194,11 @@ export const updateDeliveryRequestStatus = async (req, res, next) => {
 
     await recordAudit({
       userId: req.user._id,
-      action: 'UPDATE',
-      entity: 'DeliveryRequest',
+      username: req.user.username,
+      action: 'deliveryrequest.updateStatus',
+      entity: 'deliveryrequest',
       entityId: request._id,
-      detail: `Cập nhật trạng thái yêu cầu ${request.code} → ${status}`
+      payload: { code: request.code, newStatus: status }
     });
 
     res.json(request);

@@ -870,11 +870,11 @@ export const UserManagementPage = () => {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm border-b border-slate-100 z-10">
                   <tr>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-5 py-3 w-48">Tài khoản</th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3">Email</th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-40">Vai trò</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-5 py-3 w-44">Tài khoản</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-56">Email</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-44">Vai trò</th>
                     <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-36">Trạng thái</th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-28">Thao tác</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500 px-4 py-3 w-36">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -908,7 +908,7 @@ export const UserManagementPage = () => {
                         </td>
                         {/* Cột 2: Email */}
                         <td className="px-4 py-3">
-                          <span className="text-sm text-slate-600 truncate block max-w-[220px]">{u.email}</span>
+                          <span className="text-sm text-slate-600 truncate block">{u.email}</span>
                         </td>
                         {/* Vai trò — phải ấn xác nhận mới lưu */}
                         <td className="px-4 py-3">

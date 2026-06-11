@@ -52,6 +52,14 @@ const ACTION_MAP = {
   'user.resetPermissions':  'Reset phân quyền mặc định',
   'user.assignWarehouse':   'Phân công kho',
   'user.removeWarehouse':   'Bỏ phân công kho',
+  // ——— Yêu cầu xuất kho (DeliveryRequest) ———
+  'deliveryrequest.create':       'Tạo yêu cầu xuất kho',
+  'deliveryrequest.cancel':       'Hủy yêu cầu xuất kho',
+  'deliveryrequest.updateStatus': 'Cập nhật trạng thái y/c',
+  // Tương thích ngược với bản ghi cũ dùng raw action
+  'CREATE': 'Tạo mới',
+  'UPDATE': 'Cập nhật',
+  'DELETE': 'Xóa',
 };
 
 const getActionBadgeColor = (action) => {
@@ -71,27 +79,37 @@ const getActionBadgeColor = (action) => {
 // Entity info — loại đối tượng bị tác động
 // ──────────────────────────────────────────────────────────────
 const ENTITY_MAP = {
-  receipt:    { label: 'Phiếu nhập',  color: 'bg-blue-50 text-blue-700' },
-  delivery:   { label: 'Phiếu xuất',  color: 'bg-violet-50 text-violet-700' },
-  product:    { label: 'Sản phẩm',    color: 'bg-emerald-50 text-emerald-700' },
-  category:   { label: 'Danh mục',    color: 'bg-amber-50 text-amber-700' },
-  stocktake:  { label: 'Kiểm kê',     color: 'bg-indigo-50 text-indigo-700' },
-  adjustment: { label: 'Điều chỉnh',  color: 'bg-rose-50 text-rose-700' },
-  incident:   { label: 'Sự cố',       color: 'bg-orange-50 text-orange-700' },
-  warehouse:  { label: 'Vị trí kho',  color: 'bg-cyan-50 text-cyan-700' },
-  partner:    { label: 'Đối tác',     color: 'bg-slate-100 text-slate-600' },
-  user:       { label: 'Tài khoản',   color: 'bg-purple-50 text-purple-700' },
+  receipt:         { label: 'Phiếu nhập',       color: 'bg-blue-50 text-blue-700' },
+  delivery:        { label: 'Phiếu xuất',        color: 'bg-violet-50 text-violet-700' },
+  deliveryrequest: { label: 'Y/c xuất kho',      color: 'bg-rose-50 text-rose-700' },
+  product:         { label: 'Sản phẩm',          color: 'bg-emerald-50 text-emerald-700' },
+  category:        { label: 'Danh mục',          color: 'bg-amber-50 text-amber-700' },
+  stocktake:       { label: 'Kiểm kê',           color: 'bg-indigo-50 text-indigo-700' },
+  adjustment:      { label: 'Điều chỉnh',        color: 'bg-rose-50 text-rose-700' },
+  incident:        { label: 'Sự cố',             color: 'bg-orange-50 text-orange-700' },
+  warehouse:       { label: 'Vị trí kho',        color: 'bg-cyan-50 text-cyan-700' },
+  warehousenode:   { label: 'Vị trí kho',        color: 'bg-cyan-50 text-cyan-700' },
+  partner:         { label: 'Đối tác',           color: 'bg-slate-100 text-slate-600' },
+  user:            { label: 'Tài khoản',         color: 'bg-purple-50 text-purple-700' },
 };
 
 // Lấy mã / tên đối tượng để hiển thị thay cho ID số thuần
 const getEntityIdentifier = (log) => {
-  if (!log.payload) return `#${log.entityId}`;
+  if (!log.payload) return log.entityId ? `#${log.entityId}` : '—';
+  const entityKey = (log.entity || '').toLowerCase();
   // Tài khoản: hiển thị tên đăng nhập thay vì ID
-  if (log.entity === 'user') {
-    return log.payload.username || log.payload.targetUsername || `#${log.entityId}`;
+  if (entityKey === 'user') {
+    return log.payload.username
+      || log.payload.targetUsername
+      || log.payload.targetUser   // user.controller dùng targetUser
+      || (log.entityId ? `#${log.entityId}` : '—');
+  }
+  // Yêu cầu xuất kho: có thể có code hoặc chỉ có entityId
+  if (entityKey === 'deliveryrequest') {
+    return log.payload.code || (log.entityId ? `#${log.entityId}` : '—');
   }
   const { code, name, sku } = log.payload;
-  return code || name || sku || `#${log.entityId}`;
+  return code || name || sku || (log.entityId ? `#${log.entityId}` : '—');
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -214,6 +232,7 @@ export const AuditLogsPage = () => {
             <option value="category">Danh mục</option>
             <option value="receipt">Phiếu Nhập kho</option>
             <option value="delivery">Phiếu Xuất kho</option>
+            <option value="deliveryrequest">Yêu cầu xuất kho</option>
             <option value="stocktake">Kiểm kê</option>
             <option value="adjustment">Điều chỉnh tồn kho</option>
             <option value="incident">Sự cố</option>
@@ -248,7 +267,9 @@ export const AuditLogsPage = () => {
                 {filteredLogs.map(log => {
                   const isExpanded = expandedLogId === log._id;
                   const hasPayload = log.payload && Object.keys(log.payload).length > 0;
-                  const entityInfo = ENTITY_MAP[log.entity];
+                  // Tra cứu entity không phân biệt hoa thường (backend có thể gửi 'DeliveryRequest')
+                  const entityKey = (log.entity || '').toLowerCase();
+                  const entityInfo = ENTITY_MAP[entityKey];
 
                   return (
                     <React.Fragment key={log._id}>
@@ -297,6 +318,7 @@ export const AuditLogsPage = () => {
                           ) : (
                             <span className="text-slate-300 text-xs">—</span>
                           )}
+
                         </td>
 
                         {/* Chi tiết */}
