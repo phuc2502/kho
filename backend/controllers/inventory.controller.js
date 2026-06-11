@@ -1,5 +1,6 @@
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
+import { Category } from '../models/category.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
 
 export const getInventory = async (req, res, next) => {
@@ -16,7 +17,8 @@ export const getInventory = async (req, res, next) => {
         {
           model: Product,
           as: 'product',
-          attributes: ['sku', 'name', 'priceIn', 'priceOut', 'unit']
+          attributes: ['sku', 'name', 'description', 'priceIn', 'priceOut', 'unit'],
+          include: [{ model: Category, as: 'category', attributes: ['name'] }]
         },
         {
           model: WarehouseNode,

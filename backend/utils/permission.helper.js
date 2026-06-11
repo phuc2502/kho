@@ -61,85 +61,85 @@ export const PERMISSION_CATALOG = [
 export const ROLE_DEFAULTS = {
   Admin: null,
 
+  // QuanLyKho: phê duyệt tất cả phiếu, quản lý sản phẩm + kho (không lập phiếu, không quản lý đối tác)
   QuanLyKho: [
-    // Sản phẩm & Danh mục
+    // Sản phẩm & Danh mục (quản lý đầy đủ)
     'product:read', 'product:create', 'product:update', 'product:delete',
     'category:read', 'category:create', 'category:update', 'category:delete',
-    // Kho & Đối tác
+    // Cấu trúc kho (quản lý đầy đủ — không có partner vì Admin quản lý)
     'warehouse:read', 'warehouse:create', 'warehouse:update', 'warehouse:delete',
-    'partner:read', 'partner:create', 'partner:update', 'partner:delete',
-    // Nhập kho
-    'receipt:read', 'receipt:create', 'receipt:update', 'receipt:approve',
+    // Nhập kho (xem + phê duyệt; KeToanKho mới lập phiếu)
+    'receipt:read', 'receipt:update', 'receipt:approve',
     // Yêu cầu xuất kho (xem tất cả yêu cầu từ Sale)
     'delivery-request:read',
-    // Phiếu xuất kho (tạo phiếu từ yêu cầu, duyệt)
-    'delivery:read', 'delivery:create', 'delivery:update', 'delivery:approve',
-    // Kiểm kê & Điều chỉnh
-    'stocktake:read', 'stocktake:create', 'stocktake:approve',
-    'adjustment:read', 'adjustment:create', 'adjustment:approve',
-    // Sự cố
+    // Phiếu xuất kho (xem + phê duyệt; KeToanKho mới lập phiếu)
+    'delivery:read', 'delivery:update', 'delivery:approve',
+    // Kiểm kê & Điều chỉnh (xem + phê duyệt)
+    'stocktake:read', 'stocktake:approve',
+    'adjustment:read', 'adjustment:approve',
+    // Sự cố (xem + xử lý)
     'incident:read', 'incident:create',
-    // Báo cáo
+    // Báo cáo tồn kho
     'inventory:read',
     // audit:read và user:manage chỉ dành cho Admin — không gán cho vai trò khác
   ],
 
+  // KeToanKho: lập phiếu nhập/xuất/kiểm kê/điều chỉnh — không phê duyệt, không quản lý đối tác
   KeToanKho: [
-    // Sản phẩm & Danh mục (xem)
+    // Sản phẩm & Danh mục (chỉ xem)
     'product:read',
     'category:read',
-    // Kho & Đối tác
+    // Cấu trúc kho (chỉ xem)
     'warehouse:read',
-    'partner:read', 'partner:create', 'partner:update',
-    // Nhập kho (lập + sửa, không phê duyệt)
+    // Nhập kho (lập + sửa, không phê duyệt — QuanLyKho phê duyệt)
     'receipt:read', 'receipt:create', 'receipt:update',
-    // Yêu cầu xuất kho (xem)
+    // Yêu cầu xuất kho (xem yêu cầu từ Sale)
     'delivery-request:read',
-    // Phiếu xuất kho (lập + sửa, không phê duyệt)
+    // Phiếu xuất kho (lập + sửa, không phê duyệt — QuanLyKho phê duyệt)
     'delivery:read', 'delivery:create', 'delivery:update',
-    // Kiểm kê & Điều chỉnh (lập, không phê duyệt)
+    // Kiểm kê (lập + đối chiếu, không phê duyệt)
     'stocktake:read', 'stocktake:create',
+    // Điều chỉnh tồn kho (lập sau kiểm kê, không phê duyệt)
     'adjustment:read', 'adjustment:create',
-    // Sự cố
-    'incident:read', 'incident:create',
-    // Báo cáo
+    // Sự cố (xem)
+    'incident:read',
+    // Báo cáo tồn kho
     'inventory:read',
   ],
 
+  // NhanVienKho: thực hiện vật lý nhập/xuất, đếm kiểm kê, báo sự cố khi nhận hàng
   NhanVienKho: [
     // Xem cơ bản
     'product:read',
     'category:read',
     'warehouse:read',
-    // Nhập kho (lập)
-    'receipt:read', 'receipt:create',
+    // Nhập kho (chỉ xem — KeToanKho lập phiếu, NhanVienKho thực hiện nhận hàng vật lý)
+    'receipt:read',
     // Yêu cầu xuất kho (xem)
     'delivery-request:read',
-    // Phiếu xuất kho (lập)
-    'delivery:read', 'delivery:create',
-    // Kiểm kê (chỉ xem)
+    // Phiếu xuất kho (chỉ xem — KeToanKho lập phiếu, NhanVienKho thực hiện xuất hàng vật lý)
+    'delivery:read',
+    // Kiểm kê (chỉ xem — thực hiện đếm theo phiếu đã được tạo)
     'stocktake:read',
-    // Sự cố
+    // Sự cố (lập khi phát hiện thiếu/hỏng lúc nhận hàng)
     'incident:read', 'incident:create',
     // Tồn kho
     'inventory:read',
   ],
 
-  // VT005 — QC: chức năng nhân viên kho + lập phiếu sự cố
+  // QC: kiểm tra chất lượng hàng nhận, báo sự cố chất lượng/thiếu hụt khi nhập kho
   QC: [
     // Xem cơ bản
     'product:read',
     'category:read',
     'warehouse:read',
-    // Nhập kho (lập)
-    'receipt:read', 'receipt:create',
-    // Yêu cầu xuất kho (xem)
-    'delivery-request:read',
-    // Phiếu xuất kho (lập)
-    'delivery:read', 'delivery:create',
+    // Nhập kho (chỉ xem — để kiểm tra đối chiếu khi nhận hàng)
+    'receipt:read',
+    // Phiếu xuất kho (chỉ xem)
+    'delivery:read',
     // Kiểm kê (chỉ xem)
     'stocktake:read',
-    // Sự cố (lập + xem)
+    // Sự cố (chính yếu — lập báo cáo khi hàng nhập không đạt chất lượng hoặc thiếu hụt)
     'incident:read', 'incident:create',
     // Tồn kho
     'inventory:read',
@@ -194,14 +194,15 @@ export const seedPermissionsAndRoleDefaults = async () => {
       });
     }
 
-    // Seed quyền mặc định theo vai trò
+    // Đồng bộ quyền mặc định theo vai trò: xóa bản cũ rồi tạo lại
+    // (dùng destroy + bulkCreate để đảm bảo luôn khớp với ROLE_DEFAULTS hiện tại)
     for (const [roleCode, permCodes] of Object.entries(ROLE_DEFAULTS)) {
       if (!permCodes) continue; // Admin = null, bỏ qua
+      // Xóa toàn bộ quyền cũ của vai trò này
+      await RolePermission.destroy({ where: { roleCode } });
+      // Tạo lại theo danh sách mới
       for (const code of permCodes) {
-        await RolePermission.findOrCreate({
-          where: { roleCode, permissionCode: code },
-          defaults: { roleCode, permissionCode: code }
-        });
+        await RolePermission.create({ roleCode, permissionCode: code });
       }
     }
 

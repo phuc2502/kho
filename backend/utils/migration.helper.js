@@ -388,5 +388,21 @@ export const runMigrations = async () => {
     console.warn('Migration warning (SoSerial):', err.message);
   }
 
+  // ——— 15. Thêm cột minStock vào Inventories ———
+  try {
+    const invDesc = await qi.describeTable('Inventories');
+    if (!invDesc.minStock) {
+      await qi.addColumn('Inventories', 'minStock', {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null,
+        after: 'quantity'
+      });
+      console.log('Migration: Added Inventories.minStock');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Inventories.minStock):', err.message);
+  }
+
   console.log('Migrations completed.');
 };

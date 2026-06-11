@@ -21,7 +21,7 @@ export const ReceiptsPage = () => {
 
   // Quick Incident state
   const [showIncidentModal, setShowIncidentModal] = useState(false);
-  const [incidentType, setIncidentType] = useState('damage');
+  const [incidentType, setIncidentType] = useState('shortage');
   const [incidentNote, setIncidentNote] = useState('');
   const [incidentItems, setIncidentItems] = useState([]);
 
@@ -174,7 +174,7 @@ export const ReceiptsPage = () => {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              const headers = ['Mã phiếu', 'Ghi chú / Lô hàng', 'Ngày lập', 'Tổng tiền', 'Trạng thái'];
+              const headers = ['Mã phiếu', 'Ghi chú', 'Ngày lập', 'Tổng tiền', 'Trạng thái'];
               const rows = receipts.map(r => [r.code, r.ghiChu || '', r.createdAt?.split('T')[0] || '', r.totalAmount || 0, r.status]);
               exportToCSV('phieu_nhap_kho', headers, rows);
             }}
@@ -209,7 +209,7 @@ export const ReceiptsPage = () => {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold uppercase">
                   <th className="px-5 py-4">Mã phiếu</th>
-                  <th className="px-5 py-4">Ghi chú / Lô hàng</th>
+                  <th className="px-5 py-4">Ghi chú</th>
                   <th className="px-5 py-4">Ngày lập</th>
                   <th className="px-5 py-4 text-center">Mặt hàng</th>
                   <th className="px-5 py-4">Trạng thái</th>
@@ -273,14 +273,14 @@ export const ReceiptsPage = () => {
             <form onSubmit={handleCreateReceipt} className="p-6 space-y-6">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Ghi chú / Tên lô hàng
+                  Ghi chú
                   <span className="text-slate-400 font-normal ml-1">(tùy chọn)</span>
                 </label>
                 <input
                   type="text"
                   value={ghiChu}
                   onChange={(e) => setGhiChu(e.target.value)}
-                  placeholder="Ví dụ: Lô nhập tháng 6/2026 – Trục xoay 360°"
+                  placeholder="Ví dụ: Nhập bổ sung tháng 6/2026, hoặc ghi chú đặc biệt về lô hàng..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
                 />
               </div>
@@ -430,7 +430,7 @@ export const ReceiptsPage = () => {
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div className="col-span-2">
-                  <p className="text-slate-400 text-xs uppercase font-semibold tracking-wide">Ghi chú / Lô hàng</p>
+                  <p className="text-slate-400 text-xs uppercase font-semibold tracking-wide">Ghi chú</p>
                   <p className="font-semibold text-slate-800 mt-1">{selectedReceipt.ghiChu || <span className="text-slate-400 italic font-normal">Không có ghi chú</span>}</p>
                 </div>
                 <div>
@@ -585,11 +585,11 @@ export const ReceiptsPage = () => {
                   onChange={(e) => setIncidentType(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
                 >
-                  <option value="damage">Hàng bị hư hỏng (Damage)</option>
-                  <option value="shortage">Thiếu hụt số lượng (Shortage)</option>
-                  <option value="wrong_product">Sai sản phẩm (Wrong product)</option>
-                  <option value="expired">Hàng hết hạn (Expired)</option>
-                  <option value="other">Sự cố khác (Other)</option>
+                  <option value="shortage">Thiếu hụt số lượng</option>
+                  <option value="damage">Hàng bị hư hỏng</option>
+                  <option value="wrong_product">Sai sản phẩm</option>
+                  <option value="expired">Hàng hết hạn</option>
+                  <option value="other">Sự cố khác</option>
                 </select>
               </div>
 

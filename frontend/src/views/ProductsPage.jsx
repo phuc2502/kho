@@ -182,9 +182,22 @@ export const ProductsPage = () => {
     }
   };
 
-  // Filter products
+  // Chuẩn hóa chuỗi: bỏ dấu tiếng Việt, chuyển về chữ thường
+  const COMBINING_MARKS = new RegExp('[\\u0300-\\u036f]', 'g');
+  const normalizeVi = (str = '') =>
+    str.normalize('NFD')
+       .replace(COMBINING_MARKS, '')
+       .replace(/đ/g, 'd')
+       .replace(/Đ/g, 'D')
+       .toLowerCase();
+
+  // Filter products — hỗ trợ tìm không dấu (vd: "linh kien" tìm được "Linh kiện")
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = normalizeVi(searchTerm);
+    const matchesSearch = !q ||
+      normalizeVi(p.name).includes(q) ||
+      normalizeVi(p.sku).includes(q) ||
+      normalizeVi(p.description).includes(q);
     const matchesCategory = categoryFilter ? (p.category?._id === categoryFilter || p.category === categoryFilter) : true;
     return matchesSearch && matchesCategory;
   });

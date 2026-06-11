@@ -34,6 +34,11 @@ export const Inventory = sequelize.define('Inventory', {
     validate: {
       min: 0
     }
+  },
+  minStock: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    defaultValue: null
   }
 }, {
   timestamps: true,
