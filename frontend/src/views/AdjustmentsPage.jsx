@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AdjustmentModel } from '../models/adjustment.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { InventoryModel } from '../models/inventory.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
@@ -13,6 +14,8 @@ export const AdjustmentsPage = () => {
   const [adjustments, setAdjustments] = useState([]);
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
+  const [allNodes, setAllNodes] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -22,19 +25,22 @@ export const AdjustmentsPage = () => {
   // Form states
   const [reason, setReason] = useState('count_correction');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0 }]);
+  const [items, setItems] = useState([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [adjData, pData, wData] = await Promise.all([
+      const [adjData, pData, wData, catData] = await Promise.all([
         AdjustmentModel.getAll(),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setAdjustments(adjData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
+      setAllNodes(wData);
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải phiếu điều chỉnh: ' + error.message);
     } finally {
@@ -47,7 +53,7 @@ export const AdjustmentsPage = () => {
   }, []);
 
   const handleAddItemRow = () => {
-    setItems([...items, { productId: '', warehouseNodeId: '', systemQty: 0, delta: 0 }]);
+    setItems([...items, { productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '', _category: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -73,6 +79,9 @@ export const AdjustmentsPage = () => {
         newItems[idx].systemQty = 0;
       }
     }
+    if (field === '_category') { newItems[idx].productId = ''; }
+    if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNodeId = ''; }
+    if (field === '_rack') { newItems[idx].warehouseNodeId = ''; }
     setItems(newItems);
   };
 
@@ -98,7 +107,7 @@ export const AdjustmentsPage = () => {
       setShowAddModal(false);
       setReason('count_correction');
       setNote('');
-      setItems([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0 }]);
+      setItems([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lập phiếu điều chỉnh thất bại: ' + error.message);
@@ -146,8 +155,8 @@ export const AdjustmentsPage = () => {
       completed: 'bg-emerald-100 text-emerald-700 border-emerald-200'
     };
     const labels = {
-      draft: 'Bản nháp (Draft)',
-      completed: 'Đã hoàn tất (Completed)'
+      draft: 'Bản nháp',
+      completed: 'Đã hoàn tất'
     };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase ${styles[status]}`}>
@@ -156,11 +165,32 @@ export const AdjustmentsPage = () => {
     );
   };
 
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Quản lý Điều chỉnh tồn kho (Adjustment)</h2>
+          <h2 className="text-xl font-bold text-slate-800">Quản lý Điều chỉnh tồn kho</h2>
           <p className="text-sm text-slate-500">Tăng/giảm trực tiếp tồn kho của từng sản phẩm tại vị trí cụ thể</p>
         </div>
         <PermissionGuard permission="adjustment:create">
@@ -260,13 +290,13 @@ export const AdjustmentsPage = () => {
                     onChange={(e) => setReason(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
                   >
-                    <option value="count_correction">Hiệu chỉnh sai số đếm (Count Correction)</option>
-                    <option value="damaged">Hàng bị hư hỏng (Damaged)</option>
-                    <option value="expired">Hàng hết hạn (Expired)</option>
-                    <option value="lost">Thất thoát / Mất mát (Lost)</option>
-                    <option value="found">Tìm thấy hàng thừa (Found)</option>
-                    <option value="return_supplier">Trả hàng nhà cung cấp (Return supplier)</option>
-                    <option value="other">Lý do khác (Other)</option>
+                    <option value="count_correction">Hiệu chỉnh sai số đếm</option>
+                    <option value="damaged">Hàng bị hư hỏng</option>
+                    <option value="expired">Hàng hết hạn</option>
+                    <option value="lost">Thất thoát / Mất mát</option>
+                    <option value="found">Tìm thấy hàng thừa</option>
+                    <option value="return_supplier">Trả hàng nhà cung cấp</option>
+                    <option value="other">Lý do khác</option>
                   </select>
                 </div>
                 <div>
@@ -297,8 +327,13 @@ export const AdjustmentsPage = () => {
                 <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
                   {items.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <div className="col-span-4">
-                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Sản phẩm</label>
+                      <div className="col-span-4 space-y-1">
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-0.5">Sản phẩm</label>
+                        <select value={item._category} onChange={(e) => handleItemChange(idx, '_category', e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                          <option value="">-- Tất cả danh mục --</option>
+                          {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
                         <select
                           required
                           value={item.productId}
@@ -306,25 +341,46 @@ export const AdjustmentsPage = () => {
                           className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
                         >
                           <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => (
+                          {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
                             <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
                           ))}
                         </select>
                       </div>
 
-                      <div className="col-span-3">
-                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Vị trí (Bin)</label>
-                        <select
-                          required
-                          value={item.warehouseNodeId}
-                          onChange={(e) => handleItemChange(idx, 'warehouseNodeId', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
-                        >
-                          <option value="" disabled>-- Chọn vị trí --</option>
-                          {bins.map(b => (
-                            <option key={b._id} value={b._id}>{b.code} ({b.name})</option>
-                          ))}
-                        </select>
+                      <div className="col-span-3 space-y-1">
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Vị trí lưu kho</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5">Khu vực</p>
+                            <select value={item._zone} onChange={(e) => handleItemChange(idx, '_zone', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="">Tất cả</option>
+                              {allNodes.filter(n => n.type === 'zone').map(z => (
+                                <option key={z._id} value={z._id}>{z.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5">Kệ</p>
+                            <select value={item._rack} onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="">Tất cả</option>
+                              {getDescOfType(item._zone, 'rack').map(r => (
+                                <option key={r._id} value={r._id}>{r.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5"><span className="text-red-400">*</span> Bin</p>
+                            <select required value={item.warehouseNodeId} onChange={(e) => handleItemChange(idx, 'warehouseNodeId', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="" disabled>-- Chọn --</option>
+                              {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                                <option key={b._id} value={b._id}>{b.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="col-span-2 text-center bg-slate-100 py-1.5 rounded-lg border border-slate-200 h-[46px] flex flex-col justify-center">

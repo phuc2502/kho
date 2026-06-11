@@ -24,18 +24,13 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (emailOrUsername, password) => {
+  const login = async (emailOrUsername, password, rememberMe = false) => {
     setLoading(true);
     try {
-      const data = await UserModel.login(emailOrUsername, password);
+      const data = await UserModel.login(emailOrUsername, password, rememberMe);
       localStorage.setItem('token', data.token);
-      setUser({
-        _id: data._id,
-        username: data.username,
-        email: data.email,
-        role: data.role,
-        permissions: data.permissions
-      });
+      const { token: _t, ...userData } = data; // lưu tất cả trừ token
+      setUser(userData);
       return data;
     } finally {
       setLoading(false);
@@ -47,6 +42,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  // Cập nhật một phần thông tin user trong state (dùng sau khi đổi MK bắt buộc)
+  const updateUser = (patch) => setUser(prev => prev ? { ...prev, ...patch } : prev);
+
   const hasPermission = (permission) => {
     if (!user) return false;
     if (user.role === 'Admin') return true;
@@ -54,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, hasPermission, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

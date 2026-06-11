@@ -7,7 +7,7 @@ export const getWarehouseNodes = async (req, res, next) => {
         {
           model: WarehouseNode,
           as: 'parent',
-          attributes: ['name', 'code', 'type']
+          attributes: ['_id', 'name', 'code', 'type']
         }
       ],
       order: [['code', 'ASC']]

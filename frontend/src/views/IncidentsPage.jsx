@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { IncidentModel } from '../models/incident.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ReceiptModel } from '../models/receipt.model.js';
-import { DeliveryModel } from '../models/delivery.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ export const IncidentsPage = () => {
   const [incidents, setIncidents] = useState([]);
   const [products, setProducts] = useState([]);
   const [receipts, setReceipts] = useState([]);
-  const [deliveries, setDeliveries] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -21,11 +21,10 @@ export const IncidentsPage = () => {
   const [selectedIncident, setSelectedIncident] = useState(null);
 
   // Form States
-  const [type, setType] = useState('damage');
-  const [refType, setRefType] = useState('');
+  const [type, setType] = useState('shortage');
   const [refId, setRefId] = useState('');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState([{ productId: '', quantity: 1 }]);
+  const [items, setItems] = useState([{ productId: '', quantity: 1, _category: '' }]);
 
   // Detail/Edit States
   const [editStatus, setEditStatus] = useState('open');
@@ -35,16 +34,16 @@ export const IncidentsPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [incData, pData, rData, dData] = await Promise.all([
+      const [incData, pData, rData, catData] = await Promise.all([
         IncidentModel.getAll(),
         ProductModel.getAll(),
         ReceiptModel.getAll(),
-        DeliveryModel.getAll()
+        CategoryModel.getAll()
       ]);
       setIncidents(incData);
       setProducts(pData);
       setReceipts(rData);
-      setDeliveries(dData);
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu sự cố: ' + error.message);
     } finally {
@@ -57,7 +56,7 @@ export const IncidentsPage = () => {
   }, []);
 
   const handleAddItemRow = () => {
-    setItems([...items, { productId: '', quantity: 1 }]);
+    setItems([...items, { productId: '', quantity: 1, _category: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -67,6 +66,7 @@ export const IncidentsPage = () => {
   const handleItemChange = (idx, field, val) => {
     const newItems = [...items];
     newItems[idx][field] = val;
+    if (field === '_category') { newItems[idx].productId = ''; }
     setItems(newItems);
   };
 
@@ -81,7 +81,7 @@ export const IncidentsPage = () => {
     try {
       await IncidentModel.create({
         type,
-        refType: refType || null,
+        refType: 'receipt',
         refId: refId ? Number(refId) : null,
         note,
         items: items.map(item => ({
@@ -91,11 +91,10 @@ export const IncidentsPage = () => {
       });
       toast.success('Báo cáo sự cố thành công');
       setShowAddModal(false);
-      setType('damage');
-      setRefType('');
+      setType('shortage');
       setRefId('');
       setNote('');
-      setItems([{ productId: '', quantity: 1 }]);
+      setItems([{ productId: '', quantity: 1, _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi báo cáo sự cố: ' + error.message);
@@ -159,9 +158,9 @@ export const IncidentsPage = () => {
       closed: 'bg-slate-100 text-slate-700 border-slate-200'
     };
     const labels = {
-      open: 'Đang mở (Open)',
-      resolved: 'Đã giải quyết (Resolved)',
-      closed: 'Đã đóng (Closed)'
+      open: 'Đang mở',
+      resolved: 'Đã giải quyết',
+      closed: 'Đã đóng'
     };
     return (
       <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase ${styles[status]}`}>
@@ -174,21 +173,17 @@ export const IncidentsPage = () => {
     if (!rType || !rId) return '-';
     if (rType === 'receipt') {
       const rec = receipts.find(r => r._id === rId);
-      return rec ? `Phiếu nhập: ${rec.code}` : `Receipt ID: ${rId}`;
+      return rec ? `Phiếu nhập: ${rec.code}` : `Phiếu nhập #${rId}`;
     }
-    if (rType === 'delivery') {
-      const del = deliveries.find(d => d._id === rId);
-      return del ? `Phiếu xuất: ${del.code}` : `Delivery ID: ${rId}`;
-    }
-    return `${rType} ID: ${rId}`;
+    return `#${rId}`;
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Báo cáo Sự cố (Incidents)</h2>
-          <p className="text-sm text-slate-500">Quản lý và giải quyết các lỗi/sự cố liên quan đến hàng hỏng, thiếu hụt</p>
+          <h2 className="text-xl font-bold text-slate-800">Báo cáo Sự cố Nhập kho</h2>
+          <p className="text-sm text-slate-500">Ghi nhận sự cố khi nhận hàng: thiếu hụt số lượng hoặc hàng không đạt chất lượng</p>
         </div>
         <PermissionGuard permission="incident:create">
           <button
@@ -278,7 +273,11 @@ export const IncidentsPage = () => {
               </button>
             </div>
             <form onSubmit={handleCreateIncident} className="p-6 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Sự cố chỉ được ghi nhận trong quá trình <strong>nhập kho</strong>: thiếu hụt số lượng hoặc hàng không đạt chất lượng khi nhận từ nhà cung cấp.</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">Loại sự cố *</label>
                   <select
@@ -287,42 +286,23 @@ export const IncidentsPage = () => {
                     onChange={(e) => setType(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
                   >
-                    <option value="damage">Hàng bị hư hỏng (Damage)</option>
-                    <option value="shortage">Thiếu hụt số lượng (Shortage)</option>
-                    <option value="wrong_product">Sai sản phẩm (Wrong product)</option>
-                    <option value="expired">Hàng hết hạn (Expired)</option>
-                    <option value="other">Sự cố khác (Other)</option>
+                    <option value="shortage">Thiếu hụt số lượng</option>
+                    <option value="damage">Hàng bị hư hỏng</option>
+                    <option value="wrong_product">Sai sản phẩm</option>
+                    <option value="expired">Hàng hết hạn</option>
+                    <option value="other">Sự cố khác</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Liên kết phiếu (tùy chọn)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Liên kết Phiếu Nhập Kho</label>
                   <select
-                    value={refType}
-                    onChange={(e) => {
-                      setRefType(e.target.value);
-                      setRefId('');
-                    }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
-                  >
-                    <option value="">-- Không liên kết --</option>
-                    <option value="receipt">Phiếu Nhập Kho (Receipt)</option>
-                    <option value="delivery">Phiếu Xuất Kho (Delivery)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Chọn Mã phiếu liên kết</label>
-                  <select
-                    disabled={!refType}
                     value={refId}
                     onChange={(e) => setRefId(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500 disabled:opacity-50"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-sm focus:outline-none focus:border-primary-500"
                   >
-                    <option value="">-- Chọn phiếu --</option>
-                    {refType === 'receipt' && receipts.map(r => (
-                      <option key={r._id} value={r._id}>{r.code} ({r.partner?.name})</option>
-                    ))}
-                    {refType === 'delivery' && deliveries.map(d => (
-                      <option key={d._id} value={d._id}>{d.code} ({d.partner?.name})</option>
+                    <option value="">-- Chọn phiếu nhập --</option>
+                    {receipts.map(r => (
+                      <option key={r._id} value={r._id}>{r.code}{r.ghiChu ? ` – ${r.ghiChu}` : ''}</option>
                     ))}
                   </select>
                 </div>
@@ -355,7 +335,14 @@ export const IncidentsPage = () => {
                 <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2">
                   {items.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <div className="col-span-8">
+                      <div className="col-span-8 space-y-1">
+                        <select value={item._category} onChange={(e) => handleItemChange(idx, '_category', e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                          <option value="">-- Tất cả danh mục --</option>
+                          {categories.map(c => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                          ))}
+                        </select>
                         <select
                           required
                           value={item.productId}
@@ -363,7 +350,7 @@ export const IncidentsPage = () => {
                           className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
                         >
                           <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => (
+                          {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
                             <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
                           ))}
                         </select>
@@ -496,9 +483,9 @@ export const IncidentsPage = () => {
                       onChange={(e) => setEditStatus(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
                     >
-                      <option value="open">Đang mở (Open)</option>
-                      <option value="resolved">Đã giải quyết (Resolved)</option>
-                      <option value="closed">Đã đóng (Closed)</option>
+                      <option value="open">Đang mở</option>
+                      <option value="resolved">Đã giải quyết</option>
+                      <option value="closed">Đã đóng</option>
                     </select>
                   </div>
                   <div>
@@ -508,11 +495,11 @@ export const IncidentsPage = () => {
                       onChange={(e) => setEditAction(e.target.value)}
                       className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
                     >
-                      <option value="pending">Đang chờ xử lý (Pending)</option>
-                      <option value="reorder">Đặt hàng lại (Reorder)</option>
-                      <option value="dispose">Tiêu hủy hàng lỗi (Dispose)</option>
-                      <option value="return_supplier">Trả lại nhà cung cấp (Return supplier)</option>
-                      <option value="write_off">Khấu trừ tài sản (Write-off)</option>
+                      <option value="pending">Đang chờ xử lý</option>
+                      <option value="reorder">Đặt hàng lại</option>
+                      <option value="dispose">Tiêu hủy hàng lỗi</option>
+                      <option value="return_supplier">Trả lại nhà cung cấp</option>
+                      <option value="write_off">Khấu trừ tài sản</option>
                     </select>
                   </div>
                 </div>

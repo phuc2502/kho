@@ -1,158 +1,477 @@
 import { sequelize, connectDB } from '../config/db.js';
-import { User } from '../models/user.model.js';
-import { Category } from '../models/category.model.js';
-import { Product } from '../models/product.model.js';
-import { Partner } from '../models/partner.model.js';
-import { WarehouseNode } from '../models/warehouseNode.model.js';
-import { Inventory } from '../models/inventory.model.js';
+import { User }                    from '../models/user.model.js';
+import { Category }                from '../models/category.model.js';
+import { Product }                 from '../models/product.model.js';
+import { WarehouseNode }            from '../models/warehouseNode.model.js';
+import { Inventory }               from '../models/inventory.model.js';
+import { Receipt, ReceiptItem }    from '../models/receipt.model.js';
+import { Delivery, DeliveryItem }  from '../models/delivery.model.js';
+import { Stocktake, StocktakeItem }from '../models/stocktake.model.js';
+import { Incident, IncidentItem }  from '../models/incident.model.js';
+import { DeliveryRequest, DeliveryRequestItem } from '../models/deliveryRequest.model.js';
+
+// helper: SET createdAt/updatedAt via raw SQL sau khi tạo (timestamps: true không cho set trực tiếp)
+const setDates = async (table, id, createdDaysAgo, updatedDaysAgo = createdDaysAgo - 1) => {
+  await sequelize.query(
+    `UPDATE ${table} SET createdAt = DATE_SUB(NOW(), INTERVAL ? DAY),
+                         updatedAt = DATE_SUB(NOW(), INTERVAL ? DAY)
+     WHERE _id = ?`,
+    { replacements: [createdDaysAgo, updatedDaysAgo, id] }
+  );
+};
 
 const seed = async () => {
   try {
     await connectDB();
-    console.log('Syncing database (force: true) for seeding...');
+    console.log('Syncing database (force: true)…');
     await sequelize.sync({ force: true });
-    console.log('Database synced. Cleared existing tables.');
+    console.log('Database cleared.\n');
 
-    // 1. Seed Users
-    const admin = await User.create({
-      username: 'admin',
-      email: 'admin@wms.local',
-      password: 'admin_password_123',
-      role: 'Admin',
-      permissions: ['user:manage']
+    // ══════════════════════════════════════════════════════════════
+    // 1. USERS (7 tài khoản)
+    // ══════════════════════════════════════════════════════════════
+    const admin      = await User.create({ username:'admin',      email:'admin@fositek.vn',         password:'admin123',    role:'Admin',        fullName:'Nguyễn Thành Đạt',   phone:'0836417501' });
+    const manager    = await User.create({ username:'quanly',     email:'hoang.vu@fositek.vn',      password:'quanly123',   role:'QuanLyKho',    fullName:'Vũ Xuân Hoàng',      phone:'0836417502' });
+    const accountant1= await User.create({ username:'ketoan1',    email:'lananh.tran@fositek.vn',   password:'ketoan123',   role:'KeToanKho',    fullName:'Trần Thị Lan Anh',   phone:'0836417503' });
+    const staff1     = await User.create({ username:'nhanvien1',  email:'tuan.pham@fositek.vn',     password:'nhanvien123', role:'NhanVienKho',  fullName:'Phạm Văn Tuấn',      phone:'0836417504' });
+    const staff2     = await User.create({ username:'nhanvien2',  email:'hung.le@fositek.vn',       password:'nhanvien123', role:'NhanVienKho',  fullName:'Lê Quang Hưng',      phone:'0836417505' });
+    const qc         = await User.create({ username:'qc',         email:'ngoc.do@fositek.vn',       password:'qc123456',    role:'QC',           fullName:'Đỗ Thị Ngọc',        phone:'0836417506', position:'Nhân viên QC' });
+    const accountant2= await User.create({ username:'ketoan2',    email:'hang.bui@fositek.vn',      password:'ketoan123',   role:'KeToanKho',    fullName:'Bùi Thị Hằng',       phone:'0836417508' });
+    const sale       = await User.create({ username:'sale',       email:'sale.nguyen@fositek.vn',   password:'sale1234',    role:'Sale',         fullName:'Nguyễn Minh Khoa',   phone:'0836417509', position:'Nhân viên Kinh doanh' });
+
+    console.log('✓ Users (8)');
+
+    // ══════════════════════════════════════════════════════════════
+    // 2. CATEGORIES
+    // ══════════════════════════════════════════════════════════════
+    const catHinge = await Category.create({ name:'Trục xoay máy tính (Bản lề)',       description:'Linh kiện trục xoay (hinge) dùng cho màn hình laptop: loại 360° cho 2-in-1 convertible và 180° cho laptop thông thường. Vật liệu: hợp kim kẽm ZA-8, thép không gỉ SUS304.' });
+    const catSlide = await Category.create({ name:'Thanh trượt máy tính (Slide Rail)', description:'Thanh ray dẫn hướng và cơ cấu trượt định vị dùng trong cụm bàn phím và khung màn hình laptop. Vật liệu: thép không gỉ SUS301, nhôm hợp kim 6061-T6.' });
+    const catMIM   = await Category.create({ name:'Linh kiện MIM (Kim loại đúc áp lực)',description:'Các chi tiết kim loại chính xác cao sản xuất bằng công nghệ Metal Injection Molding (MIM): giá đỡ bản lề, khung viền camera. Quản lý theo serial do giá trị cao và yêu cầu truy xuất nguồn gốc.' });
+    console.log('✓ Categories (3)');
+
+    // ══════════════════════════════════════════════════════════════
+    // 3. PRODUCTS (6 SKU)
+    // ══════════════════════════════════════════════════════════════
+    const p1 = await Product.create({ sku:'FST-H360-14',    name:'Trục xoay 360° FST-H360-14',       description:'Trục xoay (hinge) 360° cho laptop convertible/2-in-1 màn hình 14". Vật liệu: ZA-8 + SUS304. Mô-men xoắn: 1.8 N·m. Độ bền: 30.000 chu kỳ.',              priceIn:18000,  priceOut:30000, unit:'Cái', categoryId:catHinge._id });
+    const p2 = await Product.create({ sku:'FST-H180-156',   name:'Trục xoay 180° FST-H180-156',      description:'Trục xoay (hinge) 180° cho laptop thông thường màn hình 15.6". Vật liệu: ZA-8. Mô-men xoắn: 1.2 N·m. Độ bền: 20.000 chu kỳ.',                       priceIn:13500,  priceOut:22000, unit:'Cái', categoryId:catHinge._id });
+    const p3 = await Product.create({ sku:'FST-SLK-380',    name:'Thanh ray dẫn hướng FST-SLK-380',  description:'Thanh ray dẫn hướng (keyboard slide rail) dài 380mm dùng trong cụm bàn phím laptop. Vật liệu: SUS301. Hành trình: 8mm. Lực trượt: 0.3–0.5N.',        priceIn:28000,  priceOut:46000, unit:'Bộ', categoryId:catSlide._id });
+    const p4 = await Product.create({ sku:'FST-SL2IN1-135', name:'Cơ cấu trượt 2-in-1 FST-SL2IN1-135',description:'Cơ cấu trượt và định vị góc cho laptop 2-in-1 tháo rời bàn phím. Vật liệu: nhôm 6061-T6. Góc dừng: 0°–135°. Lực giữ: 2.5N. Độ bền: 100.000 chu kỳ.',priceIn:58000, priceOut:92000, unit:'Bộ', categoryId:catSlide._id });
+    const p5 = await Product.create({ sku:'FST-MIM-HB14',   name:'Giá đỡ bản lề MIM FST-MIM-HB14',   description:'Chi tiết giá đỡ hinge bracket nối trục xoay vào khung máy laptop 14", sản xuất bằng MIM. Vật liệu: thép 17-4PH (H900). Kích thước: 38×22×4mm.',     priceIn:105000, priceOut:162000,unit:'Cái', categoryId:catMIM._id });
+    const p6 = await Product.create({ sku:'FST-MIM-CB01',   name:'Khung viền camera MIM FST-MIM-CB01',description:'Khung gắn và bảo vệ module camera laptop (camera bezel frame), sản xuất bằng MIM. Vật liệu: thép 316L. Kích thước: 25×8×3mm. Xử lý: electropolish + PVD.',priceIn:88000, priceOut:136000,unit:'Cái', categoryId:catMIM._id });
+    console.log('✓ Products (6)');
+
+    // ══════════════════════════════════════════════════════════════
+    // 4. WAREHOUSE NODES
+    // ══════════════════════════════════════════════════════════════
+    const wh    = await WarehouseNode.create({ name:'Kho thành phẩm FOSITEK – Hà Nam', code:'WH-FST-HN',  type:'warehouse' });
+    const zoneA = await WarehouseNode.create({ name:'Khu A – Trục xoay',               code:'ZONE-A',     type:'zone', parentId:wh._id });
+    const zoneB = await WarehouseNode.create({ name:'Khu B – Thanh trượt',             code:'ZONE-B',     type:'zone', parentId:wh._id });
+    const zoneC = await WarehouseNode.create({ name:'Khu C – MIM',                     code:'ZONE-C',     type:'zone', parentId:wh._id });
+    const binA101 = await WarehouseNode.create({ name:'Kệ A1, Hàng 1', code:'VT-A1-01', type:'bin', parentId:zoneA._id });
+    const binA102 = await WarehouseNode.create({ name:'Kệ A1, Hàng 2', code:'VT-A1-02', type:'bin', parentId:zoneA._id });
+    const binA201 = await WarehouseNode.create({ name:'Kệ A2, Hàng 1', code:'VT-A2-01', type:'bin', parentId:zoneA._id });
+    const binB101 = await WarehouseNode.create({ name:'Kệ B1, Hàng 1', code:'VT-B1-01', type:'bin', parentId:zoneB._id });
+    const binB102 = await WarehouseNode.create({ name:'Kệ B1, Hàng 2', code:'VT-B1-02', type:'bin', parentId:zoneB._id });
+    const binB201 = await WarehouseNode.create({ name:'Kệ B2, Hàng 1', code:'VT-B2-01', type:'bin', parentId:zoneB._id });
+    const binC101 = await WarehouseNode.create({ name:'Kệ C1, Hàng 1', code:'VT-C1-01', type:'bin', parentId:zoneC._id });
+    const binC102 = await WarehouseNode.create({ name:'Kệ C1, Hàng 2', code:'VT-C1-02', type:'bin', parentId:zoneC._id });
+    console.log('✓ Warehouse: WH-FST-HN → A/B/C → 8 bins');
+
+    // ══════════════════════════════════════════════════════════════
+    // 5. INVENTORY (tồn kho hiện tại)
+    //    Ghi chú: một số bin sẽ được đặt ngày cũ để test widget "tồn lâu ngày"
+    // ══════════════════════════════════════════════════════════════
+    const inv1 = await Inventory.create({ productId:p1._id, warehouseNodeId:binA101._id, quantity:97  });
+    const inv2 = await Inventory.create({ productId:p1._id, warehouseNodeId:binA102._id, quantity:200 });
+    const inv3 = await Inventory.create({ productId:p2._id, warehouseNodeId:binA201._id, quantity:200 });
+    const inv4 = await Inventory.create({ productId:p3._id, warehouseNodeId:binB101._id, quantity:300 });
+    const inv5 = await Inventory.create({ productId:p3._id, warehouseNodeId:binB102._id, quantity:400 });
+    const inv6 = await Inventory.create({ productId:p4._id, warehouseNodeId:binB201._id, quantity:200 });
+    const inv7 = await Inventory.create({ productId:p5._id, warehouseNodeId:binC101._id, quantity:7   });
+    const inv8 = await Inventory.create({ productId:p6._id, warehouseNodeId:binC102._id, quantity:5   });
+
+    // ▶ Giả lập "tồn lâu ngày": cập nhật updatedAt của một số bin về quá 30 ngày trước
+    //   binB102 (SLK-380, 400 bộ): updatedAt = 65 ngày trước
+    //   binC101 (MIM-HB14, 7 cái): updatedAt = 92 ngày trước
+    //   inv6    (SL2IN1, 200 bộ):  updatedAt = 48 ngày trước
+    await sequelize.query(`UPDATE Inventories SET updatedAt=DATE_SUB(NOW(),INTERVAL 65 DAY) WHERE _id=?`, { replacements:[inv5._id] });
+    await sequelize.query(`UPDATE Inventories SET updatedAt=DATE_SUB(NOW(),INTERVAL 92 DAY) WHERE _id=?`, { replacements:[inv7._id] });
+    await sequelize.query(`UPDATE Inventories SET updatedAt=DATE_SUB(NOW(),INTERVAL 48 DAY) WHERE _id=?`, { replacements:[inv6._id] });
+
+    console.log('✓ Inventory (8 dòng); 3 bin đặt updatedAt cũ cho widget tồn-lâu-ngày');
+
+    // ══════════════════════════════════════════════════════════════
+    // 6. RECEIPTS (5 phiếu nhập)
+    // ══════════════════════════════════════════════════════════════
+    const rc1 = await Receipt.create({ code:'RC-2026-00001', ghiChu:'Lô tháng 1/2026 – Trục xoay 360° & 180°',          totalAmount:(500*18000)+(300*13500), createdByUserId:staff1._id,  status:'completed' });
+    await ReceiptItem.create({ receiptId:rc1._id, productId:p1._id, quantity:500, price:18000, warehouseNodeId:binA101._id });
+    await ReceiptItem.create({ receiptId:rc1._id, productId:p2._id, quantity:300, price:13500, warehouseNodeId:binA201._id });
+    await setDates('Receipts', rc1._id, 90, 88);
+
+    const rc2 = await Receipt.create({ code:'RC-2026-00002', ghiChu:'Lô tháng 2/2026 – Thanh ray & cơ cấu trượt',       totalAmount:(700*28000)+(200*58000), createdByUserId:staff1._id,  status:'completed' });
+    await ReceiptItem.create({ receiptId:rc2._id, productId:p3._id, quantity:700, price:28000, warehouseNodeId:binB101._id });
+    await ReceiptItem.create({ receiptId:rc2._id, productId:p4._id, quantity:200, price:58000, warehouseNodeId:binB201._id });
+    await setDates('Receipts', rc2._id, 75, 73);
+
+    const rc3 = await Receipt.create({ code:'RC-2026-00003', ghiChu:'Lô tháng 3/2026 – Linh kiện MIM (HB14 + CB01)',    totalAmount:(10*105000)+(5*88000),  createdByUserId:staff2._id,  status:'approved' });
+    await ReceiptItem.create({ receiptId:rc3._id, productId:p5._id, quantity:10,  price:105000, warehouseNodeId:binC101._id });
+    await ReceiptItem.create({ receiptId:rc3._id, productId:p6._id, quantity:5,   price:88000,  warehouseNodeId:binC102._id });
+    await setDates('Receipts', rc3._id, 45, 45);
+
+    const rc4 = await Receipt.create({ code:'RC-2026-00004', ghiChu:'Lô bổ sung tháng 5/2026 – Trục xoay & thanh ray',  totalAmount:(200*18000)+(300*28000), createdByUserId:staff1._id,  status:'draft' });
+    await ReceiptItem.create({ receiptId:rc4._id, productId:p1._id, quantity:200, price:18000, warehouseNodeId:binA102._id });
+    await ReceiptItem.create({ receiptId:rc4._id, productId:p3._id, quantity:300, price:28000, warehouseNodeId:binB102._id });
+    await setDates('Receipts', rc4._id, 5, 3);
+
+    const rc5 = await Receipt.create({ code:'RC-2026-00005', ghiChu:'Lô tháng 4/2026 – Từ chối do QC không đạt (lỗi bề mặt)', totalAmount:(150*13500), createdByUserId:staff2._id, status:'rejected' });
+    await ReceiptItem.create({ receiptId:rc5._id, productId:p2._id, quantity:150, price:13500, warehouseNodeId:binA201._id });
+    await setDates('Receipts', rc5._id, 30, 29);
+
+    console.log('✓ Receipts (5): completed×2, approved×1, draft×1, rejected×1');
+
+    // ══════════════════════════════════════════════════════════════
+    // 7. DELIVERIES (14 phiếu xuất)
+    //    ── 7 phiếu lịch sử (> 30 ngày, completed) ──────────────
+    //    ── 5 phiếu gần đây (≤ 30 ngày, completed) ──────────────
+    //    ── 2 phiếu chờ xử lý (draft + approved) ────────────────
+    // ══════════════════════════════════════════════════════════════
+
+    // ── Lịch sử (widget "Top 10 xuất nhiều nhất") ────────────────
+
+    // DL-001 Samsung – Trục xoay (75 ngày trước)
+    const dl1 = await Delivery.create({
+      code:'DL-2026-00001', tenKhachHang:'Samsung Electronics Vietnam',
+      totalAmount:(150*30000)+(80*22000), status:'completed', createdByUserId:staff1._id
     });
+    await DeliveryItem.create({ deliveryId:dl1._id, productId:p1._id, quantity:150, price:30000, warehouseNodeId:binA101._id });
+    await DeliveryItem.create({ deliveryId:dl1._id, productId:p2._id, quantity:80,  price:22000, warehouseNodeId:binA201._id });
+    await setDates('Deliveries', dl1._id, 75, 74);
 
-    const managerPermissions = [
-      'product:read', 'product:create', 'product:update',
-      'category:read', 'category:create', 'category:update',
-      'warehouse:read', 'warehouse:create', 'warehouse:update',
-      'partner:read', 'partner:create', 'partner:update',
-      'receipt:read', 'receipt:create', 'receipt:approve',
-      'delivery:read', 'delivery:create', 'delivery:approve',
-      'inventory:read'
-    ];
-    const manager = await User.create({
-      username: 'manager',
-      email: 'manager@wms.local',
-      password: 'manager_password_123',
-      role: 'Manager',
-      permissions: managerPermissions
+    // DL-002 Dell – Thanh ray (65 ngày trước)
+    const dl2 = await Delivery.create({
+      code:'DL-2026-00002', tenKhachHang:'Dell Technologies Vietnam',
+      totalAmount:(200*46000), status:'completed', createdByUserId:staff2._id
     });
+    await DeliveryItem.create({ deliveryId:dl2._id, productId:p3._id, quantity:200, price:46000, warehouseNodeId:binB101._id });
+    await setDates('Deliveries', dl2._id, 65, 64);
 
-    const staffPermissions = [
-      'product:read',
-      'category:read',
-      'warehouse:read',
-      'partner:read',
-      'receipt:read', 'receipt:create',
-      'delivery:read', 'delivery:create',
-      'inventory:read'
-    ];
-    const staff = await User.create({
-      username: 'staff',
-      email: 'staff@wms.local',
-      password: 'staff_password_123',
-      role: 'Staff',
-      permissions: staffPermissions
+    // DL-003 HP – Trục xoay 360° & cơ cấu trượt (55 ngày trước)
+    const dl3 = await Delivery.create({
+      code:'DL-2026-00003', tenKhachHang:'HP Vietnam Sales',
+      totalAmount:(100*30000)+(100*92000), status:'completed', createdByUserId:accountant1._id
     });
+    await DeliveryItem.create({ deliveryId:dl3._id, productId:p1._id, quantity:100, price:30000, warehouseNodeId:binA101._id });
+    await DeliveryItem.create({ deliveryId:dl3._id, productId:p4._id, quantity:100, price:92000, warehouseNodeId:binB201._id });
+    await setDates('Deliveries', dl3._id, 55, 54);
 
-    console.log('Seeded Users:');
-    console.log(`- Admin: admin@wms.local / admin_password_123`);
-    console.log(`- Manager: manager@wms.local / manager_password_123`);
-    console.log(`- Staff: staff@wms.local / staff_password_123`);
-
-    // 2. Seed Categories
-    const electronics = await Category.create({ name: 'Điện tử', description: 'Thiết bị điện tử gia dụng và linh kiện' });
-    const clothes = await Category.create({ name: 'Thời trang', description: 'Quần áo thời trang nam nữ' });
-    const foods = await Category.create({ name: 'Thực phẩm', description: 'Đồ khô, nước giải khát đóng chai' });
-
-    console.log('Seeded Categories.');
-
-    // 3. Seed Products
-    const phone = await Product.create({
-      sku: 'PHONE12',
-      name: 'Điện thoại iPhone 12',
-      description: 'Phiên bản 64GB màu xanh đen',
-      priceIn: 10000000,
-      priceOut: 12500000,
-      unit: 'Cái',
-      categoryId: electronics._id
+    // DL-004 Lenovo – MIM (50 ngày trước)
+    const dl4 = await Delivery.create({
+      code:'DL-2026-00004', tenKhachHang:'Lenovo Technology Vietnam',
+      totalAmount:(3*162000)+(2*136000), status:'completed', createdByUserId:staff1._id
     });
+    await DeliveryItem.create({ deliveryId:dl4._id, productId:p5._id, quantity:3, price:162000, warehouseNodeId:binC101._id });
+    await DeliveryItem.create({ deliveryId:dl4._id, productId:p6._id, quantity:2, price:136000, warehouseNodeId:binC102._id });
+    await setDates('Deliveries', dl4._id, 50, 49);
 
-    const shirt = await Product.create({
-      sku: 'SHIRTM',
-      name: 'Áo sơ mi nam size M',
-      description: 'Áo sơ mi trắng công sở chất liệu cotton',
-      priceIn: 150000,
-      priceOut: 250000,
-      unit: 'Cái',
-      categoryId: clothes._id
+    // DL-005 Asus – Thanh ray (42 ngày trước)
+    const dl5 = await Delivery.create({
+      code:'DL-2026-00005', tenKhachHang:'Asus Technology Vietnam',
+      totalAmount:(250*46000)+(80*92000), status:'completed', createdByUserId:accountant2._id
     });
+    await DeliveryItem.create({ deliveryId:dl5._id, productId:p3._id, quantity:250, price:46000, warehouseNodeId:binB101._id });
+    await DeliveryItem.create({ deliveryId:dl5._id, productId:p4._id, quantity:80,  price:92000, warehouseNodeId:binB201._id });
+    await setDates('Deliveries', dl5._id, 42, 41);
 
-    const milk = await Product.create({
-      sku: 'MILKBOX',
-      name: 'Sữa tươi tiệt trùng Vinamilk',
-      description: 'Thùng 48 hộp 180ml ít đường',
-      priceIn: 300000,
-      priceOut: 350000,
-      unit: 'Thùng',
-      categoryId: foods._id
+    // DL-006 LG – Trục xoay + 180° (38 ngày trước)
+    const dl6 = await Delivery.create({
+      code:'DL-2026-00006', tenKhachHang:'LG Electronics Vietnam',
+      totalAmount:(80*30000)+(50*22000), status:'completed', createdByUserId:staff1._id
     });
+    await DeliveryItem.create({ deliveryId:dl6._id, productId:p1._id, quantity:80, price:30000, warehouseNodeId:binA101._id });
+    await DeliveryItem.create({ deliveryId:dl6._id, productId:p2._id, quantity:50, price:22000, warehouseNodeId:binA201._id });
+    await setDates('Deliveries', dl6._id, 38, 37);
 
-    console.log('Seeded Products.');
-
-    // 4. Seed Partners
-    const partnerSupplier = await Partner.create({
-      name: 'Công ty TNHH Nhập khẩu Tân Bình',
-      type: 'supplier',
-      email: 'info@tanbinh.com',
-      phone: '0987654321',
-      address: '123 Cộng Hòa, Tân Bình, TP.HCM'
+    // DL-007 Acer – 180° & SL2IN1 (35 ngày trước)
+    const dl7 = await Delivery.create({
+      code:'DL-2026-00007', tenKhachHang:'Acer Inc. Vietnam Branch',
+      totalAmount:(120*22000)+(60*92000), status:'completed', createdByUserId:staff2._id
     });
+    await DeliveryItem.create({ deliveryId:dl7._id, productId:p2._id, quantity:120, price:22000, warehouseNodeId:binA201._id });
+    await DeliveryItem.create({ deliveryId:dl7._id, productId:p4._id, quantity:60,  price:92000, warehouseNodeId:binB201._id });
+    await setDates('Deliveries', dl7._id, 35, 34);
 
-    const partnerCustomer = await Partner.create({
-      name: 'Cửa hàng Bán lẻ Gia Hưng',
-      type: 'customer',
-      email: 'giahung@gmail.com',
-      phone: '0123456789',
-      address: '456 Lê Lợi, Quận 1, TP.HCM'
+    // ── Gần đây ≤30 ngày (widget "Tốc độ tiêu thụ 30 ngày") ──────
+
+    // DL-008 Samsung Q2 – Trục xoay & thanh ray (20 ngày trước)
+    const dl8 = await Delivery.create({
+      code:'DL-2026-00008', tenKhachHang:'Samsung Electronics Vietnam',
+      totalAmount:(200*30000)+(100*46000), status:'completed', createdByUserId:accountant1._id
     });
+    await DeliveryItem.create({ deliveryId:dl8._id, productId:p1._id, quantity:200, price:30000, warehouseNodeId:binA102._id });
+    await DeliveryItem.create({ deliveryId:dl8._id, productId:p3._id, quantity:100, price:46000, warehouseNodeId:binB102._id });
+    await setDates('Deliveries', dl8._id, 20, 19);
 
-    console.log('Seeded Partners.');
-
-    // 5. Seed Warehouse Nodes
-    const wh = await WarehouseNode.create({ name: 'Kho trung tâm', code: 'WH-MAIN', type: 'warehouse' });
-    const zoneA = await WarehouseNode.create({ name: 'Khu A (Điện tử)', code: 'ZONE-A', type: 'zone', parentId: wh._id });
-    const aisleA1 = await WarehouseNode.create({ name: 'Dãy A1', code: 'AISLE-A1', type: 'aisle', parentId: zoneA._id });
-    const rackA11 = await WarehouseNode.create({ name: 'Kệ A1.1', code: 'RACK-A1-1', type: 'rack', parentId: aisleA1._id });
-    const binA111 = await WarehouseNode.create({ name: 'Khay A1.1.1', code: 'BIN-A1-1-1', type: 'bin', parentId: rackA11._id });
-
-    const zoneB = await WarehouseNode.create({ name: 'Khu B (Thực phẩm)', code: 'ZONE-B', type: 'zone', parentId: wh._id });
-    const aisleB1 = await WarehouseNode.create({ name: 'Dãy B1', code: 'AISLE-B1', type: 'aisle', parentId: zoneB._id });
-    const rackB11 = await WarehouseNode.create({ name: 'Kệ B1.1', code: 'RACK-B1-1', type: 'rack', parentId: aisleB1._id });
-    const binB111 = await WarehouseNode.create({ name: 'Khay B1.1.1', code: 'BIN-B1-1-1', type: 'bin', parentId: rackB11._id });
-
-    console.log('Seeded Warehouse Layout Nodes.');
-
-    // 6. Seed Inventory
-    await Inventory.create({
-      productId: phone._id,
-      warehouseNodeId: binA111._id,
-      quantity: 50
+    // DL-009 Dell Q2 – 180° (15 ngày trước)
+    const dl9 = await Delivery.create({
+      code:'DL-2026-00009', tenKhachHang:'Dell Technologies Vietnam',
+      totalAmount:(150*22000), status:'completed', createdByUserId:staff1._id
     });
+    await DeliveryItem.create({ deliveryId:dl9._id, productId:p2._id, quantity:150, price:22000, warehouseNodeId:binA201._id });
+    await setDates('Deliveries', dl9._id, 15, 14);
 
-    await Inventory.create({
-      productId: milk._id,
-      warehouseNodeId: binB111._id,
-      quantity: 100
+    // DL-010 HP Q2 – SL2IN1 & MIM (10 ngày trước)
+    const dl10 = await Delivery.create({
+      code:'DL-2026-00010', tenKhachHang:'HP Vietnam Sales',
+      totalAmount:(80*92000)+(2*162000), status:'completed', createdByUserId:accountant2._id
     });
+    await DeliveryItem.create({ deliveryId:dl10._id, productId:p4._id, quantity:80, price:92000, warehouseNodeId:binB201._id });
+    await DeliveryItem.create({ deliveryId:dl10._id, productId:p5._id, quantity:2,  price:162000,warehouseNodeId:binC101._id });
+    await setDates('Deliveries', dl10._id, 10, 9);
 
-    console.log('Seeded initial Inventory.');
-    console.log('Seeding process completed successfully!');
+    // DL-011 Asus Q2 – Thanh ray (7 ngày trước)
+    const dl11 = await Delivery.create({
+      code:'DL-2026-00011', tenKhachHang:'Asus Technology Vietnam',
+      totalAmount:(100*46000), status:'completed', createdByUserId:staff2._id
+    });
+    await DeliveryItem.create({ deliveryId:dl11._id, productId:p3._id, quantity:100, price:46000, warehouseNodeId:binB101._id });
+    await setDates('Deliveries', dl11._id, 7, 6);
+
+    // DL-012 Lenovo Q2 – 360° & 180° (3 ngày trước)
+    const dl12 = await Delivery.create({
+      code:'DL-2026-00012', tenKhachHang:'Lenovo Technology Vietnam',
+      totalAmount:(50*30000)+(50*22000), status:'completed', createdByUserId:accountant1._id
+    });
+    await DeliveryItem.create({ deliveryId:dl12._id, productId:p1._id, quantity:50, price:30000, warehouseNodeId:binA101._id });
+    await DeliveryItem.create({ deliveryId:dl12._id, productId:p2._id, quantity:50, price:22000, warehouseNodeId:binA201._id });
+    await setDates('Deliveries', dl12._id, 3, 2);
+
+    // ── Chờ xử lý (KPI cards) ─────────────────────────────────────
+
+    // DL-013 Draft – chờ lập (hôm nay)
+    const dl13 = await Delivery.create({
+      code:'DL-2026-00013', tenKhachHang:'MSI Vietnam',
+      totalAmount:(30*30000), status:'draft', createdByUserId:staff1._id
+    });
+    await DeliveryItem.create({ deliveryId:dl13._id, productId:p1._id, quantity:30, price:30000, warehouseNodeId:binA101._id });
+
+    // DL-014 Approved – đã duyệt chờ xuất (hôm qua)
+    const dl14 = await Delivery.create({
+      code:'DL-2026-00014', tenKhachHang:'Panasonic Vietnam',
+      totalAmount:(50*46000), status:'approved', createdByUserId:accountant2._id
+    });
+    await DeliveryItem.create({ deliveryId:dl14._id, productId:p3._id, quantity:50, price:46000, warehouseNodeId:binB101._id });
+    await setDates('Deliveries', dl14._id, 1, 0);
+
+    console.log('✓ Deliveries (14): completed×12, approved×1, draft×1');
+    console.log('  Lịch sử (>30d): DL-001→007 | Gần đây (≤30d): DL-008→012 | Chờ: DL-013/014');
+
+    // ══════════════════════════════════════════════════════════════
+    // 8. STOCKTAKES (4 phiếu kiểm kê)
+    // ══════════════════════════════════════════════════════════════
+    const st1 = await Stocktake.create({
+      code:'ST-2026-00001', date:'2026-03-15',
+      status:'pass', note:'Kiểm kê định kỳ Q1/2026. Kết quả: Tất cả khớp hệ thống.',
+      createdByUserId:accountant1._id, approvedByUserId:manager._id, approvedAt:new Date('2026-03-16')
+    });
+    await StocktakeItem.create({ stocktakeId:st1._id, productId:p1._id, warehouseNodeId:binA101._id, systemQty:97,  countedQty:97  });
+    await StocktakeItem.create({ stocktakeId:st1._id, productId:p2._id, warehouseNodeId:binA201._id, systemQty:200, countedQty:200 });
+    await setDates('Stocktakes', st1._id, 87, 86);
+
+    const st2 = await Stocktake.create({
+      code:'ST-2026-00002', date:'2026-04-20',
+      status:'diff', note:'Kiểm kê đột xuất Khu B. Phát hiện lệch 5 bộ SLK-380 tại VT-B1-01.',
+      createdByUserId:staff1._id, approvedByUserId:manager._id, approvedAt:new Date('2026-04-22')
+    });
+    await StocktakeItem.create({ stocktakeId:st2._id, productId:p3._id, warehouseNodeId:binB101._id, systemQty:305, countedQty:300 });
+    await StocktakeItem.create({ stocktakeId:st2._id, productId:p4._id, warehouseNodeId:binB201._id, systemQty:200, countedQty:200 });
+    await setDates('Stocktakes', st2._id, 51, 49);
+
+    const st3 = await Stocktake.create({
+      code:'ST-2026-00003', date:'2026-05-28',
+      status:'counting', note:'Kiểm kê định kỳ Q2/2026 – đang đếm.',
+      createdByUserId:accountant2._id
+    });
+    await StocktakeItem.create({ stocktakeId:st3._id, productId:p5._id, warehouseNodeId:binC101._id, systemQty:7, countedQty:0 });
+    await StocktakeItem.create({ stocktakeId:st3._id, productId:p6._id, warehouseNodeId:binC102._id, systemQty:5, countedQty:0 });
+    await setDates('Stocktakes', st3._id, 14, 14);
+
+    const st4 = await Stocktake.create({
+      code:'ST-2026-00004', date:'2026-06-10',
+      status:'pending_approval', note:'Kiểm kê Khu A trước lô nhập tháng 6 – chờ quản lý duyệt.',
+      createdByUserId:staff2._id
+    });
+    await StocktakeItem.create({ stocktakeId:st4._id, productId:p1._id, warehouseNodeId:binA101._id, systemQty:97,  countedQty:97  });
+    await StocktakeItem.create({ stocktakeId:st4._id, productId:p1._id, warehouseNodeId:binA102._id, systemQty:200, countedQty:200 });
+    await setDates('Stocktakes', st4._id, 1, 0);
+
+    console.log('✓ Stocktakes (4): pass×1, diff×1, counting×1, pending_approval×1');
+
+    // ══════════════════════════════════════════════════════════════
+    // 9. INCIDENTS (3 sự cố)
+    // ══════════════════════════════════════════════════════════════
+    const inc1 = await Incident.create({
+      code:'INC-2026-00001', type:'shortage', refType:'receipt', refId:rc3._id,
+      status:'open', action:'reorder',
+      note:'Nhập lô RC-2026-00003 bị thiếu 2 cái MIM-HB14 so với hóa đơn nhà cung cấp. Đã liên hệ yêu cầu bổ sung.',
+      createdByUserId:staff2._id
+    });
+    await IncidentItem.create({ incidentId:inc1._id, productId:p5._id, quantity:2 });
+    await setDates('Incidents', inc1._id, 45, 44);
+
+    const inc2 = await Incident.create({
+      code:'INC-2026-00002', type:'damage', refType:'delivery', refId:dl6._id,
+      status:'open', action:'pending',
+      note:'Khách hàng LG báo 3 cái FST-H360-14 bị gãy chốt trong quá trình vận chuyển. Đang chờ xác nhận ảnh từ khách.',
+      createdByUserId:accountant1._id
+    });
+    await IncidentItem.create({ incidentId:inc2._id, productId:p1._id, quantity:3 });
+    await setDates('Incidents', inc2._id, 36, 36);
+
+    const inc3 = await Incident.create({
+      code:'INC-2026-00003', type:'wrong_product',
+      status:'resolved', action:'return_supplier',
+      note:'Phát hiện 10 cái FST-H180-156 giao nhầm lô cho Dell (RC-2026-00002). Đã thu hồi và trả nhà cung cấp.',
+      createdByUserId:staff1._id
+    });
+    await IncidentItem.create({ incidentId:inc3._id, productId:p2._id, quantity:10 });
+    await setDates('Incidents', inc3._id, 70, 65);
+
+    console.log('✓ Incidents (3): open×2, resolved×1');
+
+    // ══════════════════════════════════════════════════════════════
+    // 10. DELIVERY REQUESTS — Yêu cầu xuất kho (7 yêu cầu)
+    //     pending×2 | processing×2 | completed×2 | cancelled×1
+    //     Một số linked tới phiếu xuất đã tạo ở mục 7
+    // ══════════════════════════════════════════════════════════════
+
+    // YCX-001 ── Samsung, completed (linked → DL-001)
+    const ycx1 = await DeliveryRequest.create({
+      code: 'YCX-2026-00001',
+      tenKhachHang: 'Samsung Electronics Vietnam',
+      status: 'completed',
+      note: 'Đơn hàng Q1/2026 – bản lề cho dòng Galaxy Book Pro.',
+      totalAmount: (150 * 30000) + (80 * 22000),
+      createdByUserId: accountant1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx1._id, productId: p1._id, quantity: 150, priceEstimate: 30000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx1._id, productId: p2._id, quantity: 80,  priceEstimate: 22000 });
+    await setDates('DeliveryRequests', ycx1._id, 77, 74);
+    // Link phiếu xuất DL-001 về request này
+    await Delivery.update({ requestId: ycx1._id }, { where: { _id: dl1._id } });
+
+    // YCX-002 ── HP, completed (linked → DL-003)
+    const ycx2 = await DeliveryRequest.create({
+      code: 'YCX-2026-00002',
+      tenKhachHang: 'HP Vietnam Sales',
+      status: 'completed',
+      note: 'Đơn hàng Q1/2026 – bộ hinge + cơ cấu trượt cho HP Envy & Spectre.',
+      totalAmount: (100 * 30000) + (100 * 92000),
+      createdByUserId: accountant2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx2._id, productId: p1._id, quantity: 100, priceEstimate: 30000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx2._id, productId: p4._id, quantity: 100, priceEstimate: 92000 });
+    await setDates('DeliveryRequests', ycx2._id, 57, 54);
+    await Delivery.update({ requestId: ycx2._id }, { where: { _id: dl3._id } });
+
+    // YCX-003 ── Samsung Q2, processing (linked → DL-008, đang giao)
+    const ycx3 = await DeliveryRequest.create({
+      code: 'YCX-2026-00003',
+      tenKhachHang: 'Samsung Electronics Vietnam',
+      status: 'processing',
+      note: 'Đơn hàng Q2/2026 – trục xoay 360° & thanh ray dẫn hướng cho Galaxy Book Flex.',
+      totalAmount: (200 * 30000) + (100 * 46000),
+      createdByUserId: accountant1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx3._id, productId: p1._id, quantity: 200, priceEstimate: 30000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx3._id, productId: p3._id, quantity: 100, priceEstimate: 46000 });
+    await setDates('DeliveryRequests', ycx3._id, 22, 19);
+    await Delivery.update({ requestId: ycx3._id }, { where: { _id: dl8._id } });
+
+    // YCX-004 ── Panasonic, processing (linked → DL-014, đã duyệt chờ xuất)
+    const ycx4 = await DeliveryRequest.create({
+      code: 'YCX-2026-00004',
+      tenKhachHang: 'Panasonic Vietnam',
+      status: 'processing',
+      note: 'Đơn bổ sung cho dây chuyền lắp ráp tháng 6 – thanh ray SLK-380.',
+      totalAmount: (50 * 46000),
+      createdByUserId: staff1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx4._id, productId: p3._id, quantity: 50, priceEstimate: 46000 });
+    await setDates('DeliveryRequests', ycx4._id, 3, 1);
+    await Delivery.update({ requestId: ycx4._id }, { where: { _id: dl14._id } });
+
+    // YCX-005 ── MSI, pending (chưa có phiếu xuất)
+    const ycx5 = await DeliveryRequest.create({
+      code: 'YCX-2026-00005',
+      tenKhachHang: 'MSI Technology Vietnam',
+      status: 'pending',
+      note: 'Yêu cầu cấp bách cho model MSI Prestige – cần trong tuần.',
+      totalAmount: (80 * 30000) + (50 * 22000),
+      createdByUserId: accountant2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx5._id, productId: p1._id, quantity: 80, priceEstimate: 30000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx5._id, productId: p2._id, quantity: 50, priceEstimate: 22000 });
+    await setDates('DeliveryRequests', ycx5._id, 2, 2);
+
+    // YCX-006 ── Toshiba, pending (hôm nay, do nhân viên Sale tạo)
+    const ycx6 = await DeliveryRequest.create({
+      code: 'YCX-2026-00006',
+      tenKhachHang: 'Toshiba Storage Vietnam',
+      status: 'pending',
+      note: 'Đơn hàng dài hạn Q3/2026 – đề nghị xuất 1 lần trong tuần.',
+      totalAmount: (100 * 46000) + (60 * 92000),
+      createdByUserId: sale._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx6._id, productId: p3._id, quantity: 100, priceEstimate: 46000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx6._id, productId: p4._id, quantity: 60,  priceEstimate: 92000 });
+    // không setDates → giữ nguyên NOW()
+
+    // YCX-007 ── Hisense, cancelled (khách hàng huỷ)
+    const ycx7 = await DeliveryRequest.create({
+      code: 'YCX-2026-00007',
+      tenKhachHang: 'Hisense Electronics Vietnam',
+      status: 'cancelled',
+      note: 'Khách hàng huỷ đơn do thay đổi thiết kế sản phẩm – không cần trục xoay 180°.',
+      totalAmount: (200 * 22000),
+      createdByUserId: staff2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx7._id, productId: p2._id, quantity: 200, priceEstimate: 22000 });
+    await setDates('DeliveryRequests', ycx7._id, 65, 60);
+
+    console.log('✓ DeliveryRequests (7): completed×2, processing×2, pending×2, cancelled×1');
+    console.log('  YCX-001 → DL-001 (Samsung Q1) | YCX-002 → DL-003 (HP Q1)');
+    console.log('  YCX-003 → DL-008 (Samsung Q2) | YCX-004 → DL-014 (Panasonic)');
+    console.log('  YCX-005/006 đang chờ xử lý    | YCX-007 đã huỷ');
+
+    // ══════════════════════════════════════════════════════════════
+    // TÓM TẮT
+    // ══════════════════════════════════════════════════════════════
+    console.log('\n══════════════════════════════════════════════════════════════');
+    console.log('  FOSITEK Seed v2 hoàn tất!');
+    console.log('──────────────────────────────────────────────────────────────');
+    console.log('  Tài khoản đăng nhập:');
+    console.log('    admin@fositek.vn          / admin123    (Admin)');
+    console.log('    hoang.vu@fositek.vn        / quanly123  (Quản lý kho)');
+    console.log('    lananh.tran@fositek.vn     / ketoan123  (Kế toán kho)');
+    console.log('    tuan.pham@fositek.vn       / nhanvien123(Nhân viên kho)');
+    console.log('    ngoc.do@fositek.vn         / qc123456   (QC)');
+    console.log('    sale.nguyen@fositek.vn     / sale1234   (Sale)');
+    console.log('──────────────────────────────────────────────────────────────');
+    console.log('  Dashboard widgets sẽ hiển thị:');
+    console.log('    ◆ Tồn kho dưới ngưỡng : FST-MIM-CB01 (5), FST-MIM-HB14 (7)');
+    console.log('    ◆ Top 10 xuất nhiều   : SLK-380 (650), H360-14 (580), H180-156 (450)…');
+    console.log('    ◆ Tốc độ tiêu thụ 30d : H360-14 (250), SLK-380 (200), H180-156 (200)…');
+    console.log('    ◆ Tồn lâu ngày        : SLK-380@VT-B1-02 (65d), MIM-HB14 (92d), SL2IN1 (48d)');
+    console.log('    ◆ Sắp hết bảo hành    : (chờ migrate cột Han_bao_hanh)');
+    console.log('    ◆ KPI – Chờ xử lý     : 2 phiếu xuất, 2 phiếu kiểm kê, 2 sự cố mở');
+    console.log('    ◆ YC xuất kho         : 2 pending, 2 processing, 2 completed, 1 cancelled');
+    console.log('══════════════════════════════════════════════════════════════\n');
+
     await sequelize.close();
   } catch (error) {
-    console.error('Error during seeding:', error);
+    console.error('Seed thất bại:', error);
     await sequelize.close();
+    process.exit(1);
   }
 };
 

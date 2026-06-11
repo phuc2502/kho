@@ -1,19 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryModel } from '../models/inventory.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { BarcodeInput } from '../components/BarcodeInput.jsx';
+import { exportToCSV } from '../utils/exportCSV.js';
 import toast from 'react-hot-toast';
-import { Database, Search, MapPin, Layers } from 'lucide-react';
+import { Database, MapPin, Layers, Download, ScanLine, Search, X, Package, Tag } from 'lucide-react';
 
 export const InventoryPage = () => {
   const [stock, setStock] = useState([]);
+  const [allStock, setAllStock] = useState([]);
   const [products, setProducts] = useState([]);
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedNode, setSelectedNode] = useState('');
+  const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState(''); // '' | 'out' | 'low' | 'ok'
+  const [detailProduct, setDetailProduct] = useState(null); // product object for detail modal
 
   const fetchData = async () => {
     try {
@@ -24,124 +30,248 @@ export const InventoryPage = () => {
         WarehouseModel.getAll()
       ]);
       setStock(stockData);
+      setAllStock(stockData);
       setProducts(productsData);
-      // Only show bins for placement
       setNodes(nodesData.filter(n => n.type === 'bin'));
     } catch (error) {
-      toast.error('Lỗi khi tải báo cáo tồn kho: ' + error.message);
+      toast.error('Lỗi khi tải tồn kho: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedProduct, selectedNode]);
+  useEffect(() => { fetchData(); }, [selectedProduct, selectedNode]);
 
-  // Compute stats
-  const totalSkuCount = new Set(stock.map(item => item.product?._id)).size;
+  // Barcode scan → filter by SKU or bin code
+  const handleBarcodeScan = (scannedCode) => {
+    const code = scannedCode.toUpperCase();
+    const found = allStock.filter(item =>
+      item.product?.sku?.toUpperCase() === code ||
+      item.warehouseNode?.code?.toUpperCase() === code
+    );
+    if (found.length > 0) {
+      setStock(found);
+      setBarcodeSearch(code);
+      toast.success(`Tìm thấy ${found.length} kết quả cho "${code}"`);
+    } else {
+      toast.error(`Không tìm thấy tồn kho cho mã "${code}"`);
+    }
+  };
+
+  const clearBarcodeSearch = () => {
+    setBarcodeSearch('');
+    setStock(allStock);
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['SKU', 'Tên sản phẩm', 'Mã vị trí (Bin)', 'Tên vị trí', 'Đơn vị', 'Số lượng tồn'];
+    const rows = displayedStock.map(item => [
+      item.product?.sku || '',
+      item.product?.name || '',
+      item.warehouseNode?.code || '',
+      item.warehouseNode?.name || '',
+      item.product?.unit || 'Cái',
+      item.quantity
+    ]);
+    exportToCSV('ton_kho', headers, rows);
+    toast.success('Đã xuất file tồn kho CSV');
+  };
+
+  const totalSkuCount = new Set(stock.map(item => item.product?.sku).filter(Boolean)).size;
   const totalQuantity = stock.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Client-side filtering: tìm kiếm theo tên/SKU và lọc theo tình trạng tồn
+  const displayedStock = useMemo(() => {
+    let result = stock;
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      result = result.filter(item =>
+        item.product?.name?.toLowerCase().includes(q) ||
+        item.product?.sku?.toLowerCase().includes(q)
+      );
+    }
+    if (filterStatus === 'out') result = result.filter(item => item.quantity === 0);
+    if (filterStatus === 'low') result = result.filter(item => item.quantity > 0 && item.quantity < 5);
+    if (filterStatus === 'ok') result = result.filter(item => item.quantity >= 5);
+    return result;
+  }, [stock, searchText, filterStatus]);
+
+  const formatCurrency = (val) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
   return (
     <div className="space-y-6">
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center text-xl font-bold">
-            <Layers className="w-6 h-6" />
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <Layers className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Số lượng SKU độc nhất</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{totalSkuCount} SKU</h3>
+            <p className="text-xs text-slate-500 font-bold uppercase">SKU độc nhất</p>
+            <h3 className="text-2xl font-bold text-slate-900">{totalSkuCount} SKU</h3>
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-xl font-bold">
-            <Database className="w-6 h-6" />
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex items-center gap-4">
+          <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+            <Database className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Tổng số lượng hàng tồn</p>
-            <h3 className="text-2xl font-bold text-slate-900 mt-1">{totalQuantity.toLocaleString()} đơn vị</h3>
+            <p className="text-xs text-slate-500 font-bold uppercase">Tổng tồn kho</p>
+            <h3 className="text-2xl font-bold text-slate-900">{totalQuantity.toLocaleString()} đơn vị</h3>
           </div>
         </div>
       </div>
 
-      {/* Filter Controls */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4">
-        <div className="flex-1 space-y-1">
-          <label className="block text-xs font-bold text-slate-500 uppercase">Lọc theo sản phẩm</label>
-          <select
-            value={selectedProduct}
-            onChange={(e) => setSelectedProduct(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500"
-          >
-            <option value="">Tất cả sản phẩm</option>
-            {products.map(p => (
-              <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
-            ))}
-          </select>
+      {/* Filters */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        {/* Search row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchText}
+              onChange={e => setSearchText(e.target.value)}
+              placeholder="Tìm theo tên sản phẩm hoặc mã SKU..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-500 transition-colors"
+            />
+          </div>
+          <div className="sm:w-52">
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500"
+            >
+              <option value="">Tất cả tình trạng</option>
+              <option value="ok">Còn hàng</option>
+              <option value="low">Sắp hết</option>
+              <option value="out">Hết hàng</option>
+            </select>
+          </div>
+          {(searchText || filterStatus) && (
+            <button
+              onClick={() => { setSearchText(''); setFilterStatus(''); }}
+              className="px-3 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors shrink-0"
+            >
+              ✕ Xoá
+            </button>
+          )}
         </div>
 
-        <div className="flex-1 space-y-1">
-          <label className="block text-xs font-bold text-slate-500 uppercase">Lọc theo vị trí (Bin)</label>
-          <select
-            value={selectedNode}
-            onChange={(e) => setSelectedNode(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500"
-          >
-            <option value="">Tất cả khay chứa (Bin)</option>
-            {nodes.map(n => (
-              <option key={n._id} value={n._id}>{n.code} ({n.name})</option>
-            ))}
-          </select>
+        {/* Barcode row */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+              <ScanLine className="w-3.5 h-3.5 text-primary-500" /> Quét mã vạch (SKU hoặc mã Bin)
+            </label>
+            {barcodeSearch && (
+              <button onClick={clearBarcodeSearch} className="text-xs text-primary-500 font-semibold hover:underline">
+                ✕ Xoá bộ lọc quét ("{barcodeSearch}")
+              </button>
+            )}
+          </div>
+          <BarcodeInput
+            onScan={handleBarcodeScan}
+            placeholder="Quét mã sản phẩm hoặc mã khay để tìm tồn kho..."
+          />
+        </div>
+
+        {/* Dropdowns */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Lọc theo sản phẩm</label>
+            <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500">
+              <option value="">Tất cả sản phẩm</option>
+              {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Lọc theo vị trí (Bin)</label>
+            <select value={selectedNode} onChange={(e) => setSelectedNode(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500">
+              <option value="">Tất cả khay chứa</option>
+              {nodes.map(n => <option key={n._id} value={n._id}>{n.code} ({n.name})</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Stock Table */}
+      {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-6 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <span className="text-xs text-slate-500 font-semibold">
+            {displayedStock.length < stock.length
+              ? `${displayedStock.length} / ${stock.length} vị trí`
+              : `${stock.length} vị trí hiển thị`}
+          </span>
+          <button
+            onClick={handleExportCSV}
+            disabled={displayedStock.length === 0}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold disabled:opacity-40 shadow-md shadow-blue-500/10"
+          >
+            <Download className="w-3.5 h-3.5" /> Xuất CSV
+          </button>
+        </div>
+
         {loading ? (
           <div className="p-12 text-center text-slate-400">
-            <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block"></span>
-            <p className="mt-2">Đang truy vấn số liệu tồn kho...</p>
+            <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block" />
+            <p className="mt-2 text-sm">Đang truy vấn tồn kho...</p>
           </div>
-        ) : stock.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Không tìm thấy tồn kho thực tế cho bộ lọc hiện tại</div>
+        ) : displayedStock.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-sm">Không tìm thấy tồn kho theo bộ lọc hiện tại</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 text-xs font-bold uppercase">
-                  <th className="px-6 py-4">Mã SKU</th>
-                  <th className="px-6 py-4">Tên sản phẩm</th>
-                  <th className="px-6 py-4">Vị trí khay chứa (Bin)</th>
-                  <th className="px-6 py-4">Đơn vị</th>
-                  <th className="px-6 py-4 text-right">Số lượng tồn</th>
+                  <th className="px-5 py-4">Mã SKU</th>
+                  <th className="px-5 py-4">Tên sản phẩm</th>
+                  <th className="px-5 py-4">Vị trí (Bin)</th>
+                  <th className="px-5 py-4">Đơn vị</th>
+                  <th className="px-5 py-4 text-right">Số lượng tồn</th>
+                  <th className="px-5 py-4">Tình trạng</th>
+                  <th className="px-5 py-4 text-center">Chi tiết</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {stock.map(item => (
-                  <tr key={item._id} className="hover:bg-slate-50/50">
-                    <td className="px-6 py-4 font-mono font-bold text-slate-900 tracking-wide">
-                      {item.product?.sku || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-slate-800">
-                      {item.product?.name || 'Sản phẩm đã bị xóa'}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600">
+                {displayedStock.map(item => (
+                  <tr key={item._id} className={`hover:bg-slate-50/50 ${item.quantity === 0 ? 'bg-red-50/30' : ''}`}>
+                    <td className="px-5 py-4 font-mono font-bold text-slate-900">{item.product?.sku || 'N/A'}</td>
+                    <td className="px-5 py-4 font-semibold text-slate-800">{item.product?.name || 'Đã bị xóa'}</td>
+                    <td className="px-5 py-4">
                       <div className="flex items-center gap-1.5 font-mono text-xs">
-                        <MapPin className="w-3.5 h-3.5 text-primary-500" />
-                        <span className="bg-primary-50 text-primary-700 px-2 py-0.5 rounded font-bold">
-                          {item.warehouseNode?.code || 'N/A'}
-                        </span>
-                        <span className="text-slate-400">({item.warehouseNode?.name || 'Vị trí đã bị xóa'})</span>
+                        <MapPin className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                        <span className="bg-primary-50 text-primary-700 px-2 py-0.5 rounded font-bold">{item.warehouseNode?.code || 'N/A'}</span>
+                        <span className="text-slate-400">({item.warehouseNode?.name})</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500">{item.product?.unit || 'Cái'}</td>
-                    <td className="px-6 py-4 text-right">
-                      <span className={`font-bold text-base ${item.quantity > 10 ? 'text-slate-900' : 'text-amber-600'}`}>
+                    <td className="px-5 py-4 text-slate-500">{item.product?.unit || 'Cái'}</td>
+                    <td className="px-5 py-4 text-right">
+                      <span className={`font-bold text-base ${item.quantity === 0 ? 'text-red-500' : item.quantity < (item.minStock || 5) ? 'text-amber-600' : 'text-slate-900'}`}>
                         {item.quantity.toLocaleString()}
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {item.quantity === 0
+                        ? <span className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full text-[10px] font-bold">Hết hàng</span>
+                        : item.quantity < (item.minStock || 5)
+                          ? <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">Sắp hết</span>
+                          : <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold">Còn hàng</span>
+                      }
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <button
+                        onClick={() => {
+                          const prod = products.find(p => p._id === (item.product?._id || item.product));
+                          setDetailProduct({ product: { ...item.product, ...(prod || {}) }, stockRow: item });
+                        }}
+                        className="p-1.5 bg-slate-100 hover:bg-primary-100 hover:text-primary-600 rounded-lg text-slate-600 transition-colors text-xs font-semibold flex items-center gap-1 mx-auto"
+                      >
+                        <Package className="w-3.5 h-3.5" /> Xem
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -150,6 +280,127 @@ export const InventoryPage = () => {
           </div>
         )}
       </div>
+      {/* Stock Row Detail Modal */}
+      {detailProduct && (() => {
+        const p = detailProduct.product;
+        const row = detailProduct.stockRow;
+        const qty = row.quantity;
+        const threshold = row.minStock || 5;
+        const statusBadge = qty === 0
+          ? <span className="px-2.5 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full text-xs font-bold">Hết hàng</span>
+          : qty < threshold
+            ? <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-xs font-bold">Sắp hết</span>
+            : <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold">Còn hàng</span>;
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center shrink-0">
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-800">{p.name}</h3>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">{p.sku}</p>
+                  </div>
+                </div>
+                <button onClick={() => setDetailProduct(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Thông tin sản phẩm */}
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Tag className="w-3 h-3" /> Thông tin sản phẩm
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm">
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Danh mục</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">{p.category?.name || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Đơn vị tính</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">{p.unit || 'Cái'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Giá sản xuất</p>
+                      <p className="font-bold text-slate-900 mt-0.5">{formatCurrency(p.priceIn)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Giá bán ra</p>
+                      <p className="font-bold text-emerald-700 mt-0.5">{formatCurrency(p.priceOut)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Tồn kho tối thiểu</p>
+                      <p className={`font-bold mt-0.5 ${qty <= (row.minStock || 0) ? 'text-red-600' : 'text-slate-800'}`}>
+                        {row.minStock != null ? `${row.minStock} ${p.unit || 'cái'}` : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Cập nhật tồn kho</p>
+                      <p className="font-semibold text-slate-800 mt-0.5">
+                        {row.updatedAt ? new Date(row.updatedAt).toLocaleDateString('vi-VN') : '—'}
+                      </p>
+                    </div>
+                    {p.description && (
+                      <div className="col-span-2">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase">Mô tả</p>
+                        <p className="text-slate-600 mt-0.5">{p.description}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Vị trí & tồn kho */}
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" /> Vị trí lưu kho
+                  </p>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary-100 text-primary-700 flex items-center justify-center font-mono font-bold text-sm">
+                        {row.warehouseNode?.code || '—'}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800 text-sm">{row.warehouseNode?.name || '—'}</p>
+                        {row.warehouseNode?.parent && (
+                          <p className="text-xs text-slate-400 font-mono mt-0.5">
+                            {row.warehouseNode.parent.name} › {row.warehouseNode.name}
+                          </p>
+                        )}
+                        {row.warehouseNode?.type && (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] font-bold uppercase">
+                            {row.warehouseNode.type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-2xl font-bold ${qty === 0 ? 'text-red-500' : qty < threshold ? 'text-amber-600' : 'text-slate-900'}`}>
+                        {qty.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-slate-400">{p.unit || 'cái'}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex justify-end">{statusBadge}</div>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button
+                    onClick={() => setDetailProduct(null)}
+                    className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

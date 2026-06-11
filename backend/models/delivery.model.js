@@ -1,9 +1,9 @@
 import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.js';
 import { Product } from './product.model.js';
-import { Partner } from './partner.model.js';
 import { User } from './user.model.js';
 import { WarehouseNode } from './warehouseNode.model.js';
+import { DeliveryRequest } from './deliveryRequest.model.js';
 
 export const Delivery = sequelize.define('Delivery', {
   _id: {
@@ -16,17 +16,14 @@ export const Delivery = sequelize.define('Delivery', {
     allowNull: false,
     unique: true
   },
-  partnerId: {
-    type: DataTypes.INTEGER,
+  // Tên khách hàng dạng văn bản tự do (theo thiết kế FOSITEK — không có bảng đối tác)
+  tenKhachHang: {
+    type: DataTypes.STRING(200),
     allowNull: false,
-    field: 'partner',
-    references: {
-      model: Partner,
-      key: '_id'
-    }
+    defaultValue: ''
   },
   status: {
-    type: DataTypes.ENUM('draft', 'approved', 'completed', 'rejected', 'cancelled'),
+    type: DataTypes.ENUM('draft', 'approved', 'shipping', 'completed', 'rejected', 'cancelled'),
     defaultValue: 'draft'
   },
   totalAmount: {
@@ -39,6 +36,14 @@ export const Delivery = sequelize.define('Delivery', {
     field: 'createdByUser',
     references: {
       model: User,
+      key: '_id'
+    }
+  },
+  requestId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: DeliveryRequest,
       key: '_id'
     }
   }
@@ -99,9 +104,10 @@ export const DeliveryItem = sequelize.define('DeliveryItem', {
 });
 
 // Setup relationships
-Delivery.belongsTo(Partner, { foreignKey: 'partnerId', as: 'partner' });
 Delivery.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
 Delivery.hasMany(DeliveryItem, { foreignKey: 'deliveryId', as: 'items', onDelete: 'CASCADE' });
+Delivery.belongsTo(DeliveryRequest, { foreignKey: 'requestId', as: 'fromRequest' });
+DeliveryRequest.hasMany(Delivery, { foreignKey: 'requestId', as: 'deliveries' });
 
 DeliveryItem.belongsTo(Delivery, { foreignKey: 'deliveryId', as: 'delivery' });
 DeliveryItem.belongsTo(Product, { foreignKey: 'productId', as: 'product' });

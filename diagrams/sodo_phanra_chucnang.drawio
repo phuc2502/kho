@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2026-06-11T00:00:00.000Z" agent="draw.io" version="21.0.0">
+  <diagram id="fositek-bfd-role" name="Sơ đồ phân rã chức năng theo vai trò">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1"
+                  connect="1" arrows="1" fold="1" page="1" pageScale="1"
+                  pageWidth="1340" pageHeight="650" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════════════
+             ROOT  (center x=660)
+        ═══════════════════════════════════════════════════════ -->
+        <mxCell id="2"
+          value="Hệ thống Quản lý Kho Thành Phẩm FOSITEK"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#0061FE;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=14;fontStyle=1;arcSize=6;"
+          vertex="1" parent="1">
+          <mxGeometry x="360" y="20" width="590" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LEVEL 1 — 6 VAI TRÒ
+             Slot=215px  |  Node w=195 h=55
+             cx: 127, 342, 557, 772, 987, 1202
+             x : 30,  245, 460, 675, 890, 1105
+        ═══════════════════════════════════════════════════════ -->
+
+        <!-- ── 1. ADMIN (🔴) ── -->
+        <mxCell id="10"
+          value="&lt;b&gt;🔴 Admin&lt;/b&gt;&lt;br/&gt;Quản trị viên"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#B71C1C;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=10;arcSize=8;"
+          vertex="1" parent="1">
+          <mxGeometry x="30" y="140" width="195" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="100" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="2" target="10" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ── 2. QUẢN LÝ KHO (🟠) ── -->
+        <mxCell id="11"
+          value="&lt;b&gt;🟠 Quản lý kho&lt;/b&gt;&lt;br/&gt;QuanLyKho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E65100;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=10;arcSize=8;"
+          vertex="1" parent="1">
+          <mxGeometry x="245" y="140" width="195" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="101" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="2" target="11" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ── 3. KẾ TOÁN KHO (🟡) ── -->
+        <mxCell id="12"
+          value="&lt;b&gt;🟡 Kế toán kho&lt;/b&gt;&lt;br/&gt;KeToanKho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#F57F17;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=10;arcSize=8;"
+          vertex="1" parent="1">
+          <mxGeometry x="460" y="140" width="195" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="102" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="2" target="12" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ── 4. NHÂN VIÊN KHO (🟢) ── -->
+        <mxCell id="13"
+          value="&lt;b&gt;🟢 Nhân viên kho&lt;/b&gt;&lt;br/&gt;NhanVienKho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#2E7D32;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=10;arcSize=8;"
+          vertex="1" parent="1">
+          <mxGeometry x="675" y="140" width="195" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="103" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="2" target="13" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ── 5. QC (🔵) ── -->
+        <mxCell id="14"
+          value="&lt;b&gt;🔵 QC&lt;/b&gt;&lt;br/&gt;Kiểm soát chất lượng"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#01579B;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=10;arcSize=8;"
+          vertex="1" parent="1">
+          <mxGeometry x="890" y="140" width="195" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="104" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="2" target="14" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ── 6. SALE (🟣) ── -->
+        <mxCell id="15"
+          value="&lt;b&gt;🟣 Sale&lt;/b&gt;&lt;br/&gt;Nhân viên kinh doanh"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#6A1B9A;fontColor=#FFFFFF;strokeColor=none;
+                 fontSize=10;arcSize=8;"
+          vertex="1" parent="1">
+          <mxGeometry x="1105" y="140" width="195" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="105" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="2" target="15" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════
+             LEVEL 2 — CHỨC NĂNG THEO VAI TRÒ
+             w=190, h=38, y_start=252, row_step=46
+             child_x = role_x + 2  (căn giữa so với role node w=195)
+        ═══════════════════════════════════════════════════════ -->
+
+        <!-- ╔══════════════════════════════╗
+             ║  ADMIN — 8 chức năng        ║
+             ╚══════════════════════════════╝
+             child x=32  (cx=127) -->
+
+        <mxCell id="200"
+          value="Quản lý tài khoản người dùng"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="252" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e200" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="200" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="201"
+          value="Phân quyền RBAC (cấp / thu hồi)"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="298" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e201" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="201" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="202"
+          value="Xem nhật ký hoạt động"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="344" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e202" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="202" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="203"
+          value="Xem tổng quan &amp; phân tích"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="390" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e203" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="203" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="204"
+          value="Quản lý sản phẩm &amp; sơ đồ kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="436" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e204" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="204" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="205"
+          value="Duyệt phiếu nhập / xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="482" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e205" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="205" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="206"
+          value="Phê duyệt kiểm kê &amp; điều chỉnh tồn"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="528" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e206" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="206" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="207"
+          value="Quản lý báo cáo sự cố"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFEBEE;fontColor=#B71C1C;strokeColor=#B71C1C;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="32" y="574" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e207" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="10" target="207" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ╔══════════════════════════════╗
+             ║  QUẢN LÝ KHO — 8 chức năng  ║
+             ╚══════════════════════════════╝
+             child x=247  (cx=342) -->
+
+        <mxCell id="210"
+          value="Xem nhật ký hoạt động"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="252" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e210" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="210" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="211"
+          value="Xem tổng quan &amp; phân tích"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="298" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e211" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="211" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="212"
+          value="Quản lý sản phẩm &amp; sơ đồ kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="344" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e212" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="212" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="213"
+          value="Xem &amp; duyệt phiếu nhập kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="390" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e213" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="213" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="214"
+          value="Xem &amp; duyệt phiếu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="436" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e214" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="214" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="215"
+          value="Tạo &amp; xem yêu cầu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="482" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e215" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="215" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="216"
+          value="Lập &amp; phê duyệt kiểm kê kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="528" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e216" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="216" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="217"
+          value="Lập &amp; duyệt điều chỉnh tồn kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFF3E0;fontColor=#BF360C;strokeColor=#E65100;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="247" y="574" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e217" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="11" target="217" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ╔══════════════════════════════╗
+             ║  KẾ TOÁN KHO — 7 chức năng  ║
+             ╚══════════════════════════════╝
+             child x=462  (cx=557) -->
+
+        <mxCell id="220"
+          value="Xem sản phẩm &amp; sơ đồ kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="252" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e220" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="220" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="221"
+          value="Xem tồn kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="298" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e221" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="221" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="222"
+          value="Lập phiếu nhập kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="344" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e222" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="222" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="223"
+          value="Lập phiếu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="390" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e223" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="223" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="224"
+          value="Xem yêu cầu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="436" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e224" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="224" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="225"
+          value="Lập phiếu kiểm kê &amp; điều chỉnh tồn"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="482" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e225" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="225" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="226"
+          value="Xem &amp; báo cáo sự cố"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#FFFDE7;fontColor=#E65100;strokeColor=#F9A825;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="462" y="528" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e226" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="12" target="226" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ╔══════════════════════════════╗
+             ║  NHÂN VIÊN KHO — 6 chức năng║
+             ╚══════════════════════════════╝
+             child x=677  (cx=772) -->
+
+        <mxCell id="230"
+          value="Xem sản phẩm &amp; sơ đồ kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E8F5E9;fontColor=#1B5E20;strokeColor=#2E7D32;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="677" y="252" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e230" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="13" target="230" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="231"
+          value="Xem tồn kho &amp; quét mã vạch"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E8F5E9;fontColor=#1B5E20;strokeColor=#2E7D32;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="677" y="298" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e231" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="13" target="231" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="232"
+          value="Lập phiếu nhập kho (nháp)"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E8F5E9;fontColor=#1B5E20;strokeColor=#2E7D32;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="677" y="344" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e232" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="13" target="232" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="233"
+          value="Lập phiếu xuất kho (nháp)"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E8F5E9;fontColor=#1B5E20;strokeColor=#2E7D32;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="677" y="390" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e233" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="13" target="233" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="234"
+          value="Xem yêu cầu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E8F5E9;fontColor=#1B5E20;strokeColor=#2E7D32;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="677" y="436" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e234" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="13" target="234" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="235"
+          value="Báo cáo sự cố kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E8F5E9;fontColor=#1B5E20;strokeColor=#2E7D32;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="677" y="482" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e235" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="13" target="235" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ╔══════════════════════════════╗
+             ║  QC — 6 chức năng            ║
+             ╚══════════════════════════════╝
+             child x=892  (cx=987) -->
+
+        <mxCell id="240"
+          value="Xem sản phẩm &amp; sơ đồ kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E3F2FD;fontColor=#01579B;strokeColor=#0277BD;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="892" y="252" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e240" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="14" target="240" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="241"
+          value="Xem tồn kho &amp; số serial"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E3F2FD;fontColor=#01579B;strokeColor=#0277BD;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="892" y="298" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e241" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="14" target="241" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="242"
+          value="Lập phiếu nhập kho (kiểm tra CL)"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E3F2FD;fontColor=#01579B;strokeColor=#0277BD;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="892" y="344" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e242" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="14" target="242" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="243"
+          value="Lập phiếu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E3F2FD;fontColor=#01579B;strokeColor=#0277BD;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="892" y="390" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e243" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="14" target="243" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="244"
+          value="Xem yêu cầu xuất kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E3F2FD;fontColor=#01579B;strokeColor=#0277BD;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="892" y="436" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e244" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="14" target="244" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="245"
+          value="Báo cáo sự cố chất lượng"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#E3F2FD;fontColor=#01579B;strokeColor=#0277BD;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="892" y="482" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e245" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="14" target="245" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <!-- ╔══════════════════════════════╗
+             ║  SALE — 4 chức năng          ║
+             ╚══════════════════════════════╝
+             child x=1107  (cx=1202) -->
+
+        <mxCell id="250"
+          value="Xem sản phẩm &amp; sơ đồ kho"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#F3E5F5;fontColor=#4A148C;strokeColor=#6A1B9A;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="1107" y="252" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e250" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="15" target="250" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="251"
+          value="Xem tồn kho (chỉ đọc)"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#F3E5F5;fontColor=#4A148C;strokeColor=#6A1B9A;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="1107" y="298" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e251" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="15" target="251" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="252"
+          value="Tạo yêu cầu xuất kho mới"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#F3E5F5;fontColor=#4A148C;strokeColor=#6A1B9A;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="1107" y="344" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e252" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="15" target="252" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="253"
+          value="Theo dõi trạng thái yêu cầu xuất"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#F3E5F5;fontColor=#4A148C;strokeColor=#6A1B9A;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="1107" y="390" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e253" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="15" target="253" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="254"
+          value="Xem &amp; theo dõi sự cố"
+          style="rounded=1;whiteSpace=wrap;html=1;
+                 fillColor=#F3E5F5;fontColor=#4A148C;strokeColor=#6A1B9A;fontSize=9;"
+          vertex="1" parent="1">
+          <mxGeometry x="1107" y="436" width="190" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="e254" style="edgeStyle=orthogonalEdgeStyle;rounded=0;" edge="1" source="15" target="254" parent="1"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

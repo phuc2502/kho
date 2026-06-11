@@ -35,3 +35,5 @@ export const WarehouseNode = sequelize.define('WarehouseNode', {
 
 WarehouseNode.belongsTo(WarehouseNode, { foreignKey: 'parentId', as: 'parent' });
 WarehouseNode.hasMany(WarehouseNode, { foreignKey: 'parentId', as: 'children' });
+
+// Quan hệ với UserWarehouse được thiết lập ở userWarehouse.model.js để tránh circular import

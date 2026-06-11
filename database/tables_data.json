@@ -1,0 +1,2216 @@
+[
+  {
+    "id": 1,
+    "name": "NguoiDung",
+    "title": "Bảng 3.1. Đề xuất kiểu dữ liệu cho bảng NguoiDung.",
+    "rows": [
+      [
+        "Ma_nguoi_dung",
+        "CHAR(10)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã định danh nhân viên, tự sinh",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_nguoi_dung",
+        "NVARCHAR(100)",
+        "NOT NULL",
+        "Họ và tên đầy đủ",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "So_dien_thoai",
+        "CHAR(15)",
+        "UNIQUE, Cho phép NULL",
+        "Số điện thoại liên hệ",
+        "Số",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "BIT",
+        "DEFAULT 1",
+        "1: Đang làm việc / 0: Đã nghỉ",
+        "Boolean",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo hồ sơ",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Tự cập nhật khi sửa hồ sơ",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 2,
+    "name": "TaiKhoan",
+    "title": "Bảng 3.2. Đề xuất kiểu dữ liệu cho bảng TaiKhoan.",
+    "rows": [
+      [
+        "Ma_tai_khoan",
+        "CHAR(10)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã tài khoản đăng nhập",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung",
+        "CHAR(10)",
+        "NOT NULL, UNIQUE, FK → NguoiDung",
+        "Mỗi người dùng chỉ có 1 tài khoản",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Email",
+        "VARCHAR(150)",
+        "NOT NULL, UNIQUE",
+        "Địa chỉ email, dùng làm username",
+        "Chuỗi ký tự",
+        "x"
+      ],
+      [
+        "Mat_khau",
+        "VARCHAR(255)",
+        "NOT NULL",
+        "Lưu hash bcrypt",
+        "Chuỗi hash",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "BIT",
+        "DEFAULT 1",
+        "1: Hoạt động / 0: Đã vô hiệu hóa",
+        "Boolean",
+        ""
+      ],
+      [
+        "Ma_admin_tao",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Admin nào đã tạo tài khoản này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_admin_vo_hieu",
+        "CHAR(10)",
+        "Cho phép NULL, FK → NguoiDung",
+        "Admin nào đã vô hiệu hóa",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Ly_do_vo_hieu_hoa",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Nghỉ việc / Vi phạm nội quy...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ngay_vo_hieu_hoa",
+        "DATETIME",
+        "Cho phép NULL",
+        "Thời điểm vô hiệu hóa",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Ngay_dang_nhap_cuoi",
+        "DATETIME",
+        "Cho phép NULL",
+        "Lần đăng nhập gần nhất",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày Admin tạo tài khoản",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Cập nhật khi đổi mật khẩu/trạng thái",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 3,
+    "name": "VaiTro",
+    "title": "Bảng 3.3. Đề xuất kiểu dữ liệu cho bảng VaiTro.",
+    "rows": [
+      [
+        "Ma_vai_tro",
+        "CHAR(10)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã vai trò",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_vai_tro",
+        "NVARCHAR(100)",
+        "NOT NULL, UNIQUE",
+        "Tên vai trò (Quan_ly_kho / QC...)",
+        "Chuỗi ký tự",
+        "x"
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(255)",
+        "Cho phép NULL",
+        "Mô tả chức năng vai trò",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "La_vai_tro_co_dinh",
+        "BIT",
+        "DEFAULT 0",
+        "0: Cấu hình được / 1: Cố định",
+        "Boolean",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 4,
+    "name": "NguoiDung_VaiTro",
+    "title": "Bảng 3.4. Đề xuất kiểu dữ liệu cho bảng NguoiDung_VaiTro.",
+    "rows": [
+      [
+        "Ma_nguoi_dung",
+        "CHAR(10)",
+        "NOT NULL, PK (kép), FK → NguoiDung",
+        "Người dùng được gán vai trò",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_vai_tro",
+        "CHAR(10)",
+        "NOT NULL, PK (kép), FK → VaiTro",
+        "Vai trò được gán",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày gán vai trò",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Quyen",
+    "title": "Bảng 3.5. Đề xuất kiểu dữ liệu cho bảng Quyen.",
+    "rows": [
+      [
+        "Ma_quyen",
+        "CHAR(15)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã quyền hệ thống",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_chuc_nang",
+        "VARCHAR(80)",
+        "NOT NULL, UNIQUE",
+        "Slug mã quyền (tao_phieu_nhap...)",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_quyen",
+        "NVARCHAR(200)",
+        "NOT NULL",
+        "Tên quyền hiển thị",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Nhom_quyen",
+        "NVARCHAR(100)",
+        "Cho phép NULL",
+        "Nhóm: Nhập kho / Xuất kho...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(255)",
+        "Cho phép NULL",
+        "Mô tả chi tiết quyền",
+        "Chuỗi ký tự",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 6,
+    "name": "VaiTro_Quyen",
+    "title": "Bảng 3.6. Đề xuất kiểu dữ liệu cho bảng VaiTro_Quyen.",
+    "rows": [
+      [
+        "Ma_vai_tro",
+        "CHAR(10)",
+        "NOT NULL, PK (kép), FK → VaiTro",
+        "Vai trò được cấp quyền",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_quyen",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → Quyen",
+        "Quyền được cấp cho vai trò",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cấp quyền cho vai trò",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 7,
+    "name": "NguoiDung_Quyen",
+    "title": "Bảng 3.7. Đề xuất kiểu dữ liệu cho bảng NguoiDung_Quyen.",
+    "rows": [
+      [
+        "Ma_nguoi_dung",
+        "CHAR(10)",
+        "NOT NULL, PK (kép), FK → NguoiDung",
+        "Người dùng được ghi đè quyền",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_quyen",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → Quyen",
+        "Quyền bị ghi đè",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Loai_ghi_de",
+        "NVARCHAR(10)",
+        "NOT NULL",
+        "cap_them hoặc thu_hoi",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ly_do",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Lý do Admin ghi đè quyền",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày Admin thiết lập",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 8,
+    "name": "LichSuHoatDong",
+    "title": "Bảng 3.8. Đề xuất kiểu dữ liệu cho bảng LichSuHoatDong.",
+    "rows": [
+      [
+        "Ma_lich_su",
+        "BIGINT",
+        "NOT NULL, PK, IDENTITY(1,1)",
+        "ID tự tăng (không dùng CHAR)",
+        "Số",
+        "x"
+      ],
+      [
+        "Ma_tai_khoan",
+        "CHAR(10)",
+        "NOT NULL, FK → TaiKhoan",
+        "Tài khoản thực hiện thao tác",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_nguoi_dung",
+        "NVARCHAR(100)",
+        "NOT NULL",
+        "Snapshot tên tại thời điểm ghi log",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ten_hanh_dong",
+        "NVARCHAR(100)",
+        "NOT NULL",
+        "DANG_NHAP / TAO_PHIEU_NHAP...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ten_bang_tac_dong",
+        "NVARCHAR(100)",
+        "Cho phép NULL",
+        "Bảng dữ liệu bị tác động",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ma_ban_ghi_tac_dong",
+        "NVARCHAR(50)",
+        "Cho phép NULL",
+        "PK bản ghi bị tác động",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Du_lieu_cu",
+        "NVARCHAR(MAX)",
+        "Cho phép NULL",
+        "JSON snapshot trước khi thay đổi",
+        "JSON",
+        ""
+      ],
+      [
+        "Du_lieu_moi",
+        "NVARCHAR(MAX)",
+        "Cho phép NULL",
+        "JSON snapshot sau khi thay đổi",
+        "JSON",
+        ""
+      ],
+      [
+        "Dia_chi_ip",
+        "VARCHAR(45)",
+        "Cho phép NULL",
+        "Địa chỉ IP v4/v6 của thiết bị",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Thiet_bi",
+        "NVARCHAR(200)",
+        "Cho phép NULL",
+        "User-Agent hoặc tên thiết bị",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_thao_tac",
+        "DATETIME",
+        "NOT NULL, DEFAULT GETDATE()",
+        "Timestamp chính xác của thao tác",
+        "Ngày giờ",
+        "x"
+      ]
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Kho",
+    "title": "Bảng 3.9. Đề xuất kiểu dữ liệu cho bảng Kho.",
+    "rows": [
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã kho vật lý",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_kho",
+        "NVARCHAR(200)",
+        "NOT NULL",
+        "Tên kho (Kho thành phẩm FOSITEK)",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Mô tả công năng của kho",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Dia_chi",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Địa chỉ kho",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "BIT",
+        "DEFAULT 1",
+        "1: Hoạt động / 0: Tạm đóng",
+        "Boolean",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 10,
+    "name": "NguoiDung_Kho",
+    "title": "Bảng 3.10. Đề xuất kiểu dữ liệu cho bảng NguoiDung_Kho.",
+    "rows": [
+      [
+        "Ma_nguoi_dung",
+        "CHAR(10)",
+        "NOT NULL, PK (kép), FK → NguoiDung",
+        "Người dùng phụ trách kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, PK (kép), FK → Kho",
+        "Kho được phụ trách",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Vai_tro_tai_kho",
+        "NVARCHAR(50)",
+        "Cho phép NULL",
+        "Quản lý / Kế toán / Nhân viên",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày phân công phụ trách kho",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 11,
+    "name": "KhuVucKho",
+    "title": "Bảng 3.11. Đề xuất kiểu dữ liệu cho bảng KhuVucKho.",
+    "rows": [
+      [
+        "Ma_khu_vuc",
+        "CHAR(10)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã khu vực trong kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, FK → Kho",
+        "Kho chứa khu vực này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_khu_vuc",
+        "NVARCHAR(100)",
+        "NOT NULL",
+        "Tên khu vực (Khu A – Bản lề)",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(255)",
+        "Cho phép NULL",
+        "Điều kiện bảo quản, diện tích",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "BIT",
+        "DEFAULT 1",
+        "1: Đang hoạt động / 0: Tạm đóng",
+        "Boolean",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 12,
+    "name": "ViTriTrongKho",
+    "title": "Bảng 3.12. Đề xuất kiểu dữ liệu cho bảng ViTriTrongKho.",
+    "rows": [
+      [
+        "Ma_vi_tri",
+        "CHAR(15)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã vị trí (quy tắc: Khu-Kệ-Hàng)",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_khu_vuc",
+        "CHAR(10)",
+        "NOT NULL, FK → KhuVucKho",
+        "Khu vực chứa vị trí này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_vi_tri",
+        "NVARCHAR(100)",
+        "NOT NULL",
+        "Tên vị trí (Kệ A1, hàng 1)",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(255)",
+        "Cho phép NULL",
+        "Mô tả vị trí cụ thể trong kho",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Suc_chua_toi_da",
+        "INT",
+        "DEFAULT 0",
+        "Sức chứa tối đa (cái/bộ/hộp)",
+        "Số",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(30)",
+        "DEFAULT 'San sang'",
+        "Sẵn sàng / Đầy / Bảo trì",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Cập nhật khi trạng thái thay đổi",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 13,
+    "name": "DanhMucSanPham",
+    "title": "Bảng 3.13. Đề xuất kiểu dữ liệu cho bảng DanhMucSanPham.",
+    "rows": [
+      [
+        "Ma_danh_muc",
+        "CHAR(10)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã danh mục sản phẩm",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_danh_muc",
+        "NVARCHAR(200)",
+        "NOT NULL",
+        "Bản lề laptop / Thanh trượt / MIM",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Mô tả nhóm sản phẩm",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "BIT",
+        "DEFAULT 1",
+        "1: Đang dùng / 0: Ngừng",
+        "Boolean",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 14,
+    "name": "SanPham",
+    "title": "Bảng 3.14. Đề xuất kiểu dữ liệu cho bảng SanPham.",
+    "rows": [
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã sản phẩm/linh kiện thành phẩm",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_danh_muc",
+        "CHAR(10)",
+        "FK → DanhMucSanPham, Cho phép NULL",
+        "Danh mục chứa sản phẩm",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ten_san_pham",
+        "NVARCHAR(200)",
+        "NOT NULL",
+        "Tên sản phẩm đầy đủ",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ma_barcode",
+        "VARCHAR(100)",
+        "UNIQUE, Cho phép NULL",
+        "Mã vạch sản phẩm cho Mobile Scanner",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Thông số kỹ thuật sản phẩm",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Don_vi_tinh",
+        "NVARCHAR(30)",
+        "NOT NULL",
+        "Cái / Bộ / Hộp",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trong_luong",
+        "DECIMAL(10,3)",
+        "Cho phép NULL",
+        "Trọng lượng tính bằng kg",
+        "Số thập phân",
+        ""
+      ],
+      [
+        "Gia_san_xuat",
+        "DECIMAL(15,2)",
+        "DEFAULT 0",
+        "Giá thành sản xuất (VND)",
+        "Số thập phân",
+        ""
+      ],
+      [
+        "Gia_ban",
+        "DECIMAL(15,2)",
+        "DEFAULT 0",
+        "Giá bán (VND)",
+        "Số thập phân",
+        ""
+      ],
+      [
+        "Quan_ly_theo_serial",
+        "BIT",
+        "DEFAULT 0",
+        "1: Bật theo dõi serial / 0: Không",
+        "Boolean",
+        ""
+      ],
+      [
+        "⭐ Thoi_han_bao_hanh",
+        "INT",
+        "NULL, DEFAULT NULL",
+        "[THÊM MỚI v2.0] Thời hạn bảo hành tính bằng tháng. NULL = không bảo hành. VD: 12/24/36",
+        "Số nguyên ≥ 0",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "BIT",
+        "DEFAULT 1",
+        "1: Đang sản xuất / 0: Ngừng",
+        "Boolean",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 15,
+    "name": "SoSerial",
+    "title": "Bảng 3.15. Đề xuất kiểu dữ liệu cho bảng SoSerial.",
+    "rows": [
+      [
+        "Ma_serial",
+        "VARCHAR(50)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã serial riêng từng đơn vị SP",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, FK → SanPham",
+        "Sản phẩm thuộc serial này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(30)",
+        "NOT NULL",
+        "Trong kho / Đã xuất / Lỗi / Hủy",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ngay_san_xuat",
+        "DATE",
+        "Cho phép NULL",
+        "Ngày sản xuất đơn vị",
+        "Ngày",
+        ""
+      ],
+      [
+        "⭐ Ma_lo (FK)",
+        "CHAR(15)",
+        "NULL, FK → LoSanXuat",
+        "[THÊM MỚI v2.0] Lô sản xuất chứa serial này. NULL nếu không theo dõi lô",
+        "Chữ và số",
+        "IDX"
+      ],
+      [
+        "⭐ Han_bao_hanh",
+        "DATE",
+        "NULL",
+        "[THÊM MỚI v2.0] Ngày hết hạn bảo hành. Tính: Ngay_san_xuat + Thoi_han_bao_hanh tháng",
+        "YYYY-MM-DD",
+        "IDX"
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Ghi chú đặc biệt (lỗi bề mặt...)",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày ghi nhận serial vào hệ thống",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật trạng thái serial",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 16,
+    "name": "TonKho",
+    "title": "Bảng 3.16. Đề xuất kiểu dữ liệu cho bảng TonKho.",
+    "rows": [
+      [
+        "Ma_ton_kho",
+        "CHAR(15)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã tồn kho theo cặp SP – Vị trí",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, FK → SanPham",
+        "Sản phẩm đang lưu trữ",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_vi_tri",
+        "CHAR(15)",
+        "NOT NULL, FK → ViTriTrongKho",
+        "Vị trí lưu trữ trong kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_ton",
+        "INT",
+        "DEFAULT 0",
+        "Số lượng tồn hiện tại tại vị trí",
+        "Số",
+        ""
+      ],
+      [
+        "So_luong_toi_thieu",
+        "INT",
+        "DEFAULT 0",
+        "Ngưỡng cảnh báo cần nhập thêm",
+        "Số",
+        ""
+      ],
+      [
+        "So_luong_toi_da",
+        "INT",
+        "DEFAULT 0",
+        "Tối đa được lưu tại vị trí này",
+        "Số",
+        ""
+      ],
+      [
+        "Ngay_cap_nhat",
+        "DATE",
+        "Cho phép NULL",
+        "Ngày cập nhật tồn kho gần nhất",
+        "Ngày",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 17,
+    "name": "PhieuNhapKho",
+    "title": "Bảng 3.17. Đề xuất kiểu dữ liệu cho bảng PhieuNhapKho.",
+    "rows": [
+      [
+        "Ma_phieu_nhap",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã phiếu nhập kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, FK → Kho",
+        "Kho tiếp nhận hàng",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_lap",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Nhân viên kho lập phiếu",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_phe_duyet",
+        "CHAR(10)",
+        "Cho phép NULL, FK → NguoiDung",
+        "Quản lý duyệt (NULL khi chưa duyệt)",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Ngay_lap",
+        "DATE",
+        "NOT NULL",
+        "Ngày lập phiếu nhập",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ngay_nhap_thuc_te",
+        "DATE",
+        "Cho phép NULL",
+        "Ngày hàng thực tế vào kho",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Lô tháng 3, từ line 2 sản xuất...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(50)",
+        "DEFAULT 'Cho phe duyet'",
+        "Chờ phê duyệt / Đã PD / Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ly_do_tu_choi",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Điền khi trạng thái = Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_xu_ly",
+        "DATETIME",
+        "Cho phép NULL",
+        "Thời điểm quản lý xử lý phê duyệt",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo phiếu",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật phiếu",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 18,
+    "name": "ChiTietNhapKho",
+    "title": "Bảng 3.18. Đề xuất kiểu dữ liệu cho bảng ChiTietNhapKho.",
+    "rows": [
+      [
+        "Ma_phieu_nhap",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuNhapKho",
+        "Phiếu nhập chứa dòng chi tiết",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → SanPham",
+        "Sản phẩm được nhập trong phiếu",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_nhap",
+        "INT",
+        "NOT NULL",
+        "Số lượng theo chứng từ/phiếu gốc",
+        "Số",
+        ""
+      ],
+      [
+        "So_luong_thuc_te",
+        "INT",
+        "DEFAULT 0",
+        "Số lượng nhân viên kho đếm thực tế",
+        "Số",
+        ""
+      ],
+      [
+        "⭐ Ma_lo (FK)",
+        "CHAR(15)",
+        "NULL, FK → LoSanXuat",
+        "[THÊM MỚI v2.0] Lô sản xuất tương ứng với dòng nhập này. Hỗ trợ truy xuất nguồn gốc lô",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Ghi chú dòng sản phẩm trong phiếu",
+        "Chuỗi ký tự",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 19,
+    "name": "ChiTietNhapViTri",
+    "title": "Bảng 3.19. Đề xuất kiểu dữ liệu cho bảng ChiTietNhapViTri.",
+    "rows": [
+      [
+        "Ma_phieu_nhap",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuNhapKho",
+        "Phiếu nhập tương ứng",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_vi_tri",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → ViTriTrongKho",
+        "Vị trí đặt hàng nhập vào",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, FK → SanPham",
+        "Sản phẩm nào nhập vào vị trí này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_nhap_vao_vi_tri",
+        "INT",
+        "NOT NULL",
+        "Số lượng hàng đặt vào vị trí cụ thể",
+        "Số",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 20,
+    "name": "ChiTietNhapSerial",
+    "title": "Bảng 3.20. Đề xuất kiểu dữ liệu cho bảng ChiTietNhapSerial.",
+    "rows": [
+      [
+        "Ma_phieu_nhap",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuNhapKho",
+        "Phiếu nhập ghi nhận serial",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_serial",
+        "VARCHAR(50)",
+        "NOT NULL, PK (kép), FK → SoSerial",
+        "Serial được ghi nhận khi nhập kho",
+        "Chữ và số",
+        "x"
+      ]
+    ]
+  },
+  {
+    "id": 21,
+    "name": "PhieuSuCo",
+    "title": "Bảng 3.21. Đề xuất kiểu dữ liệu cho bảng PhieuSuCo.",
+    "rows": [
+      [
+        "Ma_phieu_su_co",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã phiếu sự cố nhập kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_phieu_nhap",
+        "CHAR(20)",
+        "NOT NULL, FK → PhieuNhapKho",
+        "Phiếu nhập phát sinh sự cố",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_lap",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Người lập phiếu (QC hoặc NV kho)",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ngay_lap",
+        "DATE",
+        "NOT NULL",
+        "Ngày lập phiếu sự cố",
+        "Ngày",
+        ""
+      ],
+      [
+        "Loai_su_co",
+        "NVARCHAR(50)",
+        "NOT NULL",
+        "Hàng lỗi / Sai lệch số lượng",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Mo_ta",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Mô tả chi tiết sự cố phát sinh",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "So_luong_su_co",
+        "INT",
+        "DEFAULT 0",
+        "Số lượng sản phẩm liên quan sự cố",
+        "Số",
+        ""
+      ],
+      [
+        "Trang_thai_xu_ly",
+        "NVARCHAR(50)",
+        "DEFAULT 'Dang xu ly'",
+        "Đang xử lý / Đã giải quyết...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Ghi chú xử lý sự cố",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo phiếu sự cố",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật phiếu",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 22,
+    "name": "YeuCauXuatKho",
+    "title": "Bảng 3.22. Đề xuất kiểu dữ liệu cho bảng YeuCauXuatKho.",
+    "rows": [
+      [
+        "Ma_yeu_cau",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã yêu cầu xuất kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, FK → Kho",
+        "Kho cần xuất hàng từ đó",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_tao",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Sales tạo yêu cầu xuất hàng",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ngay_tao",
+        "DATE",
+        "NOT NULL",
+        "Ngày tạo yêu cầu xuất",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ten_khach_hang",
+        "NVARCHAR(200)",
+        "NOT NULL",
+        "Tên khách hàng nhận hàng",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_giao_hang_du_kien",
+        "DATETIME",
+        "Cho phép NULL",
+        "Thời điểm giao hàng dự kiến",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Ghi chú đặc biệt khi xuất",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(60)",
+        "DEFAULT 'Cho xu ly'",
+        "Chờ xử lý / Tạm dừng / Đã xử lý",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 23,
+    "name": "ChiTietYeuCau",
+    "title": "Bảng 3.23. Đề xuất kiểu dữ liệu cho bảng ChiTietYeuCau.",
+    "rows": [
+      [
+        "Ma_yeu_cau",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → YeuCauXuatKho",
+        "Yêu cầu xuất chứa dòng này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → SanPham",
+        "Sản phẩm cần xuất kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_yeu_cau",
+        "INT",
+        "NOT NULL",
+        "Số lượng yêu cầu xuất kho",
+        "Số",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 24,
+    "name": "PhieuXuatKho",
+    "title": "Bảng 3.24. Đề xuất kiểu dữ liệu cho bảng PhieuXuatKho.",
+    "rows": [
+      [
+        "Ma_phieu_xuat",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã phiếu xuất kho chính thức",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_yeu_cau",
+        "CHAR(20)",
+        "NOT NULL, FK → YeuCauXuatKho",
+        "Yêu cầu phát sinh phiếu xuất này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, FK → Kho",
+        "Kho thực hiện xuất hàng",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_lap",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Kế toán kho lập phiếu xuất",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_phe_duyet",
+        "CHAR(10)",
+        "Cho phép NULL, FK → NguoiDung",
+        "Quản lý kho phê duyệt",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Ngay_lap",
+        "DATE",
+        "NOT NULL",
+        "Ngày lập phiếu xuất",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ngay_xuat_thuc_te",
+        "DATE",
+        "Cho phép NULL",
+        "Ngày hàng thực tế xuất khỏi kho",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Xuất cảng Hải Phòng, giao FedEx...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(60)",
+        "DEFAULT 'Cho phe duyet'",
+        "Chờ PD / Đã PD / Đang vận chuyển...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ly_do_tu_choi",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Điền khi trạng thái = Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_xu_ly",
+        "DATETIME",
+        "Cho phép NULL",
+        "Thời điểm quản lý xử lý phê duyệt",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo phiếu",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật phiếu",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 25,
+    "name": "ChiTietXuatKho",
+    "title": "Bảng 3.25. Đề xuất kiểu dữ liệu cho bảng ChiTietXuatKho.",
+    "rows": [
+      [
+        "Ma_phieu_xuat",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuXuatKho",
+        "Phiếu xuất chứa dòng chi tiết",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → SanPham",
+        "Sản phẩm được xuất kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_xuat",
+        "INT",
+        "NOT NULL",
+        "Số lượng thực tế xuất trong phiếu",
+        "Số",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Ghi chú dòng sản phẩm xuất",
+        "Chuỗi ký tự",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 26,
+    "name": "ChiTietXuatViTri",
+    "title": "Bảng 3.26. Đề xuất kiểu dữ liệu cho bảng ChiTietXuatViTri.",
+    "rows": [
+      [
+        "Ma_phieu_xuat",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuXuatKho",
+        "Phiếu xuất tương ứng",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_vi_tri",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → ViTriTrongKho",
+        "Vị trí lấy hàng xuất ra",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, FK → SanPham",
+        "Sản phẩm nào được lấy từ vị trí",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_xuat_tu_vi_tri",
+        "INT",
+        "NOT NULL",
+        "Số lượng lấy từ vị trí cụ thể này",
+        "Số",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 27,
+    "name": "ChiTietXuatSerial",
+    "title": "Bảng 3.27. Đề xuất kiểu dữ liệu cho bảng ChiTietXuatSerial.",
+    "rows": [
+      [
+        "Ma_phieu_xuat",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuXuatKho",
+        "Phiếu xuất ghi nhận serial",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_serial",
+        "VARCHAR(50)",
+        "NOT NULL, PK (kép), FK → SoSerial",
+        "Serial được xuất khỏi kho",
+        "Chữ và số",
+        "x"
+      ]
+    ]
+  },
+  {
+    "id": 28,
+    "name": "PhieuKiemKe",
+    "title": "Bảng 3.28. Đề xuất kiểu dữ liệu cho bảng PhieuKiemKe.",
+    "rows": [
+      [
+        "Ma_phieu_kiem_ke",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã phiếu kiểm kê",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_kho",
+        "CHAR(10)",
+        "NOT NULL, FK → Kho",
+        "Kho tiến hành kiểm kê",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_lap",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Kế toán kho lập phiếu kiểm kê",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_phe_duyet",
+        "CHAR(10)",
+        "Cho phép NULL, FK → NguoiDung",
+        "Quản lý kho phê duyệt",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Ngay_lap",
+        "DATE",
+        "NOT NULL",
+        "Ngày lập phiếu kiểm kê",
+        "Ngày",
+        ""
+      ],
+      [
+        "Loai_kiem_ke",
+        "NVARCHAR(60)",
+        "Cho phép NULL",
+        "Toàn bộ / Chọn mẫu / Theo nhóm",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Pham_vi_kiem_ke",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Toàn bộ kho / Chỉ bản lề laptop",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_han_hoan_thanh",
+        "DATE",
+        "Cho phép NULL",
+        "Hạn hoàn thành kiểm kê",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Kiểm kê nửa năm theo yêu cầu...",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(60)",
+        "DEFAULT 'Cho phe duyet'",
+        "Chờ PD / Đang kiểm kê / Hoàn tất",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ly_do_tu_choi",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Điền khi trạng thái = Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_xu_ly",
+        "DATETIME",
+        "Cho phép NULL",
+        "Thời điểm quản lý xử lý",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo phiếu kiểm kê",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật phiếu",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 29,
+    "name": "ChiTietKiemKe",
+    "title": "Bảng 3.29. Đề xuất kiểu dữ liệu cho bảng ChiTietKiemKe.",
+    "rows": [
+      [
+        "Ma_phieu_kiem_ke",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuKiemKe",
+        "Phiếu kiểm kê chứa dòng này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → SanPham",
+        "Sản phẩm được kiểm kê",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_he_thong",
+        "INT",
+        "DEFAULT 0",
+        "Số lượng theo sổ sách hệ thống",
+        "Số",
+        ""
+      ],
+      [
+        "So_luong_thuc_te",
+        "INT",
+        "DEFAULT NULL",
+        "Số lượng NV đếm thực tế (NULL=chưa)",
+        "Số",
+        ""
+      ],
+      [
+        "Nguyen_nhan",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Nhầm lô / Mất mát / Sai nhập liệu",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Ghi chú kiểm kê",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai_kiem_ke",
+        "NVARCHAR(30)",
+        "DEFAULT 'Chua kiem'",
+        "Chưa kiểm / Đã kiểm / Có chênh lệch",
+        "Chuỗi ký tự",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 30,
+    "name": "BienBanKiemKe",
+    "title": "Bảng 3.30. Đề xuất kiểu dữ liệu cho bảng BienBanKiemKe.",
+    "rows": [
+      [
+        "Ma_bien_ban_kk",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã biên bản kiểm kê",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_phieu_kiem_ke",
+        "CHAR(20)",
+        "NOT NULL, UNIQUE, FK → PhieuKiemKe",
+        "Quan hệ 1:1 với phiếu kiểm kê",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_lap",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Kế toán kho lập biên bản",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_phe_duyet",
+        "CHAR(10)",
+        "Cho phép NULL, FK → NguoiDung",
+        "Quản lý kho phê duyệt biên bản",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Ngay_lap",
+        "DATE",
+        "NOT NULL",
+        "Ngày lập biên bản kiểm kê",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ket_luan",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Khớp sổ sách / Thiếu 15 cái bản lề",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Ghi chú kết quả kiểm kê",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(50)",
+        "DEFAULT 'Cho phe duyet'",
+        "Chờ PD / Đã PD / Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ly_do_tu_choi",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Điền khi trạng thái = Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_xu_ly",
+        "DATETIME",
+        "Cho phép NULL",
+        "Thời điểm quản lý xử lý biên bản",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 31,
+    "name": "PhieuDieuChinhTonKho",
+    "title": "Bảng 3.31. Đề xuất kiểu dữ liệu cho bảng PhieuDieuChinhTonKho.",
+    "rows": [
+      [
+        "Ma_phieu_dieu_chinh",
+        "CHAR(20)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã phiếu điều chỉnh tồn kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_bien_ban_kk",
+        "CHAR(20)",
+        "NOT NULL, FK → BienBanKiemKe",
+        "Biên bản phát sinh yêu cầu điều chỉnh",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_nguoi_dung_xac_nhan",
+        "CHAR(10)",
+        "NOT NULL, FK → NguoiDung",
+        "Kế toán kho xác nhận điều chỉnh",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ngay_lap",
+        "DATE",
+        "NOT NULL",
+        "Ngày lập phiếu điều chỉnh",
+        "Ngày",
+        ""
+      ],
+      [
+        "Ly_do_dieu_chinh",
+        "NVARCHAR(500)",
+        "Cho phép NULL",
+        "Kiểm kê phát hiện thiếu 15 bản lề A",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "Cho phép NULL",
+        "Ghi chú xử lý điều chỉnh",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(50)",
+        "DEFAULT 'Cho xac nhan'",
+        "Chờ xác nhận / Đã XN / Từ chối",
+        "Chuỗi ký tự",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày tạo phiếu",
+        "Ngày giờ",
+        ""
+      ],
+      [
+        "Thoi_gian_cap_nhat",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Ngày cập nhật phiếu",
+        "Ngày giờ",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 32,
+    "name": "ChiTietDieuChinh",
+    "title": "Bảng 3.32. Đề xuất kiểu dữ liệu cho bảng ChiTietDieuChinh.",
+    "rows": [
+      [
+        "Ma_phieu_dieu_chinh",
+        "CHAR(20)",
+        "NOT NULL, PK (kép), FK → PhieuDieuChinhTonKho",
+        "Phiếu điều chỉnh chứa dòng này",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "Ma_san_pham",
+        "CHAR(15)",
+        "NOT NULL, PK (kép), FK → SanPham",
+        "Sản phẩm được điều chỉnh tồn kho",
+        "Chữ và số",
+        "x"
+      ],
+      [
+        "So_luong_dieu_chinh",
+        "INT",
+        "NOT NULL, > 0",
+        "Giá trị tuyệt đối dương",
+        "Số",
+        ""
+      ],
+      [
+        "Loai_dieu_chinh",
+        "NVARCHAR(10)",
+        "NOT NULL",
+        "Tăng / Giảm tồn kho",
+        "Chuỗi ký tự",
+        ""
+      ]
+    ]
+  },
+  {
+    "id": 33,
+    "name": "NhatKyEmail",
+    "title": "Bảng 3.33. Đề xuất kiểu dữ liệu cho bảng NhatKyEmail.",
+    "rows": [
+      [
+        "Ma_nhat_ky",
+        "INT",
+        "PK, IDENTITY(1,1)",
+        "Khóa chính tự tăng",
+        "Số nguyên",
+        "PK"
+      ],
+      [
+        "Loai_email",
+        "NVARCHAR(30)",
+        "NOT NULL",
+        "welcome/adminReset/forgotPassword/⭐stockLow/⭐stockHigh/⭐warrantyExpiring/⭐slowMoving",
+        "Chuỗi enum",
+        "IDX"
+      ],
+      [
+        "Email_nguoi_nhan",
+        "VARCHAR(255)",
+        "NOT NULL",
+        "Địa chỉ email người nhận",
+        "Email hợp lệ",
+        ""
+      ],
+      [
+        "Tieu_de",
+        "VARCHAR(500)",
+        "NOT NULL",
+        "Tiêu đề (subject) của email",
+        "Chuỗi UTF-8",
+        ""
+      ],
+      [
+        "Trang_thai",
+        "NVARCHAR(10)",
+        "NOT NULL, DEFAULT 'success'",
+        "success / failed",
+        "Chuỗi",
+        "IDX"
+      ],
+      [
+        "Thong_bao_loi",
+        "NVARCHAR(MAX)",
+        "NULL",
+        "Mô tả lỗi SMTP nếu gửi thất bại",
+        "Văn bản",
+        ""
+      ],
+      [
+        "Ma_nguoi_dung (FK)",
+        "CHAR(10)",
+        "NULL, FK → NguoiDung",
+        "Người dùng liên quan (nullable)",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "Nguoi_trigger",
+        "VARCHAR(255)",
+        "NULL",
+        "Email admin hoặc \"system\" (job tự động)",
+        "Email/system",
+        ""
+      ],
+      [
+        "⭐ Ma_san_pham (FK)",
+        "CHAR(15)",
+        "NULL, FK → SanPham",
+        "[THÊM MỚI v2.0] Sản phẩm liên quan – chỉ điền cho cảnh báo nghiệp vụ",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "⭐ Ma_vi_tri (FK)",
+        "CHAR(15)",
+        "NULL, FK → ViTriTrongKho",
+        "[THÊM MỚI v2.0] Vị trí kho liên quan đến cảnh báo (nếu có)",
+        "Chữ và số",
+        ""
+      ],
+      [
+        "⭐ Da_xu_ly",
+        "BIT",
+        "DEFAULT 0",
+        "[THÊM MỚI v2.0] 0: Chưa xử lý / 1: Đã xem và xử lý (cho cảnh báo nghiệp vụ)",
+        "0 hoặc 1",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "NOT NULL, DEFAULT GETDATE()",
+        "Thời điểm ghi nhận – không có updatedAt (append-only)",
+        "YYYY-MM-DD HH:mm",
+        "IDX"
+      ]
+    ]
+  },
+  {
+    "id": 34,
+    "name": "LoSanXuat",
+    "title": "Bảng 3.34. Đề xuất kiểu dữ liệu cho bảng LoSanXuat.",
+    "rows": [
+      [
+        "Ma_lo",
+        "CHAR(15)",
+        "NOT NULL, PK, UNIQUE",
+        "Mã lô sản xuất. VD: LSX-2026-001",
+        "Chữ và số",
+        "PK"
+      ],
+      [
+        "Ma_san_pham (FK)",
+        "CHAR(15)",
+        "NOT NULL, FK → SanPham",
+        "Lô này thuộc sản phẩm nào",
+        "Chữ và số",
+        "IDX"
+      ],
+      [
+        "So_lo_nha_may",
+        "NVARCHAR(50)",
+        "NOT NULL",
+        "Số lô do nhà máy đặt. VD: LOT-A0326-02",
+        "Chữ và số + ký tự đặc biệt",
+        "IDX"
+      ],
+      [
+        "Ngay_san_xuat",
+        "DATE",
+        "NOT NULL",
+        "Ngày sản xuất lô – làm cơ sở FIFO và tính bảo hành",
+        "YYYY-MM-DD",
+        "IDX"
+      ],
+      [
+        "So_luong_san_xuat",
+        "INT",
+        "DEFAULT 0",
+        "Tổng số đơn vị sản phẩm trong lô",
+        "Số nguyên ≥ 0",
+        ""
+      ],
+      [
+        "Nguon_goc",
+        "NVARCHAR(200)",
+        "NULL",
+        "Thông tin line sản xuất. VD: Line 2 – Xưởng A, ca sáng",
+        "Văn bản",
+        ""
+      ],
+      [
+        "Ghi_chu",
+        "NVARCHAR(300)",
+        "NULL",
+        "Ghi chú QC đặc biệt nếu có",
+        "Văn bản",
+        ""
+      ],
+      [
+        "Thoi_gian_tao",
+        "DATETIME",
+        "DEFAULT GETDATE()",
+        "Tự động khi tạo bản ghi lô",
+        "YYYY-MM-DD HH:mm",
+        ""
+      ]
+    ]
+  }
+]

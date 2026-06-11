@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/user.model.js';
+import { UserWarehouse } from '../models/userWarehouse.model.js';
+import { getEffectivePermissions } from '../utils/permission.helper.js';
 
 export const authenticate = async (req, res, next) => {
   try {
@@ -18,26 +20,50 @@ export const authenticate = async (req, res, next) => {
       return res.status(401).json({ message: 'Tài khoản không tồn tại hoặc đã bị xóa' });
     }
 
-    req.user = user;
+    // Kiểm tra tài khoản còn hoạt động không
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' });
+    }
+
+    // Tính toán quyền hiệu lực (null = Admin toàn quyền, array = danh sách quyền)
+    const effectivePermissions = await getEffectivePermissions(user._id, user.role);
+
+    // Lấy danh sách kho được phân công (Admin không cần — toàn quyền)
+    let assignedWarehouseIds = null; // null = Admin (toàn bộ kho)
+    if (user.role !== 'Admin') {
+      const assignments = await UserWarehouse.findAll({ where: { userId: user._id } });
+      assignedWarehouseIds = assignments.map(a => a.warehouseNodeId);
+    }
+
+    // Lưu vào req.user dưới dạng plain object để dễ thao tác
+    req.user = user.toJSON();
+    req.user.effectivePermissions = effectivePermissions;
+    req.user.assignedWarehouseIds = assignedWarehouseIds; // null=admin(tất cả), []=[]=chưa phân công
+
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
   }
 };
 
+/**
+ * Kiểm tra quyền tại route-level.
+ * Admin (role = 'Admin') tự động bypass toàn bộ kiểm tra.
+ * Các vai trò khác kiểm tra dựa trên effectivePermissions đã tính toán.
+ */
 export const requirePermission = (permission) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Chưa xác thực người dùng' });
     }
 
-    // Admin has all permissions automatically
+    // Admin bypass toàn bộ
     if (req.user.role === 'Admin') {
       return next();
     }
 
-    // Check if user has the specific permission
-    if (req.user.permissions && req.user.permissions.includes(permission)) {
+    // Kiểm tra trong danh sách quyền hiệu lực
+    if (req.user.effectivePermissions && req.user.effectivePermissions.includes(permission)) {
       return next();
     }
 

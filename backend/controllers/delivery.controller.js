@@ -1,17 +1,17 @@
 import { Delivery, DeliveryItem } from '../models/delivery.model.js';
+import { DeliveryRequest } from '../models/deliveryRequest.model.js';
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
-import { Partner } from '../models/partner.model.js';
 import { User } from '../models/user.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
+import { recordAudit } from '../utils/audit.helper.js';
 
 export const getDeliveries = async (req, res, next) => {
   try {
     const deliveries = await Delivery.findAll({
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
-        { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
+        { model: User, as: 'createdByUser', attributes: ['username', 'fullName', 'role'] },
         {
           model: DeliveryItem,
           as: 'items',
@@ -19,7 +19,8 @@ export const getDeliveries = async (req, res, next) => {
             { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
             { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
           ]
-        }
+        },
+        { model: DeliveryRequest, as: 'fromRequest', attributes: ['_id', 'code', 'status'] }
       ],
       order: [['createdAt', 'DESC']]
     });
@@ -33,7 +34,12 @@ export const getDeliveries = async (req, res, next) => {
 export const createDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { partner, items } = req.body;
+    const { tenKhachHang, items, requestId } = req.body;
+
+    if (!tenKhachHang || !tenKhachHang.trim()) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Tên khách hàng là bắt buộc' });
+    }
 
     const count = await Delivery.count();
     const code = `DL-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
@@ -58,11 +64,20 @@ export const createDelivery = async (req, res, next) => {
 
     const delivery = await Delivery.create({
       code,
-      partnerId: partner,
+      tenKhachHang: tenKhachHang.trim(),
       totalAmount,
       createdByUserId: req.user._id,
-      status: 'draft'
+      status: 'draft',
+      requestId: requestId || null
     }, { transaction: t });
+
+    // Nếu tạo từ yêu cầu → đánh dấu yêu cầu đang xử lý
+    if (requestId) {
+      await DeliveryRequest.update(
+        { status: 'processing' },
+        { where: { _id: requestId }, transaction: t }
+      );
+    }
 
     for (const mappedItem of mappedItems) {
       await DeliveryItem.create({
@@ -78,7 +93,6 @@ export const createDelivery = async (req, res, next) => {
 
     const populated = await Delivery.findByPk(delivery._id, {
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: DeliveryItem,
@@ -91,6 +105,7 @@ export const createDelivery = async (req, res, next) => {
       ]
     });
 
+    await recordAudit({ action: 'delivery.create', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: delivery._id, payload: { code, totalAmount, itemCount: mappedItems.length } });
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -102,7 +117,7 @@ export const updateDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { partner, items, status } = req.body;
+    const { tenKhachHang, items, status } = req.body;
 
     const delivery = await Delivery.findByPk(id, {
       include: [{ model: DeliveryItem, as: 'items' }]
@@ -112,12 +127,13 @@ export const updateDelivery = async (req, res, next) => {
       return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
     }
 
-    if (delivery.status === 'completed' || delivery.status === 'cancelled' || delivery.status === 'rejected') {
+    // Chỉ được sửa nội dung (tenKhachHang, items) khi phiếu còn ở trạng thái Nháp
+    if ((tenKhachHang !== undefined || items !== undefined) && delivery.status !== 'draft') {
       await t.rollback();
-      return res.status(400).json({ message: 'Không thể sửa phiếu xuất kho đã hoàn tất hoặc đã hủy' });
+      return res.status(400).json({ message: 'Chỉ có thể sửa nội dung phiếu xuất kho khi đang ở trạng thái Nháp' });
     }
 
-    if (partner) delivery.partnerId = partner;
+    if (tenKhachHang && tenKhachHang.trim()) delivery.tenKhachHang = tenKhachHang.trim();
 
     if (items) {
       let totalAmount = 0;
@@ -153,6 +169,13 @@ export const updateDelivery = async (req, res, next) => {
     }
 
     if (status) {
+      if (status === 'shipping') {
+        if (delivery.status !== 'approved') {
+          await t.rollback();
+          return res.status(400).json({ message: 'Chỉ có thể xác nhận xuất hàng từ trạng thái "Đã phê duyệt"' });
+        }
+      }
+
       if (status === 'completed' || status === 'approved') {
         const canApprove = req.user.role === 'Admin' || req.user.permissions.includes('delivery:approve');
         if (!canApprove) {
@@ -204,7 +227,6 @@ export const updateDelivery = async (req, res, next) => {
 
     const populated = await Delivery.findByPk(id, {
       include: [
-        { model: Partner, as: 'partner', attributes: ['name', 'type'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
         {
           model: DeliveryItem,
@@ -217,6 +239,8 @@ export const updateDelivery = async (req, res, next) => {
       ]
     });
 
+    const actionVerb = status === 'completed' ? 'delivery.complete' : status === 'approved' ? 'delivery.approve' : status === 'shipping' ? 'delivery.shipping' : status === 'rejected' ? 'delivery.reject' : 'delivery.update';
+    await recordAudit({ action: actionVerb, userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { status, code: populated.code } });
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
