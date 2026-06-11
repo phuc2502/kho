@@ -3,12 +3,15 @@ import { DeliveryModel } from '../models/delivery.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
 import { CategoryModel } from '../models/category.model.js';
+import { CustomerModel } from '../models/customer.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { IncidentModel } from '../models/incident.model.js';
 import toast from 'react-hot-toast';
-import { Plus, Eye, CheckCircle2, X, Clipboard, Truck, PackageCheck, CircleDot, Search, Calendar, PenLine, Send, Printer, Download } from 'lucide-react';
+import { Plus, Eye, CheckCircle2, X, Clipboard, Truck, PackageCheck, CircleDot, Search, Calendar, PenLine, Send, Printer, Download, UserCheck } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { printDocument } from '../utils/printDocument.js';
+import { deliveryTemplate } from '../utils/printTemplates.js';
 
 const STATUS_CONFIG = {
   preparing: { label: 'Đang soạn',       color: 'bg-violet-100 text-violet-700 border-violet-200', step: 1 },
@@ -74,6 +77,7 @@ export const DeliveriesPage = () => {
   const [bins, setBins] = useState([]);
   const [allNodes, setAllNodes] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // ── Bộ lọc & tìm kiếm ────────────────────────────────────────
@@ -92,28 +96,38 @@ export const DeliveriesPage = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
 
+  // Signature modal (Hoàn tất xuất kho)
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [signerName, setSignerName] = useState('');
+  const [signedAt, setSignedAt] = useState('');
+  const [signatureNote, setSignatureNote] = useState('');
+
   const [showIncidentModal, setShowIncidentModal] = useState(false);
   const [incidentType, setIncidentType] = useState('damage');
   const [incidentNote, setIncidentNote] = useState('');
   const [incidentItems, setIncidentItems] = useState([]);
 
+  const [customerId, setCustomerId] = useState('');
   const [tenKhachHang, setTenKhachHang] = useState('');
+  const [note, setNote] = useState('');
   const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dData, pData, wData, catData] = await Promise.all([
+      const [dData, pData, wData, catData, custData] = await Promise.all([
         DeliveryModel.getAll(),
         ProductModel.getAll(),
         WarehouseModel.getAll(),
-        CategoryModel.getAll()
+        CategoryModel.getAll(),
+        CustomerModel.getAll()
       ]);
       setDeliveries(dData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
       setAllNodes(wData);
       setCategories(catData);
+      setCustomers(custData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu phiếu xuất: ' + error.message);
     } finally {
@@ -186,7 +200,9 @@ export const DeliveriesPage = () => {
   // Mở modal sửa — chỉ gọi khi phiếu đang ở trạng thái nháp
   const openEditModal = (delivery) => {
     setEditingDelivery(delivery);
+    setCustomerId(delivery.customerId ? String(delivery.customerId) : '');
     setTenKhachHang(delivery.tenKhachHang);
+    setNote(delivery.note || '');
     setItems(delivery.items?.map(i => ({
       product: i.product?._id || i.productId,
       quantity: i.quantity,
@@ -200,39 +216,34 @@ export const DeliveriesPage = () => {
 
   const handleCreateDelivery = async (e) => {
     e.preventDefault();
-    if (!tenKhachHang.trim()) return toast.error('Vui lòng nhập tên khách hàng');
+    if (!customerId && !tenKhachHang.trim()) return toast.error('Vui lòng chọn hoặc nhập tên khách hàng');
     if (items.some(item => !item.product || item.quantity <= 0 || !item.warehouseNode))
       return toast.error('Vui lòng điền đầy đủ sản phẩm, số lượng và khay lấy hàng');
 
     try {
+      const payload = {
+        customerId: customerId ? Number(customerId) : undefined,
+        tenKhachHang: tenKhachHang.trim() || undefined,
+        note: note.trim() || undefined,
+        items: items.map(item => ({
+          product: item.product,
+          quantity: Number(item.quantity),
+          price: Number(item.price),
+          warehouseNode: item.warehouseNode
+        }))
+      };
       if (editingDelivery) {
-        // Sửa phiếu — chỉ khi đang preparing (backend cũng kiểm tra lại)
-        await DeliveryModel.update(editingDelivery._id, {
-          tenKhachHang: tenKhachHang.trim(),
-          items: items.map(item => ({
-            product: item.product,
-            quantity: Number(item.quantity),
-            price: Number(item.price),
-            warehouseNode: item.warehouseNode
-          }))
-        });
+        await DeliveryModel.update(editingDelivery._id, payload);
         toast.success('Đã cập nhật phiếu xuất kho');
       } else {
-        // Tạo mới
-        await DeliveryModel.create({
-          tenKhachHang: tenKhachHang.trim(),
-          items: items.map(item => ({
-            product: item.product,
-            quantity: Number(item.quantity),
-            price: Number(item.price),
-            warehouseNode: item.warehouseNode
-          }))
-        });
+        await DeliveryModel.create(payload);
         toast.success('Lập phiếu xuất kho nháp thành công');
       }
       setShowAddModal(false);
       setEditingDelivery(null);
+      setCustomerId('');
       setTenKhachHang('');
+      setNote('');
       setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
@@ -243,18 +254,18 @@ export const DeliveriesPage = () => {
   const handleTransitionStatus = async (deliveryId, targetStatus, extra = {}) => {
     const labels = {
       draft:     'Đã gửi phiếu xuất để Quản lý phê duyệt',
-      approved:  'Đã phê duyệt phiếu xuất',
+      approved:  'Đã phê duyệt phiếu xuất – tồn kho đã được giữ chỗ',
       shipping:  'Đã xác nhận xuất hàng – đang vận chuyển',
       completed: 'Hoàn tất xuất kho – đã trừ tồn kho',
       rejected:  'Đã từ chối phiếu xuất',
     };
     try {
       let res;
-      if (targetStatus === 'draft')     res = await DeliveryModel.submit(deliveryId);
+      if (targetStatus === 'draft')          res = await DeliveryModel.submit(deliveryId);
       else if (targetStatus === 'approved')  res = await DeliveryModel.approve(deliveryId);
       else if (targetStatus === 'rejected')  res = await DeliveryModel.reject(deliveryId, extra.rejectNote);
       else if (targetStatus === 'shipping')  res = await DeliveryModel.ship(deliveryId);
-      else if (targetStatus === 'completed') res = await DeliveryModel.complete(deliveryId);
+      else if (targetStatus === 'completed') res = await DeliveryModel.complete(deliveryId, extra.signature);
       toast.success(labels[targetStatus] || 'Đã cập nhật trạng thái');
       const updatedDelivery = res?.delivery || res;
       setSelectedDelivery(updatedDelivery);
@@ -262,6 +273,21 @@ export const DeliveriesPage = () => {
     } catch (error) {
       toast.error('Lỗi: ' + error.message);
     }
+  };
+
+  const handleCompleteWithSignature = async () => {
+    if (!signerName.trim()) return toast.error('Vui lòng nhập tên người ký nhận');
+    await handleTransitionStatus(selectedDelivery._id, 'completed', {
+      signature: {
+        signerName:    signerName.trim(),
+        signedAt:      signedAt || new Date().toISOString(),
+        signatureNote: signatureNote.trim() || undefined
+      }
+    });
+    setShowSignatureModal(false);
+    setSignerName('');
+    setSignedAt('');
+    setSignatureNote('');
   };
 
   const handleSubmitQuickIncident = async (e) => {
@@ -533,18 +559,53 @@ export const DeliveriesPage = () => {
                 <Clipboard className="w-5 h-5 text-primary-500" />
                 {editingDelivery ? `Sửa phiếu ${editingDelivery.code}` : 'Lập Phiếu Xuất Kho'}
               </h3>
-              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setCustomerId(''); setTenKhachHang(''); setNote(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tên khách hàng *</label>
-                <input
-                  type="text"
-                  required
-                  value={tenKhachHang}
-                  onChange={(e) => setTenKhachHang(e.target.value)}
-                  placeholder="Ví dụ: Samsung Electronics Vietnam Co., Ltd"
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Khách hàng *</label>
+                <select
+                  value={customerId}
+                  onChange={e => {
+                    setCustomerId(e.target.value);
+                    if (e.target.value) {
+                      const c = customers.find(c => String(c._id) === e.target.value);
+                      if (c) setTenKhachHang(c.name);
+                    } else {
+                      setTenKhachHang('');
+                    }
+                  }}
                   className="w-full max-w-md bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
+                >
+                  <option value="">-- Chọn khách hàng --</option>
+                  {customers.map(c => (
+                    <option key={c._id} value={c._id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
+                {!customerId && (
+                  <input
+                    type="text"
+                    value={tenKhachHang}
+                    onChange={(e) => setTenKhachHang(e.target.value)}
+                    placeholder="Hoặc nhập tên khách hàng mới..."
+                    className="w-full max-w-md mt-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
+                  />
+                )}
+                {customerId && (
+                  <p className="text-xs text-emerald-600 mt-1.5">
+                    ✓ {customers.find(c => String(c._id) === customerId)?.phone || 'Khách hàng đã chọn'}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ghi chú (tùy chọn)</label>
+                <textarea
+                  value={note}
+                  onChange={e => setNote(e.target.value)}
+                  placeholder="Ghi chú về phiếu xuất, điều kiện giao hàng..."
+                  rows={2}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm resize-none"
                 />
               </div>
 
@@ -649,7 +710,7 @@ export const DeliveriesPage = () => {
                   <strong className="text-slate-900">{formatCurrency(items.reduce((s, i) => s + (Number(i.quantity) * Number(i.price) || 0), 0))}</strong>
                 </span>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
+                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setCustomerId(''); setTenKhachHang(''); setNote(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
                   <button type="submit" className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-primary-500/10">
                     {editingDelivery ? 'Lưu thay đổi' : 'Tạo phiếu'}
                   </button>
@@ -663,15 +724,15 @@ export const DeliveriesPage = () => {
       {/* Detail Modal */}
       {selectedDelivery && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
               <div>
                 <h3 className="font-bold text-slate-800">Chi tiết Phiếu Xuất Kho</h3>
                 <p className="text-xs text-slate-500 mt-0.5 font-mono">{selectedDelivery.code}</p>
               </div>
               <button onClick={() => setSelectedDelivery(null)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-6 space-y-5">
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
               {/* Workflow */}
               <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-3">Quy trình xuất kho</p>
@@ -689,6 +750,12 @@ export const DeliveriesPage = () => {
                   <p className="text-slate-400 text-xs uppercase font-semibold">Người lập phiếu</p>
                   <p className="font-bold text-slate-800 mt-1">{selectedDelivery.createdByUser?.username}</p>
                 </div>
+                {selectedDelivery.note && (
+                  <div className="col-span-2">
+                    <p className="text-slate-400 text-xs uppercase font-semibold">Ghi chú</p>
+                    <p className="text-sm text-slate-700 mt-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">{selectedDelivery.note}</p>
+                  </div>
+                )}
               </div>
 
               {/* Items */}
@@ -725,6 +792,33 @@ export const DeliveriesPage = () => {
                 </div>
               </div>
 
+              {/* Thông tin ký nhận — hiển thị khi phiếu completed */}
+              {selectedDelivery.status === 'completed' && selectedDelivery.signerName && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5">
+                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5" /> Thông tin ký nhận
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-emerald-900">
+                    <div>
+                      <span className="font-semibold">Người ký nhận: </span>
+                      {selectedDelivery.signerName}
+                    </div>
+                    <div>
+                      <span className="font-semibold">Ngày ký: </span>
+                      {selectedDelivery.signedAt
+                        ? new Date(selectedDelivery.signedAt).toLocaleString('vi-VN')
+                        : '—'}
+                    </div>
+                    {selectedDelivery.signatureNote && (
+                      <div className="col-span-2">
+                        <span className="font-semibold">Ghi chú ký nhận: </span>
+                        {selectedDelivery.signatureNote}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Lý do từ chối — hiển thị khi phiếu bị rejected */}
               {selectedDelivery.status === 'rejected' && selectedDelivery.rejectNote && (
                 <div className="bg-red-50 border border-red-100 rounded-xl p-3.5">
@@ -733,131 +827,200 @@ export const DeliveriesPage = () => {
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-between items-center gap-3">
-                <span className="text-sm font-semibold text-slate-700">
-                  Tổng: <strong className="text-slate-900 text-base">{formatCurrency(selectedDelivery.totalAmount)}</strong>
-                </span>
+            </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {/* Sửa nội dung — CHỈ khi đang soạn (preparing) */}
-                  {selectedDelivery.status === 'preparing' && (
-                    <PermissionGuard permission="delivery:update">
-                      <button
-                        onClick={() => { setSelectedDelivery(null); openEditModal(selectedDelivery); }}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                      >
-                        <PenLine className="w-3.5 h-3.5" /> Sửa phiếu
-                      </button>
-                    </PermissionGuard>
-                  )}
+            {/* Pinned action footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap justify-between items-center gap-2 shrink-0 bg-slate-50/50">
+              <span className="text-sm font-semibold text-slate-700">
+                Tổng: <strong className="text-slate-900 text-base">{formatCurrency(selectedDelivery.totalAmount)}</strong>
+              </span>
 
-                  <PermissionGuard permission="incident:create">
+              <div className="flex flex-wrap gap-2">
+                {/* Sửa nội dung — CHỈ khi đang soạn (preparing) */}
+                {selectedDelivery.status === 'preparing' && (
+                  <PermissionGuard permission="delivery:update">
                     <button
-                      onClick={() => {
-                        setIncidentItems(selectedDelivery.items.map(item => ({
-                          productId: item.product?._id || item.product,
-                          name: item.product?.name || '',
-                          sku: item.product?.sku || '',
-                          maxQty: item.quantity,
-                          quantity: item.quantity,
-                          checked: false
-                        })));
-                        setIncidentType('damage');
-                        setIncidentNote('');
-                        setShowIncidentModal(true);
-                      }}
-                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold"
+                      onClick={() => { setSelectedDelivery(null); openEditModal(selectedDelivery); }}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5"
                     >
-                      ⚠️ Báo sự cố
+                      <PenLine className="w-3.5 h-3.5" /> Sửa phiếu
                     </button>
                   </PermissionGuard>
+                )}
 
-                  {/* Gửi phê duyệt — CHỈ khi đang soạn (preparing), KeToanKho */}
-                  {selectedDelivery.status === 'preparing' && (
-                    <PermissionGuard permission="delivery:create">
-                      <button
-                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'draft')}
-                        className="px-3.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                      >
-                        <Send className="w-3.5 h-3.5" /> Gửi phê duyệt
-                      </button>
-                    </PermissionGuard>
-                  )}
-
-                  {/* Từ chối — CHỈ khi chờ phê duyệt (draft), QuanLyKho */}
-                  {selectedDelivery.status === 'draft' && (
-                    <PermissionGuard permission="delivery:approve">
-                      <button
-                        onClick={() => { setRejectNote(''); setShowRejectModal(true); }}
-                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-semibold"
-                      >
-                        ✕ Từ chối
-                      </button>
-                    </PermissionGuard>
-                  )}
-
-                  {/* Duyệt phiếu — CHỈ khi chờ phê duyệt (draft), QuanLyKho */}
-                  {selectedDelivery.status === 'draft' && (
-                    <PermissionGuard permission="delivery:approve">
-                      <button
-                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'approved')}
-                        className="px-3.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt phiếu
-                      </button>
-                    </PermissionGuard>
-                  )}
-
-                  {/* Xác nhận xuất hàng — CHỈ khi approved, NhanVienKho */}
-                  {selectedDelivery.status === 'approved' && (
-                    <PermissionGuard permission="delivery:ship">
-                      <button
-                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'shipping')}
-                        className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                      >
-                        <Truck className="w-3.5 h-3.5" /> Xác nhận xuất hàng
-                      </button>
-                    </PermissionGuard>
-                  )}
-
-                  {/* Hoàn tất xuất kho — CHỈ khi shipping, QuanLyKho */}
-                  {selectedDelivery.status === 'shipping' && (
-                    <PermissionGuard permission="delivery:complete">
-                      <button
-                        onClick={() => handleTransitionStatus(selectedDelivery._id, 'completed')}
-                        className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                      >
-                        <PackageCheck className="w-3.5 h-3.5" /> Hoàn tất xuất kho
-                      </button>
-                    </PermissionGuard>
-                  )}
-
+                <PermissionGuard permission="incident:create">
                   <button
                     onClick={() => {
-                      const headers = ['Mã sản phẩm (SKU)', 'Tên sản phẩm', 'Khay chứa (Bin)', 'Số lượng xuất', 'Đơn giá xuất', 'Thành tiền'];
-                      const rows = selectedDelivery.items?.map(item => [
-                        item.product?.sku || '',
-                        item.product?.name || '',
-                        item.warehouseNode?.code || '',
-                        item.quantity || 0,
-                        item.price || 0,
-                        (item.quantity * item.price) || 0
-                      ]);
-                      exportToCSV(`chi_tiet_phieu_xuat_${selectedDelivery.code}`, headers, rows);
+                      setIncidentItems(selectedDelivery.items.map(item => ({
+                        productId: item.product?._id || item.product,
+                        name: item.product?.name || '',
+                        sku: item.product?.sku || '',
+                        maxQty: item.quantity,
+                        quantity: item.quantity,
+                        checked: false
+                      })));
+                      setIncidentType('damage');
+                      setIncidentNote('');
+                      setShowIncidentModal(true);
                     }}
-                    className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold"
                   >
-                    <Download className="w-3.5 h-3.5" /> Xuất CSV
+                    ⚠️ Báo sự cố
                   </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Printer className="w-3.5 h-3.5" /> In Phiếu
-                  </button>
-                  <button onClick={() => setSelectedDelivery(null)} className="px-3.5 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold">Đóng</button>
-                </div>
+                </PermissionGuard>
+
+                {/* Gửi phê duyệt — CHỈ khi đang soạn (preparing), KeToanKho */}
+                {selectedDelivery.status === 'preparing' && (
+                  <PermissionGuard permission="delivery:create">
+                    <button
+                      onClick={() => handleTransitionStatus(selectedDelivery._id, 'draft')}
+                      className="px-3.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Send className="w-3.5 h-3.5" /> Gửi phê duyệt
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                {/* Từ chối — CHỈ khi chờ phê duyệt (draft), QuanLyKho */}
+                {selectedDelivery.status === 'draft' && (
+                  <PermissionGuard permission="delivery:approve">
+                    <button
+                      onClick={() => { setRejectNote(''); setShowRejectModal(true); }}
+                      className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-semibold"
+                    >
+                      ✕ Từ chối
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                {/* Duyệt phiếu — CHỈ khi chờ phê duyệt (draft), QuanLyKho */}
+                {selectedDelivery.status === 'draft' && (
+                  <PermissionGuard permission="delivery:approve">
+                    <button
+                      onClick={() => handleTransitionStatus(selectedDelivery._id, 'approved')}
+                      className="px-3.5 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt phiếu
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                {/* Xác nhận xuất hàng — CHỈ khi approved, NhanVienKho */}
+                {selectedDelivery.status === 'approved' && (
+                  <PermissionGuard permission="delivery:ship">
+                    <button
+                      onClick={() => handleTransitionStatus(selectedDelivery._id, 'shipping')}
+                      className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <Truck className="w-3.5 h-3.5" /> Xác nhận xuất hàng
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                {/* Hoàn tất xuất kho — CHỈ khi shipping — mở modal ký nhận */}
+                {selectedDelivery.status === 'shipping' && (
+                  <PermissionGuard permission="delivery:complete">
+                    <button
+                      onClick={() => {
+                        const now = new Date();
+                        setSignedAt(now.toISOString().slice(0,16));
+                        setShowSignatureModal(true);
+                      }}
+                      className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      <PackageCheck className="w-3.5 h-3.5" /> Hoàn tất xuất kho
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                <button
+                  onClick={() => {
+                    const headers = ['Mã sản phẩm (SKU)', 'Tên sản phẩm', 'Khay chứa (Bin)', 'Số lượng xuất', 'Đơn giá xuất', 'Thành tiền'];
+                    const rows = selectedDelivery.items?.map(item => [
+                      item.product?.sku || '',
+                      item.product?.name || '',
+                      item.warehouseNode?.code || '',
+                      item.quantity || 0,
+                      item.price || 0,
+                      (item.quantity * item.price) || 0
+                    ]);
+                    exportToCSV(`chi_tiet_phieu_xuat_${selectedDelivery.code}`, headers, rows);
+                  }}
+                  className="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> Xuất CSV
+                </button>
+                <button
+                  onClick={() => printDocument(deliveryTemplate(selectedDelivery), `Phiếu xuất kho ${selectedDelivery.code}`)}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" /> In Phiếu
+                </button>
+                <button onClick={() => setSelectedDelivery(null)} className="px-3.5 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold">Đóng</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Signature Modal — Hoàn tất xuất kho */}
+      {showSignatureModal && selectedDelivery && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-emerald-50/80">
+              <div>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <UserCheck className="w-4.5 h-4.5 text-emerald-600" /> Xác nhận ký nhận hàng
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Phiếu xuất: <span className="font-mono font-bold">{selectedDelivery.code}</span></p>
+              </div>
+              <button onClick={() => setShowSignatureModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                Ghi nhận thông tin người nhận hàng trước khi hoàn tất phiếu. Thao tác này sẽ trừ tồn kho.
+              </p>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Người ký nhận hàng <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={signerName}
+                  onChange={e => setSignerName(e.target.value)}
+                  placeholder="Họ tên người nhận hàng bên khách..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-emerald-400 text-sm"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Thời điểm ký nhận</label>
+                <input
+                  type="datetime-local"
+                  value={signedAt}
+                  onChange={e => setSignedAt(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-emerald-400 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Ghi chú ký nhận (tùy chọn)</label>
+                <textarea
+                  value={signatureNote}
+                  onChange={e => setSignatureNote(e.target.value)}
+                  rows={2}
+                  placeholder="Ví dụ: Hàng nhận đủ số lượng, không có hư hỏng..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-emerald-400 text-sm resize-none"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-1">
+                <button type="button" onClick={() => setShowSignatureModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold">
+                  Hủy
+                </button>
+                <button type="button" onClick={handleCompleteWithSignature}
+                  className="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold flex items-center gap-1.5">
+                  <PackageCheck className="w-4 h-4" /> Hoàn tất xuất kho
+                </button>
               </div>
             </div>
           </div>

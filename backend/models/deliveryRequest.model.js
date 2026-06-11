@@ -2,6 +2,7 @@ import { DataTypes } from 'sequelize';
 import { sequelize } from '../config/db.js';
 import { Product } from './product.model.js';
 import { User } from './user.model.js';
+import { Customer } from './customer.model.js';
 
 export const DeliveryRequest = sequelize.define('DeliveryRequest', {
   _id: {
@@ -14,10 +15,19 @@ export const DeliveryRequest = sequelize.define('DeliveryRequest', {
     allowNull: false,
     unique: true
   },
+  customerId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: Customer, key: '_id' }
+  },
   tenKhachHang: {
     type: DataTypes.STRING(200),
     allowNull: false,
     defaultValue: ''
+  },
+  expectedDeliveryDate: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
   },
   status: {
     type: DataTypes.ENUM('pending', 'insufficient_stock', 'processing', 'completed', 'cancelled'),
@@ -84,6 +94,8 @@ export const DeliveryRequestItem = sequelize.define('DeliveryRequestItem', {
 });
 
 // Relationships
+DeliveryRequest.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
+Customer.hasMany(DeliveryRequest, { foreignKey: 'customerId', as: 'deliveryRequests' });
 DeliveryRequest.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
 DeliveryRequest.hasMany(DeliveryRequestItem, { foreignKey: 'deliveryRequestId', as: 'items', onDelete: 'CASCADE' });
 

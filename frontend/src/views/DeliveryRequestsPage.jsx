@@ -3,6 +3,7 @@ import { DeliveryRequestModel } from '../models/deliveryRequest.model.js';
 import { DeliveryModel } from '../models/delivery.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CustomerModel } from '../models/customer.model.js';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
 import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck, Ban, Clock, Search, Calendar } from 'lucide-react';
@@ -11,7 +12,7 @@ import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck,
 const REQ_STATUS = {
   pending:            { label: 'Chờ xử lý',      color: 'bg-amber-100 text-amber-700 border-amber-200'   },
   processing:         { label: 'Đang xử lý',     color: 'bg-blue-100 text-blue-700 border-blue-200'      },
-  insufficient_stock: { label: 'Thiếu tồn kho',  color: 'bg-red-100 text-red-700 border-red-200'         },
+  insufficient_stock: { label: 'Tạm dừng – Không đủ tồn kho', color: 'bg-red-100 text-red-700 border-red-200' },
   completed:          { label: 'Đã hoàn thành',  color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   cancelled:          { label: 'Đã hủy',         color: 'bg-slate-100 text-slate-500 border-slate-200'   },
 };
@@ -42,6 +43,7 @@ export const DeliveryRequestsPage = () => {
 
   const [requests, setRequests]         = useState([]);
   const [products, setProducts]         = useState([]);
+  const [customers, setCustomers]       = useState([]);
   const [bins, setBins]                 = useState([]);
   const [allNodes, setAllNodes]         = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -61,7 +63,7 @@ export const DeliveryRequestsPage = () => {
   const [showFulfillModal, setShowFulfillModal] = useState(null); // { request }
 
   // Form tạo yêu cầu (Sale)
-  const [form, setForm] = useState({ tenKhachHang: '', note: '' });
+  const [form, setForm] = useState({ customerId: '', tenKhachHang: '', expectedDeliveryDate: '', note: '' });
   const [formItems, setFormItems] = useState([{ productId: '', quantity: 1, priceEstimate: 0 }]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -73,15 +75,17 @@ export const DeliveryRequestsPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [rData, pData, wData] = await Promise.all([
+      const [rData, pData, wData, custData] = await Promise.all([
         DeliveryRequestModel.getAll(),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CustomerModel.getAll()
       ]);
       setRequests(rData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
       setAllNodes(wData);
+      setCustomers(custData);
     } catch (err) {
       toast.error('Lỗi khi tải dữ liệu: ' + err.message);
     } finally {
@@ -141,14 +145,16 @@ export const DeliveryRequestsPage = () => {
   // ── Tạo yêu cầu (Sale) ────────────────────────────────────
   const handleCreateRequest = async (e) => {
     e.preventDefault();
-    if (!form.tenKhachHang.trim()) return toast.error('Vui lòng nhập tên khách hàng');
+    if (!form.customerId && !form.tenKhachHang.trim()) return toast.error('Vui lòng chọn hoặc nhập tên khách hàng');
     if (formItems.some(i => !i.productId || i.quantity <= 0))
       return toast.error('Vui lòng chọn đủ sản phẩm và số lượng');
 
     setSubmitting(true);
     try {
       await DeliveryRequestModel.create({
-        tenKhachHang: form.tenKhachHang.trim(),
+        customerId: form.customerId ? Number(form.customerId) : undefined,
+        tenKhachHang: form.tenKhachHang.trim() || undefined,
+        expectedDeliveryDate: form.expectedDeliveryDate || undefined,
         note: form.note.trim() || undefined,
         items: formItems.map(i => ({
           productId: i.productId,
@@ -158,7 +164,7 @@ export const DeliveryRequestsPage = () => {
       });
       toast.success('Tạo yêu cầu xuất kho thành công');
       setShowCreateModal(false);
-      setForm({ tenKhachHang: '', note: '' });
+      setForm({ customerId: '', tenKhachHang: '', expectedDeliveryDate: '', note: '' });
       setFormItems([{ productId: '', quantity: 1, priceEstimate: 0 }]);
       fetchData();
     } catch (err) {
@@ -219,6 +225,7 @@ export const DeliveryRequestsPage = () => {
     setFulfilling(true);
     try {
       await DeliveryModel.create({
+        customerId: showFulfillModal.customerId || undefined,
         tenKhachHang: showFulfillModal.tenKhachHang,
         requestId: showFulfillModal._id,
         items: fulfillItems.map(i => ({
@@ -403,6 +410,7 @@ export const DeliveryRequestsPage = () => {
                   <th className="px-5 py-3.5">Sản phẩm</th>
                   <th className="px-5 py-3.5">Trạng thái</th>
                   <th className="px-5 py-3.5">Ngày tạo</th>
+                  <th className="px-5 py-3.5">Ngày giao dự kiến</th>
                   <th className="px-5 py-3.5 text-right">Tổng ước tính</th>
                   {!isSale && <th className="px-5 py-3.5">Người tạo</th>}
                   <th className="px-5 py-3.5 text-center">Thao tác</th>
@@ -436,6 +444,10 @@ export const DeliveryRequestsPage = () => {
                       <td className="px-5 py-3.5">
                         <p className="text-xs text-slate-700 font-medium">{fmtDate(req.createdAt)}</p>
                         <p className="text-[10px] text-slate-400">{fmtTime(req.createdAt)}</p>
+                      </td>
+                      {/* Ngày giao dự kiến */}
+                      <td className="px-5 py-3.5">
+                        <p className="text-xs text-slate-700 font-medium">{fmtDate(req.expectedDeliveryDate)}</p>
                       </td>
                       {/* Tổng ước tính */}
                       <td className="px-5 py-3.5 text-right font-bold text-slate-900">
@@ -522,6 +534,12 @@ export const DeliveryRequestsPage = () => {
                   <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Ngày tạo</p>
                   <p className="text-sm text-slate-700">{fmtDate(selectedRequest.createdAt)} {fmtTime(selectedRequest.createdAt)}</p>
                 </div>
+                {selectedRequest.expectedDeliveryDate && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Ngày giao dự kiến</p>
+                    <p className="text-sm text-slate-700 font-semibold">{fmtDate(selectedRequest.expectedDeliveryDate)}</p>
+                  </div>
+                )}
                 {selectedRequest.note && (
                   <div className="col-span-2">
                     <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Ghi chú</p>
@@ -608,18 +626,45 @@ export const DeliveryRequestsPage = () => {
             </div>
 
             <form onSubmit={handleCreateRequest} className="p-6 space-y-5">
-              {/* Tên khách hàng */}
+              {/* Khách hàng */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                  Tên khách hàng <span className="text-red-500">*</span>
+                  Khách hàng <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={form.customerId}
+                  onChange={e => {
+                    const c = customers.find(c => String(c._id) === e.target.value);
+                    setForm({ ...form, customerId: e.target.value, tenKhachHang: c ? c.name : '' });
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
+                >
+                  <option value="">-- Chọn khách hàng --</option>
+                  {customers.map(c => (
+                    <option key={c._id} value={c._id}>{c.name} ({c.code})</option>
+                  ))}
+                </select>
+                {!form.customerId && (
+                  <input
+                    type="text"
+                    value={form.tenKhachHang}
+                    onChange={e => setForm({ ...form, tenKhachHang: e.target.value })}
+                    placeholder="Hoặc nhập tên khách hàng chưa có trong danh sách..."
+                    className="w-full mt-2 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
+                  />
+                )}
+              </div>
+
+              {/* Ngày giao dự kiến */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
+                  Ngày giao hàng dự kiến (tùy chọn)
                 </label>
                 <input
-                  type="text"
-                  value={form.tenKhachHang}
-                  onChange={e => setForm({ ...form, tenKhachHang: e.target.value })}
-                  placeholder="Nhập tên khách hàng..."
-                  required
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
+                  type="date"
+                  value={form.expectedDeliveryDate}
+                  onChange={e => setForm({ ...form, expectedDeliveryDate: e.target.value })}
+                  className="w-full max-w-xs px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"
                 />
               </div>
 

@@ -8,5 +8,5 @@ export const DeliveryModel = {
   approve:  async (id)         => await api.patch(`/deliveries/${id}/approve`),
   reject:   async (id, reason) => await api.patch(`/deliveries/${id}/reject`, { reason }),
   ship:     async (id)         => await api.patch(`/deliveries/${id}/ship`),
-  complete: async (id)         => await api.patch(`/deliveries/${id}/complete`),
+  complete: async (id, signatureData) => await api.patch(`/deliveries/${id}/complete`, signatureData || {}),
 };

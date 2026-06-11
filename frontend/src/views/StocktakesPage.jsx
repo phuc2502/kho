@@ -12,6 +12,8 @@ import {
   AlertCircle, Search, Pencil, Calendar, Send, FileText, Ban, Printer, Download
 } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { printDocument } from '../utils/printDocument.js';
+import { stocktakeSheetTemplate, stocktakeMinutesTemplate, stocktakeReportTemplate } from '../utils/printTemplates.js';
 
 const STATUS_CONFIG = {
   pending_approval: { label: 'Chờ phê duyệt',    color: 'bg-slate-100 text-slate-700 border-slate-200',   step: 1 },
@@ -869,11 +871,30 @@ export const StocktakesPage = () => {
                 <Download className="w-3.5 h-3.5" /> Xuất CSV
               </button>
               <button
-                onClick={() => window.print()}
+                onClick={() => printDocument(stocktakeSheetTemplate(selectedStocktake), `Phiếu kiểm kê ${selectedStocktake.code}`)}
                 className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                title="In phiếu kiểm kê (danh sách hàng cần đếm)"
               >
                 <Printer className="w-3.5 h-3.5" /> In Phiếu
               </button>
+              {(selectedStocktake.status === 'submitted' || selectedStocktake.status === 'approved') && (
+                <button
+                  onClick={() => printDocument(stocktakeMinutesTemplate(selectedStocktake), `Biên bản kiểm kê ${selectedStocktake.code}`)}
+                  className="px-3.5 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  title="In biên bản kiểm kê (đối chiếu chênh lệch)"
+                >
+                  <FileText className="w-3.5 h-3.5" /> Biên bản
+                </button>
+              )}
+              {selectedStocktake.status === 'approved' && (
+                <button
+                  onClick={() => printDocument(stocktakeReportTemplate(selectedStocktake), `Báo cáo kiểm kê ${selectedStocktake.code}`)}
+                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  title="In báo cáo kiểm kê (chỉ mục chênh lệch)"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" /> Báo cáo
+                </button>
+              )}
               <button
                 onClick={() => setSelectedStocktake(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"

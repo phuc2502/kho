@@ -35,8 +35,8 @@ export const PERMISSION_CATALOG = [
   { code: 'delivery:create',           name: 'Tạo phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:update',           name: 'Sửa phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:approve',          name: 'Duyệt phiếu xuất',                 group: 'Vận hành Nhập & Xuất' },
-  { code: 'delivery:ship',             name: 'Xác nhận xuất hàng (Nhân viên kho)', group: 'Vận hành Nhập & Xuất' },
-  { code: 'delivery:complete',         name: 'Hoàn tất xuất kho (Quản lý kho)',    group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:ship',             name: 'Xác nhận xuất hàng (Nhân viên kho)',  group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:complete',         name: 'Hoàn tất xuất kho (Nhân viên kho)',   group: 'Vận hành Nhập & Xuất' },
 
   // Kiểm kê & Điều chỉnh
   { code: 'stocktake:read',     name: 'Xem phiếu kiểm kê',               group: 'Kiểm kê & Điều chỉnh' },
@@ -48,6 +48,11 @@ export const PERMISSION_CATALOG = [
   { code: 'adjustment:approve', name: 'Duyệt phiếu điều chỉnh',          group: 'Kiểm kê & Điều chỉnh' },
   { code: 'incident:read',      name: 'Xem báo cáo sự cố',               group: 'Kiểm kê & Điều chỉnh' },
   { code: 'incident:create',    name: 'Tạo / Sửa báo cáo sự cố',        group: 'Kiểm kê & Điều chỉnh' },
+
+  // Khách hàng
+  { code: 'customer:read',   name: 'Xem danh sách khách hàng',  group: 'Cấu trúc Kho & Đối tác' },
+  { code: 'customer:create', name: 'Thêm khách hàng mới',       group: 'Cấu trúc Kho & Đối tác' },
+  { code: 'customer:update', name: 'Sửa thông tin khách hàng',  group: 'Cấu trúc Kho & Đối tác' },
 
   // Báo cáo & Hệ thống
   { code: 'inventory:read',     name: 'Xem tồn kho thực tế',             group: 'Báo cáo & Hệ thống' },
@@ -73,10 +78,12 @@ export const ROLE_DEFAULTS = {
     'warehouse:read', 'warehouse:create', 'warehouse:update', 'warehouse:delete',
     // Nhập kho (xem + phê duyệt; KeToanKho mới lập phiếu)
     'receipt:read', 'receipt:update', 'receipt:approve',
+    // Khách hàng (quản lý đầy đủ)
+    'customer:read', 'customer:create', 'customer:update',
     // Yêu cầu xuất kho (xem tất cả yêu cầu từ Sale)
     'delivery-request:read',
-    // Phiếu xuất kho (xem + phê duyệt + hoàn tất; KeToanKho mới lập phiếu; NhanVienKho xác nhận xuất hàng)
-    'delivery:read', 'delivery:update', 'delivery:approve', 'delivery:complete',
+    // Phiếu xuất kho (xem + phê duyệt; KeToanKho mới lập phiếu; NhanVienKho xác nhận + hoàn tất)
+    'delivery:read', 'delivery:update', 'delivery:approve',
     // Kiểm kê & Điều chỉnh (xem + phê duyệt)
     'stocktake:read', 'stocktake:approve',
     'adjustment:read', 'adjustment:approve',
@@ -96,6 +103,8 @@ export const ROLE_DEFAULTS = {
     'warehouse:read',
     // Nhập kho (lập + sửa, không phê duyệt — QuanLyKho phê duyệt)
     'receipt:read', 'receipt:create', 'receipt:update',
+    // Khách hàng (xem + tạo mới)
+    'customer:read', 'customer:create',
     // Yêu cầu xuất kho (xem yêu cầu từ Sale)
     'delivery-request:read',
     // Phiếu xuất kho (lập + sửa + gửi phê duyệt, không phê duyệt — QuanLyKho phê duyệt)
@@ -120,8 +129,8 @@ export const ROLE_DEFAULTS = {
     'receipt:read',
     // Yêu cầu xuất kho (xem)
     'delivery-request:read',
-    // Phiếu xuất kho: xem + xác nhận xuất hàng vật lý + hoàn tất (theo swimlane)
-    'delivery:read', 'delivery:ship',
+    // Phiếu xuất kho: xem + xác nhận xuất hàng vật lý + hoàn tất (theo swimlane tài liệu HĐ22, HĐ26)
+    'delivery:read', 'delivery:ship', 'delivery:complete',
     // Kiểm kê (xem + nhập số liệu đếm)
     'stocktake:read', 'stocktake:count',
     // Sự cố (lập khi phát hiện thiếu/hỏng lúc nhận hàng)
@@ -154,6 +163,7 @@ export const ROLE_DEFAULTS = {
     'category:read',
     'warehouse:read',
     'inventory:read',
+    'customer:read', 'customer:create',
     'delivery-request:read',
     'delivery-request:create',
     'incident:read',

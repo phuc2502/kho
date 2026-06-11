@@ -2,6 +2,7 @@ import { DeliveryRequest, DeliveryRequestItem } from '../models/deliveryRequest.
 import { Product } from '../models/product.model.js';
 import { User } from '../models/user.model.js';
 import { Inventory } from '../models/inventory.model.js';
+import { Customer } from '../models/customer.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 
@@ -17,6 +18,7 @@ export const getDeliveryRequests = async (req, res, next) => {
     const requests = await DeliveryRequest.findAll({
       where,
       include: [
+        { model: Customer, as: 'customer', attributes: ['_id', 'code', 'name', 'phone'] },
         { model: User, as: 'createdByUser', attributes: ['_id', 'username', 'fullName', 'role'] },
         {
           model: DeliveryRequestItem,
@@ -41,6 +43,7 @@ export const getDeliveryRequestById = async (req, res, next) => {
     const { id } = req.params;
     const request = await DeliveryRequest.findByPk(id, {
       include: [
+        { model: Customer, as: 'customer', attributes: ['_id', 'code', 'name', 'phone'] },
         { model: User, as: 'createdByUser', attributes: ['_id', 'username', 'fullName', 'role'] },
         {
           model: DeliveryRequestItem,
@@ -70,12 +73,25 @@ export const getDeliveryRequestById = async (req, res, next) => {
 export const createDeliveryRequest = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { tenKhachHang, note, items } = req.body;
+    const { customerId, tenKhachHang, expectedDeliveryDate, note, items } = req.body;
+
+    // --- Giải quyết tên khách hàng ---
+    let resolvedName = tenKhachHang?.trim() || '';
+    let resolvedCustomerId = customerId ? Number(customerId) : null;
+
+    if (resolvedCustomerId) {
+      const customer = await Customer.findByPk(resolvedCustomerId, { transaction: t });
+      if (!customer) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Khách hàng không tồn tại' });
+      }
+      resolvedName = customer.name;
+    }
 
     // --- Validation dữ liệu đầu vào ---
-    if (!tenKhachHang?.trim()) {
+    if (!resolvedName) {
       await t.rollback();
-      return res.status(400).json({ message: 'Vui lòng nhập tên khách hàng' });
+      return res.status(400).json({ message: 'Vui lòng chọn hoặc nhập tên khách hàng' });
     }
     if (!items || items.length === 0) {
       await t.rollback();
@@ -120,7 +136,9 @@ export const createDeliveryRequest = async (req, res, next) => {
     // Tạo yêu cầu với trạng thái ban đầu là pending
     const request = await DeliveryRequest.create({
       code,
-      tenKhachHang: tenKhachHang.trim(),
+      customerId: resolvedCustomerId,
+      tenKhachHang: resolvedName,
+      expectedDeliveryDate: expectedDeliveryDate || null,
       note: note?.trim() || null,
       status: 'pending',
       totalAmount,
@@ -151,6 +169,7 @@ export const createDeliveryRequest = async (req, res, next) => {
     // Trả về record đầy đủ
     const full = await DeliveryRequest.findByPk(request._id, {
       include: [
+        { model: Customer, as: 'customer', attributes: ['_id', 'code', 'name', 'phone'] },
         { model: User, as: 'createdByUser', attributes: ['_id', 'username', 'fullName', 'role'] },
         { model: DeliveryRequestItem, as: 'items', include: [{ model: Product, as: 'product', attributes: ['_id', 'sku', 'name', 'unit'] }] }
       ]

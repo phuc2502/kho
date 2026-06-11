@@ -11,6 +11,7 @@ import { StocktakeMinutes }        from '../models/stocktakeMinutes.model.js';
 import { StocktakeReport }         from '../models/stocktakeReport.model.js';
 import { Incident, IncidentItem }  from '../models/incident.model.js';
 import { DeliveryRequest, DeliveryRequestItem } from '../models/deliveryRequest.model.js';
+import { Customer }                from '../models/customer.model.js';
 
 // helper: SET createdAt/updatedAt via raw SQL sau khi tạo (timestamps: true không cho set trực tiếp)
 const setDates = async (table, id, createdDaysAgo, updatedDaysAgo = createdDaysAgo - 1) => {
@@ -42,6 +43,24 @@ const seed = async () => {
     const sale       = await User.create({ username:'sale',       email:'sale.nguyen@fositek.vn',   password:'sale1234',    role:'Sale',         fullName:'Nguyễn Minh Khoa',   phone:'0836417509', position:'Nhân viên Kinh doanh' });
 
     console.log('✓ Users (8)');
+
+    // ══════════════════════════════════════════════════════════════
+    // 1.5. CUSTOMERS (12 khách hàng)
+    // ══════════════════════════════════════════════════════════════
+    const custSamsung  = await Customer.create({ code:'KH-20260101-0001', name:'Samsung Electronics Vietnam',  phone:'024-3825-0001', address:'Khu công nghiệp Yên Phong, Bắc Ninh' });
+    const custDell     = await Customer.create({ code:'KH-20260101-0002', name:'Dell Technologies Vietnam',    phone:'028-3636-0002', address:'Khu công nghiệp VSIP II, Bình Dương' });
+    const custHP       = await Customer.create({ code:'KH-20260101-0003', name:'HP Vietnam Sales',             phone:'024-3823-0003', address:'Keangnam Landmark 72, Hà Nội' });
+    const custLenovo   = await Customer.create({ code:'KH-20260101-0004', name:'Lenovo Technology Vietnam',    phone:'028-3512-0004', address:'Tòa nhà Sunwah, TP Hồ Chí Minh' });
+    const custAsus     = await Customer.create({ code:'KH-20260101-0005', name:'Asus Technology Vietnam',      phone:'028-3776-0005', address:'Khu công nghiệp Tân Bình, TP HCM' });
+    const custLG       = await Customer.create({ code:'KH-20260101-0006', name:'LG Electronics Vietnam',       phone:'024-3936-0006', address:'Khu công nghiệp Tràng Duệ, Hải Phòng' });
+    const custAcer     = await Customer.create({ code:'KH-20260101-0007', name:'Acer Inc. Vietnam Branch',     phone:'028-3915-0007', address:'Lầu 9, 27 Hoàng Diệu, TP HCM' });
+    const custMSI      = await Customer.create({ code:'KH-20260101-0008', name:'MSI Technology Vietnam',       phone:'028-3820-0008', address:'Khu CNTT tập trung Quang Trung, TP HCM' });
+    const custPanasonic= await Customer.create({ code:'KH-20260101-0009', name:'Panasonic Vietnam',            phone:'024-3831-0009', address:'Khu công nghiệp Thăng Long, Hà Nội' });
+    const custToshiba  = await Customer.create({ code:'KH-20260101-0010', name:'Toshiba Storage Vietnam',      phone:'024-3944-0010', address:'Khu công nghiệp Bắc Thăng Long, Hà Nội' });
+    const custFoxconn  = await Customer.create({ code:'KH-20260101-0011', name:'Foxconn Technology Vietnam',   phone:'0221-3730-011', address:'Khu công nghiệp Quế Võ, Bắc Ninh' });
+    const custHisense  = await Customer.create({ code:'KH-20260101-0012', name:'Hisense Electronics Vietnam',  phone:'028-3622-0012', address:'Khu công nghiệp Long Hậu, Long An' });
+
+    console.log('✓ Customers (12)');
 
     // ══════════════════════════════════════════════════════════════
     // 2. CATEGORIES
@@ -149,7 +168,7 @@ const seed = async () => {
 
     // DL-001 Samsung – Trục xoay (75 ngày trước)
     const dl1 = await Delivery.create({
-      code:'DL-2026-00001', tenKhachHang:'Samsung Electronics Vietnam',
+      code:'DL-2026-00001', customerId:custSamsung._id, tenKhachHang:'Samsung Electronics Vietnam',
       totalAmount:(150*30000)+(80*22000), status:'completed', createdByUserId:staff1._id
     });
     await DeliveryItem.create({ deliveryId:dl1._id, productId:p1._id, quantity:150, price:30000, warehouseNodeId:binA101._id });
@@ -158,7 +177,7 @@ const seed = async () => {
 
     // DL-002 Dell – Thanh ray (65 ngày trước)
     const dl2 = await Delivery.create({
-      code:'DL-2026-00002', tenKhachHang:'Dell Technologies Vietnam',
+      code:'DL-2026-00002', customerId:custDell._id, tenKhachHang:'Dell Technologies Vietnam',
       totalAmount:(200*46000), status:'completed', createdByUserId:staff2._id
     });
     await DeliveryItem.create({ deliveryId:dl2._id, productId:p3._id, quantity:200, price:46000, warehouseNodeId:binB101._id });
@@ -166,7 +185,7 @@ const seed = async () => {
 
     // DL-003 HP – Trục xoay 360° & cơ cấu trượt (55 ngày trước)
     const dl3 = await Delivery.create({
-      code:'DL-2026-00003', tenKhachHang:'HP Vietnam Sales',
+      code:'DL-2026-00003', customerId:custHP._id, tenKhachHang:'HP Vietnam Sales',
       totalAmount:(100*30000)+(100*92000), status:'completed', createdByUserId:accountant1._id
     });
     await DeliveryItem.create({ deliveryId:dl3._id, productId:p1._id, quantity:100, price:30000, warehouseNodeId:binA101._id });
@@ -175,7 +194,7 @@ const seed = async () => {
 
     // DL-004 Lenovo – MIM (50 ngày trước)
     const dl4 = await Delivery.create({
-      code:'DL-2026-00004', tenKhachHang:'Lenovo Technology Vietnam',
+      code:'DL-2026-00004', customerId:custLenovo._id, tenKhachHang:'Lenovo Technology Vietnam',
       totalAmount:(3*162000)+(2*136000), status:'completed', createdByUserId:staff1._id
     });
     await DeliveryItem.create({ deliveryId:dl4._id, productId:p5._id, quantity:3, price:162000, warehouseNodeId:binC101._id });
@@ -184,7 +203,7 @@ const seed = async () => {
 
     // DL-005 Asus – Thanh ray (42 ngày trước)
     const dl5 = await Delivery.create({
-      code:'DL-2026-00005', tenKhachHang:'Asus Technology Vietnam',
+      code:'DL-2026-00005', customerId:custAsus._id, tenKhachHang:'Asus Technology Vietnam',
       totalAmount:(250*46000)+(80*92000), status:'completed', createdByUserId:accountant2._id
     });
     await DeliveryItem.create({ deliveryId:dl5._id, productId:p3._id, quantity:250, price:46000, warehouseNodeId:binB101._id });
@@ -193,7 +212,7 @@ const seed = async () => {
 
     // DL-006 LG – Trục xoay + 180° (38 ngày trước)
     const dl6 = await Delivery.create({
-      code:'DL-2026-00006', tenKhachHang:'LG Electronics Vietnam',
+      code:'DL-2026-00006', customerId:custLG._id, tenKhachHang:'LG Electronics Vietnam',
       totalAmount:(80*30000)+(50*22000), status:'completed', createdByUserId:staff1._id
     });
     await DeliveryItem.create({ deliveryId:dl6._id, productId:p1._id, quantity:80, price:30000, warehouseNodeId:binA101._id });
@@ -202,7 +221,7 @@ const seed = async () => {
 
     // DL-007 Acer – 180° & SL2IN1 (35 ngày trước)
     const dl7 = await Delivery.create({
-      code:'DL-2026-00007', tenKhachHang:'Acer Inc. Vietnam Branch',
+      code:'DL-2026-00007', customerId:custAcer._id, tenKhachHang:'Acer Inc. Vietnam Branch',
       totalAmount:(120*22000)+(60*92000), status:'completed', createdByUserId:staff2._id
     });
     await DeliveryItem.create({ deliveryId:dl7._id, productId:p2._id, quantity:120, price:22000, warehouseNodeId:binA201._id });
@@ -213,7 +232,7 @@ const seed = async () => {
 
     // DL-008 Samsung Q2 – Trục xoay & thanh ray (20 ngày trước)
     const dl8 = await Delivery.create({
-      code:'DL-2026-00008', tenKhachHang:'Samsung Electronics Vietnam',
+      code:'DL-2026-00008', customerId:custSamsung._id, tenKhachHang:'Samsung Electronics Vietnam',
       totalAmount:(200*30000)+(100*46000), status:'completed', createdByUserId:accountant1._id
     });
     await DeliveryItem.create({ deliveryId:dl8._id, productId:p1._id, quantity:200, price:30000, warehouseNodeId:binA102._id });
@@ -222,7 +241,7 @@ const seed = async () => {
 
     // DL-009 Dell Q2 – 180° (15 ngày trước)
     const dl9 = await Delivery.create({
-      code:'DL-2026-00009', tenKhachHang:'Dell Technologies Vietnam',
+      code:'DL-2026-00009', customerId:custDell._id, tenKhachHang:'Dell Technologies Vietnam',
       totalAmount:(150*22000), status:'completed', createdByUserId:staff1._id
     });
     await DeliveryItem.create({ deliveryId:dl9._id, productId:p2._id, quantity:150, price:22000, warehouseNodeId:binA201._id });
@@ -230,7 +249,7 @@ const seed = async () => {
 
     // DL-010 HP Q2 – SL2IN1 & MIM (10 ngày trước)
     const dl10 = await Delivery.create({
-      code:'DL-2026-00010', tenKhachHang:'HP Vietnam Sales',
+      code:'DL-2026-00010', customerId:custHP._id, tenKhachHang:'HP Vietnam Sales',
       totalAmount:(80*92000)+(2*162000), status:'completed', createdByUserId:accountant2._id
     });
     await DeliveryItem.create({ deliveryId:dl10._id, productId:p4._id, quantity:80, price:92000, warehouseNodeId:binB201._id });
@@ -239,7 +258,7 @@ const seed = async () => {
 
     // DL-011 Asus Q2 – Thanh ray (7 ngày trước)
     const dl11 = await Delivery.create({
-      code:'DL-2026-00011', tenKhachHang:'Asus Technology Vietnam',
+      code:'DL-2026-00011', customerId:custAsus._id, tenKhachHang:'Asus Technology Vietnam',
       totalAmount:(100*46000), status:'completed', createdByUserId:staff2._id
     });
     await DeliveryItem.create({ deliveryId:dl11._id, productId:p3._id, quantity:100, price:46000, warehouseNodeId:binB101._id });
@@ -247,7 +266,7 @@ const seed = async () => {
 
     // DL-012 Lenovo Q2 – 360° & 180° (3 ngày trước)
     const dl12 = await Delivery.create({
-      code:'DL-2026-00012', tenKhachHang:'Lenovo Technology Vietnam',
+      code:'DL-2026-00012', customerId:custLenovo._id, tenKhachHang:'Lenovo Technology Vietnam',
       totalAmount:(50*30000)+(50*22000), status:'completed', createdByUserId:accountant1._id
     });
     await DeliveryItem.create({ deliveryId:dl12._id, productId:p1._id, quantity:50, price:30000, warehouseNodeId:binA101._id });
@@ -258,18 +277,23 @@ const seed = async () => {
 
     // DL-013 Draft – chờ lập (hôm nay)
     const dl13 = await Delivery.create({
-      code:'DL-2026-00013', tenKhachHang:'MSI Vietnam',
+      code:'DL-2026-00013', customerId:custMSI._id, tenKhachHang:'MSI Technology Vietnam',
       totalAmount:(30*30000), status:'draft', createdByUserId:staff1._id
     });
     await DeliveryItem.create({ deliveryId:dl13._id, productId:p1._id, quantity:30, price:30000, warehouseNodeId:binA101._id });
 
     // DL-014 Approved – đã duyệt chờ xuất (hôm qua)
     const dl14 = await Delivery.create({
-      code:'DL-2026-00014', tenKhachHang:'Panasonic Vietnam',
+      code:'DL-2026-00014', customerId:custPanasonic._id, tenKhachHang:'Panasonic Vietnam',
       totalAmount:(50*46000), status:'approved', createdByUserId:accountant2._id
     });
     await DeliveryItem.create({ deliveryId:dl14._id, productId:p3._id, quantity:50, price:46000, warehouseNodeId:binB101._id });
     await setDates('Deliveries', dl14._id, 1, 0);
+    // DL-014 đã approved → set reservedQty cho inventory tương ứng
+    await sequelize.query(
+      'UPDATE Inventories SET reservedQty = reservedQty + 50 WHERE `product` = ? AND `warehouseNode` = ?',
+      { replacements: [p3._id, binB101._id] }
+    );
 
     console.log('✓ Deliveries (14): completed×12, approved×1, draft×1');
     console.log('  Lịch sử (>30d): DL-001→007 | Gần đây (≤30d): DL-008→012 | Chờ: DL-013/014');
@@ -435,6 +459,7 @@ const seed = async () => {
     // YCX-001 ── Samsung, completed (linked → DL-001)
     const ycx1 = await DeliveryRequest.create({
       code: 'YCX-2026-00001',
+      customerId: custSamsung._id,
       tenKhachHang: 'Samsung Electronics Vietnam',
       status: 'completed',
       note: 'Đơn hàng Q1/2026 – bản lề cho dòng Galaxy Book Pro.',
@@ -450,6 +475,7 @@ const seed = async () => {
     // YCX-002 ── HP, completed (linked → DL-003)
     const ycx2 = await DeliveryRequest.create({
       code: 'YCX-2026-00002',
+      customerId: custHP._id,
       tenKhachHang: 'HP Vietnam Sales',
       status: 'completed',
       note: 'Đơn hàng Q1/2026 – bộ hinge + cơ cấu trượt cho HP Envy & Spectre.',
@@ -464,6 +490,7 @@ const seed = async () => {
     // YCX-003 ── Samsung Q2, processing (linked → DL-008, đang giao)
     const ycx3 = await DeliveryRequest.create({
       code: 'YCX-2026-00003',
+      customerId: custSamsung._id,
       tenKhachHang: 'Samsung Electronics Vietnam',
       status: 'processing',
       note: 'Đơn hàng Q2/2026 – trục xoay 360° & thanh ray dẫn hướng cho Galaxy Book Flex.',
@@ -478,9 +505,11 @@ const seed = async () => {
     // YCX-004 ── Panasonic, processing (linked → DL-014, đã duyệt chờ xuất)
     const ycx4 = await DeliveryRequest.create({
       code: 'YCX-2026-00004',
+      customerId: custPanasonic._id,
       tenKhachHang: 'Panasonic Vietnam',
       status: 'processing',
       note: 'Đơn bổ sung cho dây chuyền lắp ráp tháng 6 – thanh ray SLK-380.',
+      expectedDeliveryDate: '2026-06-15',
       totalAmount: (50 * 46000),
       createdByUserId: staff1._id,
     });
@@ -491,9 +520,11 @@ const seed = async () => {
     // YCX-005 ── MSI, pending (chưa có phiếu xuất)
     const ycx5 = await DeliveryRequest.create({
       code: 'YCX-2026-00005',
+      customerId: custMSI._id,
       tenKhachHang: 'MSI Technology Vietnam',
       status: 'pending',
       note: 'Yêu cầu cấp bách cho model MSI Prestige – cần trong tuần.',
+      expectedDeliveryDate: '2026-06-18',
       totalAmount: (80 * 30000) + (50 * 22000),
       createdByUserId: accountant2._id,
     });
@@ -504,9 +535,11 @@ const seed = async () => {
     // YCX-006 ── Toshiba, pending (hôm nay, do nhân viên Sale tạo)
     const ycx6 = await DeliveryRequest.create({
       code: 'YCX-2026-00006',
+      customerId: custToshiba._id,
       tenKhachHang: 'Toshiba Storage Vietnam',
       status: 'pending',
       note: 'Đơn hàng dài hạn Q3/2026 – đề nghị xuất 1 lần trong tuần.',
+      expectedDeliveryDate: '2026-06-20',
       totalAmount: (100 * 46000) + (60 * 92000),
       createdByUserId: sale._id,
     });
@@ -517,6 +550,7 @@ const seed = async () => {
     // YCX-007 ── Hisense, cancelled (khách hàng huỷ)
     const ycx7 = await DeliveryRequest.create({
       code: 'YCX-2026-00007',
+      customerId: custHisense._id,
       tenKhachHang: 'Hisense Electronics Vietnam',
       status: 'cancelled',
       note: 'Khách hàng huỷ đơn do thay đổi thiết kế sản phẩm – không cần trục xoay 180°.',
@@ -526,11 +560,26 @@ const seed = async () => {
     await DeliveryRequestItem.create({ deliveryRequestId: ycx7._id, productId: p2._id, quantity: 200, priceEstimate: 22000 });
     await setDates('DeliveryRequests', ycx7._id, 65, 60);
 
+    // YCX-008-IS ── Foxconn, insufficient_stock (không đủ tồn kho – tạm dừng)
+    const ycxIS = await DeliveryRequest.create({
+      code: 'YCX-2026-00008-IS',
+      customerId: custFoxconn._id,
+      tenKhachHang: 'Foxconn Technology Vietnam',
+      status: 'insufficient_stock',
+      note: 'Yêu cầu số lượng lớn vượt tồn kho hiện tại – kho đang chờ nhập bổ sung.',
+      expectedDeliveryDate: '2026-06-25',
+      totalAmount: (500 * 162000),
+      createdByUserId: sale._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycxIS._id, productId: p5._id, quantity: 500, priceEstimate: 162000 });
+    await setDates('DeliveryRequests', ycxIS._id, 1, 1);
+
     // ── Bổ sung yêu cầu cho 10 phiếu xuất còn thiếu ─────────────
 
     // YCX-008 → DL-002 (Dell Q1 – thanh ray, 65 ngày)
     const ycx8 = await DeliveryRequest.create({
       code: 'YCX-2026-00008',
+      customerId: custDell._id,
       tenKhachHang: 'Dell Technologies Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – thanh ray dẫn hướng SLK-380 cho dòng Inspiron 15.',
@@ -544,6 +593,7 @@ const seed = async () => {
     // YCX-009 → DL-004 (Lenovo Q1 – MIM, 50 ngày)
     const ycx9 = await DeliveryRequest.create({
       code: 'YCX-2026-00009',
+      customerId: custLenovo._id,
       tenKhachHang: 'Lenovo Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – linh kiện MIM giá đỡ bản lề & khung camera cho ThinkPad X1.',
@@ -558,6 +608,7 @@ const seed = async () => {
     // YCX-010 → DL-005 (Asus Q1 – thanh ray + cơ cấu trượt, 42 ngày)
     const ycx10 = await DeliveryRequest.create({
       code: 'YCX-2026-00010',
+      customerId: custAsus._id,
       tenKhachHang: 'Asus Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – SLK-380 & SL2IN1 cho ROG & ZenBook.',
@@ -572,6 +623,7 @@ const seed = async () => {
     // YCX-011 → DL-006 (LG Q1 – trục xoay, 38 ngày)
     const ycx11 = await DeliveryRequest.create({
       code: 'YCX-2026-00011',
+      customerId: custLG._id,
       tenKhachHang: 'LG Electronics Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – bản lề 360° & 180° cho LG Gram.',
@@ -586,6 +638,7 @@ const seed = async () => {
     // YCX-012 → DL-007 (Acer Q1 – bản lề + cơ cấu trượt, 35 ngày)
     const ycx12 = await DeliveryRequest.create({
       code: 'YCX-2026-00012',
+      customerId: custAcer._id,
       tenKhachHang: 'Acer Inc. Vietnam Branch',
       status: 'completed',
       note: 'Đơn Q1/2026 – H180-156 & SL2IN1 cho Swift & Aspire.',
@@ -600,6 +653,7 @@ const seed = async () => {
     // YCX-013 → DL-009 (Dell Q2 – bản lề 180°, 15 ngày)
     const ycx13 = await DeliveryRequest.create({
       code: 'YCX-2026-00013',
+      customerId: custDell._id,
       tenKhachHang: 'Dell Technologies Vietnam',
       status: 'completed',
       note: 'Đơn Q2/2026 – H180-156 bổ sung cho Vostro 14.',
@@ -613,6 +667,7 @@ const seed = async () => {
     // YCX-014 → DL-010 (HP Q2 – SL2IN1 + MIM, 10 ngày)
     const ycx14 = await DeliveryRequest.create({
       code: 'YCX-2026-00014',
+      customerId: custHP._id,
       tenKhachHang: 'HP Vietnam Sales',
       status: 'completed',
       note: 'Đơn Q2/2026 – cơ cấu trượt & MIM giá đỡ cho HP Spectre x360.',
@@ -627,6 +682,7 @@ const seed = async () => {
     // YCX-015 → DL-011 (Asus Q2 – thanh ray, 7 ngày)
     const ycx15 = await DeliveryRequest.create({
       code: 'YCX-2026-00015',
+      customerId: custAsus._id,
       tenKhachHang: 'Asus Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q2/2026 – SLK-380 cho ExpertBook B9.',
@@ -640,6 +696,7 @@ const seed = async () => {
     // YCX-016 → DL-012 (Lenovo Q2 – bản lề, 3 ngày)
     const ycx16 = await DeliveryRequest.create({
       code: 'YCX-2026-00016',
+      customerId: custLenovo._id,
       tenKhachHang: 'Lenovo Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q2/2026 – bản lề 360° & 180° cho IdeaPad Flex.',
@@ -654,7 +711,8 @@ const seed = async () => {
     // YCX-017 → DL-013 (MSI – đang xử lý, hôm nay)
     const ycx17 = await DeliveryRequest.create({
       code: 'YCX-2026-00017',
-      tenKhachHang: 'MSI Vietnam',
+      customerId: custMSI._id,
+      tenKhachHang: 'MSI Technology Vietnam',
       status: 'processing',
       note: 'Yêu cầu khẩn – bản lề 360° cho MSI Prestige 13 AI, cần xuất trong ngày.',
       totalAmount: (30 * 30000),

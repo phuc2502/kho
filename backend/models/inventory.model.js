@@ -39,6 +39,14 @@ export const Inventory = sequelize.define('Inventory', {
     type: DataTypes.INTEGER,
     allowNull: true,
     defaultValue: null
+  },
+  // So_luong_giu_cho: số lượng đã cam kết cho phiếu xuất được phê duyệt nhưng chưa hoàn tất
+  // Tồn kho khả dụng = quantity - reservedQty
+  reservedQty: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    validate: { min: 0 }
   }
 }, {
   timestamps: true,

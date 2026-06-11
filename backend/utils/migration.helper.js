@@ -434,5 +434,140 @@ export const runMigrations = async () => {
     console.warn('Migration warning (StockCards):', err.message);
   }
 
+  // ——— 17. Thêm cột expectedDeliveryDate vào DeliveryRequests ———
+  try {
+    const drDesc = await qi.describeTable('DeliveryRequests');
+    if (!drDesc.expectedDeliveryDate) {
+      await qi.addColumn('DeliveryRequests', 'expectedDeliveryDate', {
+        type: DataTypes.DATEONLY,
+        allowNull: true,
+        after: 'tenKhachHang'
+      });
+      console.log('Migration: Added DeliveryRequests.expectedDeliveryDate');
+    }
+    // Đảm bảo ENUM status có giá trị insufficient_stock
+    const [[drRow]] = await sequelize.query("SHOW COLUMNS FROM DeliveryRequests WHERE Field='status'");
+    if (drRow && !drRow.Type.includes('insufficient_stock')) {
+      await sequelize.query(
+        "ALTER TABLE DeliveryRequests MODIFY COLUMN status ENUM('pending','insufficient_stock','processing','completed','cancelled') NOT NULL DEFAULT 'pending'"
+      );
+      console.log('Migration: Added insufficient_stock to DeliveryRequests.status ENUM');
+    }
+  } catch (err) {
+    console.warn('Migration warning (DeliveryRequests.expectedDeliveryDate):', err.message);
+  }
+
+  // ——— 18. Thêm cột note vào Deliveries ———
+  try {
+    const dDesc = await qi.describeTable('Deliveries');
+    if (!dDesc.note) {
+      await qi.addColumn('Deliveries', 'note', {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        after: 'totalAmount'
+      });
+      console.log('Migration: Added Deliveries.note');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Deliveries.note):', err.message);
+  }
+
+  // ——— 19. Tạo bảng Customers (KhachHang) ———
+  try {
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS Customers (
+        _id       INT AUTO_INCREMENT PRIMARY KEY,
+        code      VARCHAR(50)  NOT NULL UNIQUE  COMMENT 'Mã khách hàng tự động sinh (KH-YYYYMMDD-XXXX)',
+        name      VARCHAR(200) NOT NULL         COMMENT 'Tên khách hàng',
+        phone     VARCHAR(30)  NULL             COMMENT 'Số điện thoại liên hệ',
+        address   TEXT         NULL             COMMENT 'Địa chỉ',
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_cust_name (name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='Bảng Khách hàng (tách thực thể từ tenKhachHang)'
+    `);
+    console.log('Migration: Customers table ready');
+  } catch (err) {
+    console.warn('Migration warning (Customers table):', err.message);
+  }
+
+  // ——— 20. Thêm customerId vào DeliveryRequests ———
+  try {
+    const drDesc20 = await qi.describeTable('DeliveryRequests');
+    if (!drDesc20.customerId) {
+      await qi.addColumn('DeliveryRequests', 'customerId', {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        after: 'code'
+      });
+      console.log('Migration: Added DeliveryRequests.customerId');
+    }
+  } catch (err) {
+    console.warn('Migration warning (DeliveryRequests.customerId):', err.message);
+  }
+
+  // ——— 21. Thêm customerId vào Deliveries ———
+  try {
+    const dDesc21 = await qi.describeTable('Deliveries');
+    if (!dDesc21.customerId) {
+      await qi.addColumn('Deliveries', 'customerId', {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        after: 'code'
+      });
+      console.log('Migration: Added Deliveries.customerId');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Deliveries.customerId):', err.message);
+  }
+
+  // ——— 22. Thêm reservedQty vào Inventories ———
+  try {
+    const invDesc22 = await qi.describeTable('Inventories');
+    if (!invDesc22.reservedQty) {
+      await qi.addColumn('Inventories', 'reservedQty', {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        after: 'quantity'
+      });
+      console.log('Migration: Added Inventories.reservedQty');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Inventories.reservedQty):', err.message);
+  }
+
+  // ——— 23. Thêm cột ký nhận vào Deliveries ———
+  try {
+    const dDesc23 = await qi.describeTable('Deliveries');
+    if (!dDesc23.signerName) {
+      await qi.addColumn('Deliveries', 'signerName', {
+        type: DataTypes.STRING(200),
+        allowNull: true,
+        after: 'note'
+      });
+      console.log('Migration: Added Deliveries.signerName');
+    }
+    if (!dDesc23.signedAt) {
+      await qi.addColumn('Deliveries', 'signedAt', {
+        type: DataTypes.DATE,
+        allowNull: true,
+        after: 'signerName'
+      });
+      console.log('Migration: Added Deliveries.signedAt');
+    }
+    if (!dDesc23.signatureNote) {
+      await qi.addColumn('Deliveries', 'signatureNote', {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        after: 'signedAt'
+      });
+      console.log('Migration: Added Deliveries.signatureNote');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Deliveries signature columns):', err.message);
+  }
+
   console.log('Migrations completed.');
 };

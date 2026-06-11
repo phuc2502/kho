@@ -4,6 +4,7 @@ import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
 import { User } from '../models/user.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
+import { Customer } from '../models/customer.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { StockCard } from '../models/stockCard.model.js';
@@ -11,6 +12,7 @@ import { StockCard } from '../models/stockCard.model.js';
 // Helper: lấy phiếu xuất với đầy đủ thông tin liên quan
 const findDeliveryFull = (id) => Delivery.findByPk(id, {
   include: [
+    { model: Customer, as: 'customer', attributes: ['_id', 'code', 'name', 'phone', 'address'] },
     { model: User, as: 'createdByUser', attributes: ['username', 'fullName', 'role'] },
     {
       model: DeliveryItem,
@@ -24,11 +26,32 @@ const findDeliveryFull = (id) => Delivery.findByPk(id, {
   ]
 });
 
+// Helper: lấy productId và warehouseNodeId an toàn (tránh lỗi field-aliasing)
+const getItemIds = (item) => ({
+  productId: item.get('productId') ?? item.dataValues?.product,
+  nodeId:    item.get('warehouseNodeId') ?? item.dataValues?.warehouseNode,
+});
+
+// Helper: cập nhật tồn kho dùng raw SQL (tránh field-aliasing issue)
+const reserveStock = async (productId, nodeId, qty, t) => {
+  await sequelize.query(
+    'UPDATE Inventories SET reservedQty = reservedQty + ? WHERE `product` = ? AND `warehouseNode` = ?',
+    { replacements: [qty, productId, nodeId], transaction: t }
+  );
+};
+const releaseStock = async (productId, nodeId, qty, t) => {
+  await sequelize.query(
+    'UPDATE Inventories SET reservedQty = GREATEST(0, reservedQty - ?) WHERE `product` = ? AND `warehouseNode` = ?',
+    { replacements: [qty, productId, nodeId], transaction: t }
+  );
+};
+
 // ── GET /api/v1/deliveries ───────────────────────────────────────
 export const getDeliveries = async (req, res, next) => {
   try {
     const deliveries = await Delivery.findAll({
       include: [
+        { model: Customer, as: 'customer', attributes: ['_id', 'code', 'name'] },
         { model: User, as: 'createdByUser', attributes: ['username', 'fullName', 'role'] },
         {
           model: DeliveryItem,
@@ -42,7 +65,6 @@ export const getDeliveries = async (req, res, next) => {
       ],
       order: [['createdAt', 'DESC']]
     });
-
     res.json(deliveries);
   } catch (error) {
     next(error);
@@ -50,15 +72,27 @@ export const getDeliveries = async (req, res, next) => {
 };
 
 // ── POST /api/v1/deliveries ──────────────────────────────────────
-// Kế toán kho lập phiếu xuất nháp (có thể từ yêu cầu xuất kho)
 export const createDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
-    const { tenKhachHang, items, requestId } = req.body;
+    const { customerId, tenKhachHang, note, items, requestId } = req.body;
 
-    if (!tenKhachHang || !tenKhachHang.trim()) {
+    // Giải quyết tên khách hàng: ưu tiên customerId
+    let resolvedName = tenKhachHang?.trim() || '';
+    let resolvedCustomerId = customerId ? Number(customerId) : null;
+
+    if (resolvedCustomerId) {
+      const customer = await Customer.findByPk(resolvedCustomerId, { transaction: t });
+      if (!customer) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Khách hàng không tồn tại' });
+      }
+      resolvedName = customer.name;
+    }
+
+    if (!resolvedName) {
       await t.rollback();
-      return res.status(400).json({ message: 'Tên khách hàng là bắt buộc' });
+      return res.status(400).json({ message: 'Vui lòng chọn hoặc nhập tên khách hàng' });
     }
     if (!items || items.length === 0) {
       await t.rollback();
@@ -70,62 +104,54 @@ export const createDelivery = async (req, res, next) => {
 
     let totalAmount = 0;
     const mappedItems = [];
-
     for (const item of items) {
-      const product = await Product.findByPk(item.product);
+      const product = await Product.findByPk(item.product, { transaction: t });
       if (!product) {
         await t.rollback();
-        return res.status(400).json({ message: `Sản phẩm với ID ${item.product} không tồn tại` });
+        return res.status(400).json({ message: `Sản phẩm ID ${item.product} không tồn tại` });
       }
       totalAmount += Number(item.quantity) * Number(item.price);
       mappedItems.push({
-        productId: item.product,
-        quantity: Number(item.quantity),
-        price: Number(item.price),
+        productId:       item.product,
+        quantity:        Number(item.quantity),
+        price:           Number(item.price),
         warehouseNodeId: item.warehouseNode
       });
     }
 
     const delivery = await Delivery.create({
       code,
-      tenKhachHang: tenKhachHang.trim(),
+      customerId:    resolvedCustomerId,
+      tenKhachHang:  resolvedName,
+      note:          note?.trim() || null,
       totalAmount,
       createdByUserId: req.user._id,
       status: 'preparing',
       requestId: requestId || null
     }, { transaction: t });
 
-    // Nếu tạo từ yêu cầu → đánh dấu yêu cầu đang xử lý
     if (requestId) {
-      await DeliveryRequest.update(
-        { status: 'processing' },
-        { where: { _id: requestId }, transaction: t }
-      );
+      await DeliveryRequest.update({ status: 'processing' },
+        { where: { _id: requestId }, transaction: t });
     }
 
-    for (const mappedItem of mappedItems) {
+    for (const mi of mappedItems) {
       await DeliveryItem.create({
-        deliveryId: delivery._id,
-        productId: mappedItem.productId,
-        quantity: mappedItem.quantity,
-        price: mappedItem.price,
-        warehouseNodeId: mappedItem.warehouseNodeId
+        deliveryId:      delivery._id,
+        productId:       mi.productId,
+        quantity:        mi.quantity,
+        price:           mi.price,
+        warehouseNodeId: mi.warehouseNodeId
       }, { transaction: t });
     }
 
     await t.commit();
-
     const populated = await findDeliveryFull(delivery._id);
-
     await recordAudit({
-      action: 'delivery.create',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: delivery._id,
+      action: 'delivery.create', userId: req.user._id, username: req.user.username,
+      entity: 'delivery', entityId: delivery._id,
       payload: { code, totalAmount, itemCount: mappedItems.length }
     });
-
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -134,72 +160,51 @@ export const createDelivery = async (req, res, next) => {
 };
 
 // ── PUT /api/v1/deliveries/:id ───────────────────────────────────
-// Kế toán sửa nội dung phiếu (chỉ khi trạng thái draft)
 export const updateDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { tenKhachHang, items } = req.body;
+    const { customerId, tenKhachHang, note, items } = req.body;
 
     const delivery = await Delivery.findByPk(id, {
       include: [{ model: DeliveryItem, as: 'items' }]
     });
-    if (!delivery) {
-      await t.rollback();
-      return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    }
+    if (!delivery) { await t.rollback(); return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' }); }
     if (delivery.status !== 'preparing') {
       await t.rollback();
-      return res.status(400).json({ message: 'Chỉ có thể sửa nội dung phiếu xuất kho khi đang ở trạng thái Đang soạn' });
+      return res.status(400).json({ message: 'Chỉ có thể sửa phiếu đang ở trạng thái Đang soạn' });
     }
 
-    if (tenKhachHang && tenKhachHang.trim()) delivery.tenKhachHang = tenKhachHang.trim();
+    if (customerId) {
+      const customer = await Customer.findByPk(customerId, { transaction: t });
+      if (!customer) { await t.rollback(); return res.status(400).json({ message: 'Khách hàng không tồn tại' }); }
+      delivery.customerId = Number(customerId);
+      delivery.tenKhachHang = customer.name;
+    } else if (tenKhachHang?.trim()) {
+      delivery.tenKhachHang = tenKhachHang.trim();
+    }
+    if (note !== undefined) delivery.note = note?.trim() || null;
 
     if (items) {
       let totalAmount = 0;
       const mappedItems = [];
       for (const item of items) {
-        const product = await Product.findByPk(item.product);
-        if (!product) {
-          await t.rollback();
-          return res.status(400).json({ message: `Sản phẩm với ID ${item.product} không tồn tại` });
-        }
+        const product = await Product.findByPk(item.product, { transaction: t });
+        if (!product) { await t.rollback(); return res.status(400).json({ message: `Sản phẩm ID ${item.product} không tồn tại` }); }
         totalAmount += Number(item.quantity) * Number(item.price);
-        mappedItems.push({
-          productId: item.product,
-          quantity: Number(item.quantity),
-          price: Number(item.price),
-          warehouseNodeId: item.warehouseNode
-        });
+        mappedItems.push({ productId: item.product, quantity: Number(item.quantity), price: Number(item.price), warehouseNodeId: item.warehouseNode });
       }
-
       await DeliveryItem.destroy({ where: { deliveryId: id }, transaction: t });
-
-      for (const mappedItem of mappedItems) {
-        await DeliveryItem.create({
-          deliveryId: id,
-          productId: mappedItem.productId,
-          quantity: mappedItem.quantity,
-          price: mappedItem.price,
-          warehouseNodeId: mappedItem.warehouseNodeId
-        }, { transaction: t });
+      for (const mi of mappedItems) {
+        await DeliveryItem.create({ deliveryId: id, productId: mi.productId, quantity: mi.quantity, price: mi.price, warehouseNodeId: mi.warehouseNodeId }, { transaction: t });
       }
-
       delivery.totalAmount = totalAmount;
     }
 
     await delivery.save({ transaction: t });
     await t.commit();
-
     const populated = await findDeliveryFull(id);
-    await recordAudit({
-      action: 'delivery.update',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: { code: populated.code }
-    });
+    await recordAudit({ action: 'delivery.update', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { code: populated.code } });
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -208,248 +213,185 @@ export const updateDelivery = async (req, res, next) => {
 };
 
 // ── PATCH /api/v1/deliveries/:id/submit ─────────────────────────
-// Kế toán gửi phiếu lên cho Quản lý phê duyệt (draft → approved sơ bộ → chờ duyệt)
-// Trong thiết kế này draft = chờ phê duyệt, hành động submit là yêu cầu Quản lý xem xét
-// Không đổi status model nhưng tạo audit để phân biệt hành động gửi duyệt
 export const submitDelivery = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const delivery = await Delivery.findByPk(id);
+    const delivery = await Delivery.findByPk(req.params.id);
     if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    if (delivery.status !== 'preparing') {
-      return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang ở trạng thái Đang soạn' });
-    }
+    if (delivery.status !== 'preparing') return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang ở trạng thái Đang soạn' });
 
-    // Chuyển trạng thái sang draft (Chờ phê duyệt) để Quản lý kho xem xét
     await delivery.update({ status: 'draft' });
-
-    await recordAudit({
-      action: 'delivery.submitForApproval',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: { code: delivery.code, message: 'Kế toán gửi phiếu xuất để Quản lý phê duyệt' }
-    });
-
-    const populated = await findDeliveryFull(id);
+    await recordAudit({ action: 'delivery.submitForApproval', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(req.params.id), payload: { code: delivery.code } });
+    const populated = await findDeliveryFull(req.params.id);
     res.json({ message: 'Đã gửi phiếu xuất kho để Quản lý phê duyệt', delivery: populated });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 // ── PATCH /api/v1/deliveries/:id/approve ────────────────────────
-// Quản lý kho phê duyệt phiếu xuất (draft → approved)
+// Quản lý phê duyệt → GIỮ CHỖ tồn kho ngay lập tức
 export const approveDelivery = async (req, res, next) => {
+  const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const delivery = await Delivery.findByPk(id);
-    if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    if (delivery.status !== 'draft') {
-      return res.status(400).json({ message: 'Chỉ có thể phê duyệt phiếu đang ở trạng thái Nháp' });
+    const delivery = await Delivery.findByPk(id, {
+      include: [{ model: DeliveryItem, as: 'items' }]
+    });
+    if (!delivery) { await t.rollback(); return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' }); }
+    if (delivery.status !== 'draft') { await t.rollback(); return res.status(400).json({ message: 'Chỉ có thể phê duyệt phiếu đang ở trạng thái Chờ phê duyệt' }); }
+
+    // Kiểm tra và giữ chỗ tồn kho khả dụng cho từng sản phẩm
+    for (const item of delivery.items) {
+      const { productId, nodeId } = getItemIds(item);
+      const [rows] = await sequelize.query(
+        'SELECT quantity, COALESCE(reservedQty, 0) AS reservedQty FROM Inventories WHERE `product` = ? AND `warehouseNode` = ? LIMIT 1',
+        { replacements: [productId, nodeId], transaction: t }
+      );
+      const available = rows.length > 0 ? (Number(rows[0].quantity) - Number(rows[0].reservedQty)) : 0;
+      if (available < item.quantity) {
+        const prod = await Product.findByPk(productId, { transaction: t });
+        await t.rollback();
+        return res.status(400).json({
+          message: `Sản phẩm "${prod?.name || 'không xác định'}" không đủ tồn kho khả dụng. (Yêu cầu: ${item.quantity}, Khả dụng: ${available} = Tồn kho: ${rows[0]?.quantity ?? 0} − Giữ chỗ: ${rows[0]?.reservedQty ?? 0})`
+        });
+      }
     }
 
-    await delivery.update({ status: 'approved' });
+    // Giữ chỗ tồn kho
+    for (const item of delivery.items) {
+      const { productId, nodeId } = getItemIds(item);
+      await reserveStock(productId, nodeId, item.quantity, t);
+    }
 
-    await recordAudit({
-      action: 'delivery.approve',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: { code: delivery.code }
-    });
+    await delivery.update({ status: 'approved' }, { transaction: t });
+    await t.commit();
 
+    await recordAudit({ action: 'delivery.approve', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { code: delivery.code, message: 'Phê duyệt + giữ chỗ tồn kho thành công' } });
     const populated = await findDeliveryFull(id);
     res.json(populated);
   } catch (error) {
+    if (!t.finished) await t.rollback();
     next(error);
   }
 };
 
 // ── PATCH /api/v1/deliveries/:id/reject ─────────────────────────
-// Quản lý kho từ chối phiếu xuất (draft → rejected), có ghi nguyên nhân
 export const rejectDelivery = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ message: 'Vui lòng nhập lý do từ chối' });
-    }
+    if (!reason?.trim()) return res.status(400).json({ message: 'Vui lòng nhập lý do từ chối' });
 
     const delivery = await Delivery.findByPk(id);
     if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    if (delivery.status !== 'draft') {
-      return res.status(400).json({ message: 'Chỉ có thể từ chối phiếu đang ở trạng thái Chờ phê duyệt' });
-    }
+    if (delivery.status !== 'draft') return res.status(400).json({ message: 'Chỉ có thể từ chối phiếu đang ở trạng thái Chờ phê duyệt' });
 
     await delivery.update({ status: 'rejected', rejectNote: reason.trim() });
-
-    await recordAudit({
-      action: 'delivery.reject',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: { code: delivery.code, reason: reason.trim() }
-    });
-
+    await recordAudit({ action: 'delivery.reject', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { code: delivery.code, reason: reason.trim() } });
     const populated = await findDeliveryFull(id);
     res.json(populated);
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 // ── PATCH /api/v1/deliveries/:id/ship ───────────────────────────
-// Nhân viên kho xác nhận xuất hàng vật lý (approved → shipping)
-// Tương ứng bước: Kiểm hàng → Đóng gói → Xác nhận xuất hàng
 export const shipDelivery = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const delivery = await Delivery.findByPk(id);
+    const delivery = await Delivery.findByPk(req.params.id);
     if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    if (delivery.status !== 'approved') {
-      return res.status(400).json({ message: 'Chỉ có thể xác nhận xuất hàng từ trạng thái "Đã phê duyệt"' });
-    }
+    if (delivery.status !== 'approved') return res.status(400).json({ message: 'Chỉ có thể xác nhận xuất hàng từ trạng thái "Đã phê duyệt"' });
 
     await delivery.update({ status: 'shipping' });
-
-    await recordAudit({
-      action: 'delivery.shipping',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: { code: delivery.code, message: 'Nhân viên kho đã bàn giao hàng cho đơn vị vận chuyển' }
-    });
-
-    const populated = await findDeliveryFull(id);
+    await recordAudit({ action: 'delivery.shipping', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(req.params.id), payload: { code: delivery.code } });
+    const populated = await findDeliveryFull(req.params.id);
     res.json(populated);
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
 
 // ── PATCH /api/v1/deliveries/:id/complete ───────────────────────
-// Nhân viên kho hoàn tất sau khi nhận lại phiếu ký nhận (shipping → completed)
-// Hệ thống: trừ tồn kho + lưu lịch sử giao dịch xuất kho chi tiết từng sản phẩm
+// Nhân viên kho hoàn tất: trừ tồn kho, giải phóng giữ chỗ, lưu thông tin ký nhận
 export const completeDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
+    const { signerName, signedAt, signatureNote } = req.body;
+
+    if (!signerName?.trim()) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Vui lòng nhập tên người ký nhận hàng' });
+    }
 
     const delivery = await Delivery.findByPk(id, {
       include: [{ model: DeliveryItem, as: 'items' }]
     });
-    if (!delivery) {
-      await t.rollback();
-      return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
-    }
-    if (delivery.status !== 'shipping') {
-      await t.rollback();
-      return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang ở trạng thái "Đang vận chuyển"' });
-    }
+    if (!delivery) { await t.rollback(); return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' }); }
+    if (delivery.status !== 'shipping') { await t.rollback(); return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang ở trạng thái "Đang vận chuyển"' }); }
 
     // Kiểm tra tồn kho lần cuối trước khi trừ
     for (const item of delivery.items) {
-      const stock = await Inventory.findOne({
-        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
-        transaction: t
-      });
-      const currentQty = stock ? stock.quantity : 0;
+      const { productId, nodeId } = getItemIds(item);
+      const [rows] = await sequelize.query(
+        'SELECT quantity FROM Inventories WHERE `product` = ? AND `warehouseNode` = ? LIMIT 1',
+        { replacements: [productId, nodeId], transaction: t }
+      );
+      const currentQty = rows.length > 0 ? Number(rows[0].quantity) : 0;
       if (currentQty < item.quantity) {
-        const prod = await Product.findByPk(item.productId, { transaction: t });
+        const prod = await Product.findByPk(productId, { transaction: t });
         await t.rollback();
-        return res.status(400).json({
-          message: `Sản phẩm "${prod?.name || 'không xác định'}" không đủ tồn kho tại vị trí chỉ định. (Yêu cầu: ${item.quantity}, Hiện có: ${currentQty})`
-        });
+        return res.status(400).json({ message: `Sản phẩm "${prod?.name}" không đủ tồn kho. (Yêu cầu: ${item.quantity}, Hiện có: ${currentQty})` });
       }
     }
 
-    // Trừ tồn kho và ghi lịch sử giao dịch từng sản phẩm
+    // Trừ tồn kho + giải phóng giữ chỗ + ghi Thẻ kho
     const stockDeductions = [];
     let currentCardCount = await StockCard.count({ transaction: t });
 
     for (const item of delivery.items) {
-      const stock = await Inventory.findOne({
-        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
-        transaction: t
-      });
-      const beforeQty = stock.quantity;
-      stock.quantity -= Number(item.quantity);
-      await stock.save({ transaction: t });
-      const afterQty = stock.quantity;
+      const { productId, nodeId } = getItemIds(item);
 
-      const prod = await Product.findByPk(item.productId, { transaction: t });
-      const node = await WarehouseNode.findByPk(item.warehouseNodeId, { transaction: t });
-      stockDeductions.push({
-        productId: item.productId,
-        sku: prod?.sku,
-        productName: prod?.name,
-        warehouseNode: node?.code,
-        deductedQty: item.quantity,
-        beforeQty,
-        afterQty: afterQty
-      });
+      // Dùng raw SQL để tránh field-aliasing và cập nhật cả hai cột trong 1 lệnh
+      await sequelize.query(
+        `UPDATE Inventories
+         SET quantity    = quantity - ?,
+             reservedQty = GREATEST(0, reservedQty - ?)
+         WHERE \`product\` = ? AND \`warehouseNode\` = ?`,
+        { replacements: [item.quantity, item.quantity, productId, nodeId], transaction: t }
+      );
 
-      // Tự động ghi nhận Thẻ kho (Stock Card)
+      const [afterRows] = await sequelize.query(
+        'SELECT quantity FROM Inventories WHERE `product` = ? AND `warehouseNode` = ? LIMIT 1',
+        { replacements: [productId, nodeId], transaction: t }
+      );
+      const afterQty  = afterRows.length > 0 ? Number(afterRows[0].quantity) : 0;
+      const beforeQty = afterQty + Number(item.quantity);
+
+      const prod = await Product.findByPk(productId, { transaction: t });
+      const node = await WarehouseNode.findByPk(nodeId, { transaction: t });
+      stockDeductions.push({ productId, sku: prod?.sku, productName: prod?.name, warehouseNode: node?.code, deductedQty: item.quantity, beforeQty, afterQty });
+
       currentCardCount++;
       const scCode = `TK-${new Date().getFullYear()}-${String(currentCardCount).padStart(5, '0')}`;
-
       await StockCard.create({
-        code: scCode,
-        productId: item.productId,
-        warehouseNodeId: item.warehouseNodeId,
-        refCode: delivery.code,
-        type: 'export',
-        qtyBefore: beforeQty,
-        qtyChange: -Number(item.quantity),
-        qtyAfter: afterQty,
-        note: `Xuất kho tự động theo phiếu ${delivery.code}`,
-        recordedAt: new Date(),
-        createdByUserId: req.user._id
+        code: scCode, productId, warehouseNodeId: nodeId,
+        refCode: delivery.code, type: 'export',
+        qtyBefore: beforeQty, qtyChange: -Number(item.quantity), qtyAfter: afterQty,
+        note: `Xuất kho theo phiếu ${delivery.code} – Người nhận: ${signerName.trim()}`,
+        recordedAt: new Date(), createdByUserId: req.user._id
       }, { transaction: t });
     }
 
-    // Cập nhật trạng thái phiếu xuất thành hoàn tất
-    await delivery.update({ status: 'completed' }, { transaction: t });
+    // Lưu thông tin ký nhận và hoàn tất phiếu
+    await delivery.update({
+      status:        'completed',
+      signerName:    signerName.trim(),
+      signedAt:      signedAt ? new Date(signedAt) : new Date(),
+      signatureNote: signatureNote?.trim() || null
+    }, { transaction: t });
 
-    // Tự động cập nhật trạng thái yêu cầu xuất kho liên kết thành completed
+    // Tự động hoàn tất yêu cầu xuất kho liên kết
     if (delivery.requestId) {
-      await DeliveryRequest.update(
-        { status: 'completed' },
-        { where: { _id: delivery.requestId }, transaction: t }
-      );
+      await DeliveryRequest.update({ status: 'completed' }, { where: { _id: delivery.requestId }, transaction: t });
     }
 
     await t.commit();
-
-    // Ghi audit log tổng hợp hoàn tất
-    await recordAudit({
-      action: 'delivery.complete',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: { code: delivery.code }
-    });
-
-    // Ghi audit log chi tiết lịch sử giao dịch xuất kho từng sản phẩm
-    await recordAudit({
-      action: 'delivery.stock_deducted',
-      userId: req.user._id,
-      username: req.user.username,
-      entity: 'delivery',
-      entityId: Number(id),
-      payload: {
-        code: delivery.code,
-        message: 'Hệ thống cập nhật số lượng tồn kho sau xuất hàng',
-        deductions: stockDeductions
-      }
-    });
+    await recordAudit({ action: 'delivery.complete', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { code: delivery.code, signerName: signerName.trim(), deductions: stockDeductions } });
 
     const populated = await findDeliveryFull(id);
     res.json(populated);

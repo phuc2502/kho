@@ -4,6 +4,7 @@ import { Product } from './product.model.js';
 import { User } from './user.model.js';
 import { WarehouseNode } from './warehouseNode.model.js';
 import { DeliveryRequest } from './deliveryRequest.model.js';
+import { Customer } from './customer.model.js';
 
 export const Delivery = sequelize.define('Delivery', {
   _id: {
@@ -29,6 +30,28 @@ export const Delivery = sequelize.define('Delivery', {
   totalAmount: {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0
+  },
+  customerId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: { model: Customer, key: '_id' }
+  },
+  note: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  // Thông tin ký nhận từ bên nhận hàng
+  signerName: {
+    type: DataTypes.STRING(200),
+    allowNull: true
+  },
+  signedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  signatureNote: {
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   rejectNote: {
     type: DataTypes.TEXT,
@@ -108,6 +131,8 @@ export const DeliveryItem = sequelize.define('DeliveryItem', {
 });
 
 // Setup relationships
+Delivery.belongsTo(Customer, { foreignKey: 'customerId', as: 'customer' });
+Customer.hasMany(Delivery, { foreignKey: 'customerId', as: 'deliveries' });
 Delivery.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
 Delivery.hasMany(DeliveryItem, { foreignKey: 'deliveryId', as: 'items', onDelete: 'CASCADE' });
 Delivery.belongsTo(DeliveryRequest, { foreignKey: 'requestId', as: 'fromRequest' });
