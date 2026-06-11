@@ -255,12 +255,13 @@ export const runMigrations = async () => {
   }
 
   // ——— 12. Seed quyền delivery-request mới vào catalog ———
+  // Lưu ý: bảng Permissions có timestamps: false — không có cột createdAt/updatedAt
   try {
     await sequelize.query(`
-      INSERT IGNORE INTO Permissions (code, name, \`group\`, createdAt, updatedAt)
+      INSERT IGNORE INTO Permissions (code, name, \`group\`)
       VALUES
-        ('delivery-request:read',   'Xem yêu cầu xuất kho',          'Vận hành Nhập & Xuất', NOW(), NOW()),
-        ('delivery-request:create', 'Tạo yêu cầu xuất kho (Sale)',   'Vận hành Nhập & Xuất', NOW(), NOW())
+        ('delivery-request:read',   'Xem yêu cầu xuất kho',          'Vận hành Nhập & Xuất'),
+        ('delivery-request:create', 'Tạo yêu cầu xuất kho (Sale)',   'Vận hành Nhập & Xuất')
     `);
     console.log('Migration: Seeded delivery-request permissions');
   } catch (err) {

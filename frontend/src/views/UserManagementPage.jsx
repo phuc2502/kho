@@ -430,10 +430,11 @@ const PermissionPanel = ({ userId, onClose, onSaved }) => {
                     }
                     return (
                       <label key={p.code}
+                        onClick={() => toggle(p.code)}
                         className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors ${
                           checked ? 'bg-emerald-50 hover:bg-emerald-100' : 'hover:bg-slate-50'
                         }`}>
-                        <div onClick={() => toggle(p.code)}
+                        <div
                           className={`w-4 h-4 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${
                             checked ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'
                           }`}>
