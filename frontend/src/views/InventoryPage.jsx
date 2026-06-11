@@ -8,6 +8,9 @@ import { exportToCSV } from '../utils/exportCSV.js';
 import toast from 'react-hot-toast';
 import { Database, MapPin, Layers, Download, ScanLine, Search, X, Package, Tag, Warehouse } from 'lucide-react';
 
+const removeAccents = s =>
+  s ? s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D').toLowerCase() : '';
+
 export const InventoryPage = () => {
   const [stock, setStock] = useState([]);
   const [allStock, setAllStock] = useState([]);
@@ -151,10 +154,10 @@ export const InventoryPage = () => {
   const displayedStock = useMemo(() => {
     let result = allStock;
     if (searchText.trim()) {
-      const q = searchText.trim().toLowerCase();
+      const q = removeAccents(searchText.trim());
       result = result.filter(item =>
-        item.product?.name?.toLowerCase().includes(q) ||
-        item.product?.sku?.toLowerCase().includes(q)
+        removeAccents(item.product?.name).includes(q) ||
+        removeAccents(item.product?.sku).includes(q)
       );
     }
     if (filterStatus === 'out') result = result.filter(item => item.quantity === 0);
@@ -210,8 +213,8 @@ export const InventoryPage = () => {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
   const suggestions = searchText.trim() ? products.filter(p =>
-    p.name?.toLowerCase().includes(searchText.toLowerCase()) ||
-    p.sku?.toLowerCase().includes(searchText.toLowerCase())
+    removeAccents(p.name).includes(removeAccents(searchText)) ||
+    removeAccents(p.sku).includes(removeAccents(searchText))
   ).slice(0, 8).map(p => ({ label: p.name, code: p.sku, id: p._id })) : [];
 
   const selectSuggestion = (item) => {

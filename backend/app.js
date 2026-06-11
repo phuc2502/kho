@@ -9,6 +9,8 @@ import { receiptRouter } from './routes/receipt.routes.js';
 import { deliveryRouter } from './routes/delivery.routes.js';
 import { inventoryRouter } from './routes/inventory.routes.js';
 import { stocktakeRouter } from './routes/stocktake.routes.js';
+import { stocktakeMinutesRouter } from './routes/stocktakeMinutes.routes.js';
+import { stocktakeReportRouter } from './routes/stocktakeReport.routes.js';
 import { adjustmentRouter } from './routes/adjustment.routes.js';
 import { incidentRouter } from './routes/incident.routes.js';
 import { auditLogRouter } from './routes/auditLog.routes.js';
@@ -34,6 +36,8 @@ app.use('/api/v1/deliveries', deliveryRouter);
 app.use('/api/v1/inventory', inventoryRouter);
 app.use('/api/v1/stock-cards', stockCardRouter); // [THÊM MỚI]
 app.use('/api/v1/stocktakes', stocktakeRouter);
+app.use('/api/v1/stocktake-minutes', stocktakeMinutesRouter);
+app.use('/api/v1/stocktake-reports', stocktakeReportRouter);
 app.use('/api/v1/adjustments', adjustmentRouter);
 app.use('/api/v1/incidents', incidentRouter);
 app.use('/api/v1/audit-logs', auditLogRouter);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ReceiptModel } from '../models/receipt.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
@@ -7,7 +7,7 @@ import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { IncidentModel } from '../models/incident.model.js';
 import toast from 'react-hot-toast';
-import { Plus, Eye, CheckCircle2, X, Calendar, Clipboard, Download } from 'lucide-react';
+import { Plus, Eye, CheckCircle2, X, Calendar, Clipboard, Download, Search } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
 
 export const ReceiptsPage = () => {
@@ -16,6 +16,15 @@ export const ReceiptsPage = () => {
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Bộ lọc & tìm kiếm ────────────────────────────────────────
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterFrom, setFilterFrom]     = useState('');
+  const [filterTo, setFilterTo]         = useState('');
+  const [showSugg, setShowSugg]         = useState(false);
+  const searchRef = useRef(null);
+  const [filterWarehouse, setFilterWarehouse] = useState('');
 
   const [allNodes, setAllNodes] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -57,6 +66,51 @@ export const ReceiptsPage = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return receipts.filter(r =>
+      r.code?.toLowerCase().includes(q) ||
+      r.ghiChu?.toLowerCase().includes(q) ||
+      r.items?.some(i =>
+        i.product?.name?.toLowerCase().includes(q) ||
+        i.product?.sku?.toLowerCase().includes(q)
+      )
+    ).slice(0, 6);
+  }, [searchQuery, receipts]);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let validBinCodes = null;
+    if (filterWarehouse) {
+      validBinCodes = new Set();
+      const bfsQ = [parseInt(filterWarehouse)], bfsSeen = new Set();
+      while (bfsQ.length) {
+        const id = bfsQ.shift();
+        if (bfsSeen.has(id)) continue;
+        bfsSeen.add(id);
+        allNodes.forEach(n => {
+          const pid = n.parentId ?? n.parent?._id;
+          if (pid === id) { if (n.type === 'bin') validBinCodes.add(n.code); else bfsQ.push(n._id); }
+        });
+      }
+    }
+    return receipts.filter(r => {
+      const matchQ = !q ||
+        r.code?.toLowerCase().includes(q) ||
+        r.ghiChu?.toLowerCase().includes(q) ||
+        r.items?.some(i =>
+          i.product?.name?.toLowerCase().includes(q) ||
+          i.product?.sku?.toLowerCase().includes(q)
+        );
+      const matchSt  = !filterStatus || r.status === filterStatus;
+      const matchFr  = !filterFrom   || new Date(r.createdAt) >= new Date(filterFrom);
+      const matchTo_ = !filterTo     || new Date(r.createdAt) <= new Date(filterTo + 'T23:59:59');
+      const matchWH  = !validBinCodes || r.items?.some(i => validBinCodes.has(i.warehouseNode?.code));
+      return matchQ && matchSt && matchFr && matchTo_ && matchWH;
+    });
+  }, [receipts, searchQuery, filterStatus, filterFrom, filterTo, filterWarehouse, allNodes]);
 
   const handleAddItemRow = () => {
     setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
@@ -203,7 +257,7 @@ export const ReceiptsPage = () => {
           <button
             onClick={() => {
               const headers = ['Mã phiếu', 'Ghi chú', 'Ngày lập', 'Tổng tiền', 'Trạng thái'];
-              const rows = receipts.map(r => [r.code, r.ghiChu || '', r.createdAt?.split('T')[0] || '', r.totalAmount || 0, r.status]);
+              const rows = filtered.map(r => [r.code, r.ghiChu || '', r.createdAt?.split('T')[0] || '', r.totalAmount || 0, r.status]);
               exportToCSV('phieu_nhap_kho', headers, rows);
             }}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold"
@@ -222,6 +276,70 @@ export const ReceiptsPage = () => {
         </div>
       </div>
 
+      {/* ── Bộ lọc & Tìm kiếm ── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap gap-2 items-center">
+          <div className="relative flex-1 min-w-[220px]" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setShowSugg(true); }}
+              onFocus={() => setShowSugg(true)}
+              onBlur={() => setTimeout(() => setShowSugg(false), 200)}
+              placeholder="Tìm theo mã phiếu, ghi chú, tên sản phẩm..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary-400 focus:bg-white transition-colors"
+            />
+            {showSugg && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-30 overflow-hidden">
+                {suggestions.map(r => (
+                  <button key={r._id} type="button"
+                    onMouseDown={() => { setSearchQuery(r.code); setShowSugg(false); }}
+                    className="w-full text-left px-4 py-2.5 hover:bg-primary-50 border-b border-slate-50 last:border-0 transition-colors flex items-center gap-2"
+                  >
+                    <span className="font-mono font-bold text-slate-900 text-sm">{r.code}</span>
+                    {r.ghiChu && <span className="text-xs text-slate-400 truncate flex-1">— {r.ghiChu}</span>}
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_MAP[r.status]?.style}`}>{STATUS_MAP[r.status]?.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[150px]">
+            <option value="">Tất cả trạng thái</option>
+            <option value="draft">Nháp</option>
+            <option value="approved">Đã duyệt</option>
+            <option value="completed">Hoàn thành</option>
+            <option value="rejected">Từ chối</option>
+          </select>
+          <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}
+            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[140px]">
+            <option value="">Tất cả kho</option>
+            {allNodes.filter(n => n.type === 'warehouse').map(n => (
+              <option key={n._id} value={n._id}>{n.name}</option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+            <span className="text-slate-400 text-xs">—</span>
+            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+              className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400" />
+          </div>
+          {(searchQuery || filterStatus || filterWarehouse || filterFrom || filterTo) && (
+            <button onClick={() => { setSearchQuery(''); setFilterStatus(''); setFilterWarehouse(''); setFilterFrom(''); setFilterTo(''); }}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-sm font-semibold transition-colors">
+              <X className="w-4 h-4" /> Xóa lọc
+            </button>
+          )}
+          <span className="text-xs text-slate-400 ml-auto whitespace-nowrap">
+            {filtered.length} / {receipts.length} phiếu
+          </span>
+        </div>
+      </div>
+
       {/* Receipts Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {loading ? (
@@ -229,8 +347,10 @@ export const ReceiptsPage = () => {
             <span className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block"></span>
             <p className="mt-2">Đang tải danh sách phiếu nhập...</p>
           </div>
-        ) : receipts.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 text-sm">Chưa có phiếu nhập kho nào được tạo</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 text-sm">
+            {receipts.length === 0 ? 'Chưa có phiếu nhập kho nào được tạo' : 'Không tìm thấy phiếu phù hợp với bộ lọc'}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -247,7 +367,7 @@ export const ReceiptsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {receipts.map(r => (
+                {filtered.map(r => (
                   <tr key={r._id} className="hover:bg-slate-50/50">
                     <td className="px-5 py-4 font-mono font-bold text-slate-900">{r.code}</td>
                     <td className="px-5 py-4 text-slate-600 max-w-[220px]">

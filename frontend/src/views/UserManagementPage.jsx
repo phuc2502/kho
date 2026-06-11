@@ -282,7 +282,15 @@ const PermissionPanel = ({ userId, onClose, onSaved }) => {
         setLoading(true);
         const result = await UserModel.getUserPermissions(userId);
         setData(result);
-        setLocalChecked(new Set(result.effective || []));
+        // Tính effective từ các thành phần nếu backend trả về rỗng
+        let effective = result.effective || [];
+        if (effective.length === 0 && (result.roleDefaults?.length > 0 || result.granted?.length > 0)) {
+          const base = new Set(result.roleDefaults || []);
+          (result.granted || []).forEach(c => base.add(c));
+          (result.revoked || []).forEach(c => base.delete(c));
+          effective = Array.from(base);
+        }
+        setLocalChecked(new Set(effective));
       } catch {
         toast.error('Không thể tải thông tin quyền');
       } finally {
@@ -636,6 +644,8 @@ export const UserManagementPage = () => {
   const [panelUserId, setPanelUserId] = useState(null);
   // Pending role change: { [userId]: newRole } — phải ấn Xác nhận mới lưu
   const [pendingRole, setPendingRole] = useState({});
+  // Đang hiển thị dropdown chỉnh vai trò cho userId nào
+  const [editingRoleUserId, setEditingRoleUserId] = useState(null);
   // Tìm kiếm & bộ lọc
   const [searchQuery, setSearchQuery]   = useState('');
   const [filterRole, setFilterRole]     = useState('');   // '' = tất cả
@@ -730,6 +740,7 @@ export const UserManagementPage = () => {
     // Cập nhật ngay trên bảng (không chờ spinner)
     setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: newRole } : u));
     setPendingRole(prev => { const n = { ...prev }; delete n[userId]; return n; });
+    setEditingRoleUserId(null);
     try {
       await UserModel.updateUser(userId, { role: newRole });
       toast.success(`Đã cập nhật vai trò thành ${ROLE_CONFIG[newRole]?.label || newRole}`);
@@ -739,9 +750,10 @@ export const UserManagementPage = () => {
     }
   };
 
-  // Ấn Hủy → bỏ pending, trả lại vai trò cũ
+  // Ấn Hủy → bỏ pending, đóng dropdown
   const handleCancelRole = (userId) => {
     setPendingRole(prev => { const n = { ...prev }; delete n[userId]; return n; });
+    setEditingRoleUserId(null);
   };
 
   const handleReactivate = async (u) => {
@@ -979,13 +991,12 @@ export const UserManagementPage = () => {
                         <td className="px-4 py-3">
                           <span className="text-sm text-slate-600 truncate block">{u.email}</span>
                         </td>
-                        {/* Vai trò — phải ấn xác nhận mới lưu */}
+                        {/* Vai trò — badge màu, bấm bút chì để đổi */}
                         <td className="px-4 py-3">
-                          {isSelf || u.role === 'Admin' ? (
-                            <RoleBadge role={u.role} />
-                          ) : (
+                          {editingRoleUserId === u._id && !isSelf && u.role !== 'Admin' ? (
                             <div className="flex items-center gap-1.5">
                               <select
+                                autoFocus
                                 value={pendingRole[u._id] ?? u.role}
                                 onChange={e => handleRoleSelectChange(u._id, u.role, e.target.value)}
                                 className={`text-xs rounded-lg border px-2 py-1 focus:outline-none focus:border-primary-500 cursor-pointer transition-colors ${
@@ -998,12 +1009,12 @@ export const UserManagementPage = () => {
                                   <option key={k} value={k}>{v.short}</option>
                                 ))}
                               </select>
-                              {hasPending && (
+                              {hasPending ? (
                                 <>
                                   <button
                                     onClick={() => handleConfirmRole(u._id)}
                                     className="p-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-md transition-colors"
-                                    title="Xác nhận đổi vai trò"
+                                    title="Xác nhận"
                                   >
                                     <Check className="w-3 h-3" strokeWidth={3} />
                                   </button>
@@ -1015,6 +1026,29 @@ export const UserManagementPage = () => {
                                     <X className="w-3 h-3" strokeWidth={3} />
                                   </button>
                                 </>
+                              ) : (
+                                <button
+                                  onClick={() => handleCancelRole(u._id)}
+                                  className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-md transition-colors"
+                                  title="Đóng"
+                                >
+                                  <X className="w-3 h-3" strokeWidth={3} />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 group">
+                              <RoleBadge role={u.role} />
+                              {!isSelf && u.role !== 'Admin' && (
+                                <button
+                                  onClick={() => setEditingRoleUserId(u._id)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                                  title="Đổi vai trò"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 11l6.364-6.364a2 2 0 012.828 2.828L11.828 13.828a4 4 0 01-1.414.707l-2.828.707.707-2.828A4 4 0 019 11z" />
+                                  </svg>
+                                </button>
                               )}
                             </div>
                           )}

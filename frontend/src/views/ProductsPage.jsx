@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ProductModel } from '../models/product.model.js';
 import { CategoryModel } from '../models/category.model.js';
+import { InventoryModel } from '../models/inventory.model.js';
+import { WarehouseModel } from '../models/warehouse.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
@@ -16,6 +18,9 @@ export const ProductsPage = () => {
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [filterWarehouse, setFilterWarehouse] = useState('');
+  const [inventory, setInventory] = useState([]);
+  const [allNodes, setAllNodes] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -39,12 +44,16 @@ export const ProductsPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [pData, cData] = await Promise.all([
+      const [pData, cData, iData, wData] = await Promise.all([
         ProductModel.getAll(),
-        CategoryModel.getAll()
+        CategoryModel.getAll(),
+        InventoryModel.getStock(),
+        WarehouseModel.getAll()
       ]);
       setProducts(pData);
       setCategories(cData);
+      setInventory(iData);
+      setAllNodes(wData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu: ' + error.message);
     } finally {
@@ -193,16 +202,38 @@ export const ProductsPage = () => {
        .replace(/Đ/g, 'D')
        .toLowerCase();
 
-  // Filter products — hỗ trợ tìm không dấu (vd: "linh kien" tìm được "Linh kiện")
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = useMemo(() => {
     const q = normalizeVi(searchTerm);
-    const matchesSearch = !q ||
-      normalizeVi(p.name).includes(q) ||
-      normalizeVi(p.sku).includes(q) ||
-      normalizeVi(p.description).includes(q);
-    const matchesCategory = categoryFilter ? (p.category?._id === categoryFilter || p.category === categoryFilter) : true;
-    return matchesSearch && matchesCategory;
-  });
+    let validProductIds = null;
+    if (filterWarehouse) {
+      const validBinCodes = new Set();
+      const bfsQ = [parseInt(filterWarehouse)], bfsSeen = new Set();
+      while (bfsQ.length) {
+        const id = bfsQ.shift();
+        if (bfsSeen.has(id)) continue;
+        bfsSeen.add(id);
+        allNodes.forEach(n => {
+          const pid = n.parentId ?? n.parent?._id;
+          if (pid === id) { if (n.type === 'bin') validBinCodes.add(n.code); else bfsQ.push(n._id); }
+        });
+      }
+      validProductIds = new Set(
+        inventory
+          .filter(i => validBinCodes.has(i.warehouseNode?.code) && (i.quantity ?? 0) > 0)
+          .map(i => i.product?._id)
+          .filter(Boolean)
+      );
+    }
+    return products.filter(p => {
+      const matchesSearch = !q ||
+        normalizeVi(p.name).includes(q) ||
+        normalizeVi(p.sku).includes(q) ||
+        normalizeVi(p.description).includes(q);
+      const matchesCategory = !categoryFilter || p.category?._id === categoryFilter || p.category === categoryFilter;
+      const matchesWarehouse = !validProductIds || validProductIds.has(p._id);
+      return matchesSearch && matchesCategory && matchesWarehouse;
+    });
+  }, [products, searchTerm, categoryFilter, filterWarehouse, inventory, allNodes]);
 
   const suggestions = searchTerm.trim() ? products.filter(p =>
     normalizeVi(p.name).includes(normalizeVi(searchTerm)) ||
@@ -308,6 +339,16 @@ export const ProductsPage = () => {
                 <option value="">Tất cả danh mục</option>
                 {categories.map(c => (
                   <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+              <select
+                value={filterWarehouse}
+                onChange={(e) => setFilterWarehouse(e.target.value)}
+                className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:outline-none focus:border-primary-500 min-w-[140px]"
+              >
+                <option value="">Tất cả kho</option>
+                {allNodes.filter(n => n.type === 'warehouse').map(n => (
+                  <option key={n._id} value={n._id}>{n.name}</option>
                 ))}
               </select>
             </div>

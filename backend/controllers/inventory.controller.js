@@ -17,13 +17,13 @@ export const getInventory = async (req, res, next) => {
         {
           model: Product,
           as: 'product',
-          attributes: ['sku', 'name', 'description', 'priceIn', 'priceOut', 'unit'],
+          attributes: ['_id', 'sku', 'name', 'description', 'priceIn', 'priceOut', 'unit'],
           include: [{ model: Category, as: 'category', attributes: ['name'] }]
         },
         {
           model: WarehouseNode,
           as: 'warehouseNode',
-          attributes: ['name', 'code', 'type', 'parentId'],
+          attributes: ['_id', 'name', 'code', 'type', 'parentId'],
           include: [
             {
               model: WarehouseNode,

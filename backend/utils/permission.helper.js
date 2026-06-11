@@ -36,11 +36,13 @@ export const PERMISSION_CATALOG = [
   { code: 'delivery:update',           name: 'Sửa phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:approve',          name: 'Duyệt phiếu xuất',                 group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:ship',             name: 'Xác nhận xuất hàng (Nhân viên kho)', group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:complete',         name: 'Hoàn tất xuất kho (Quản lý kho)',    group: 'Vận hành Nhập & Xuất' },
 
   // Kiểm kê & Điều chỉnh
   { code: 'stocktake:read',     name: 'Xem phiếu kiểm kê',               group: 'Kiểm kê & Điều chỉnh' },
   { code: 'stocktake:create',   name: 'Tạo / Sửa phiếu kiểm kê',        group: 'Kiểm kê & Điều chỉnh' },
   { code: 'stocktake:approve',  name: 'Phê duyệt phiếu kiểm kê',        group: 'Kiểm kê & Điều chỉnh' },
+  { code: 'stocktake:count',   name: 'Nhập số liệu đếm thực tế (Nhân viên kho)', group: 'Kiểm kê & Điều chỉnh' },
   { code: 'adjustment:read',    name: 'Xem phiếu điều chỉnh',            group: 'Kiểm kê & Điều chỉnh' },
   { code: 'adjustment:create',  name: 'Tạo phiếu điều chỉnh',            group: 'Kiểm kê & Điều chỉnh' },
   { code: 'adjustment:approve', name: 'Duyệt phiếu điều chỉnh',          group: 'Kiểm kê & Điều chỉnh' },
@@ -73,8 +75,8 @@ export const ROLE_DEFAULTS = {
     'receipt:read', 'receipt:update', 'receipt:approve',
     // Yêu cầu xuất kho (xem tất cả yêu cầu từ Sale)
     'delivery-request:read',
-    // Phiếu xuất kho (xem + phê duyệt; KeToanKho mới lập phiếu)
-    'delivery:read', 'delivery:update', 'delivery:approve', 'delivery:ship',
+    // Phiếu xuất kho (xem + phê duyệt + hoàn tất; KeToanKho mới lập phiếu; NhanVienKho xác nhận xuất hàng)
+    'delivery:read', 'delivery:update', 'delivery:approve', 'delivery:complete',
     // Kiểm kê & Điều chỉnh (xem + phê duyệt)
     'stocktake:read', 'stocktake:approve',
     'adjustment:read', 'adjustment:approve',
@@ -98,8 +100,8 @@ export const ROLE_DEFAULTS = {
     'delivery-request:read',
     // Phiếu xuất kho (lập + sửa + gửi phê duyệt, không phê duyệt — QuanLyKho phê duyệt)
     'delivery:read', 'delivery:create', 'delivery:update',
-    // Kiểm kê (lập + đối chiếu, không phê duyệt)
-    'stocktake:read', 'stocktake:create',
+    // Kiểm kê (lập + đối chiếu + nhập đếm + gửi phê duyệt, không phê duyệt biên bản)
+    'stocktake:read', 'stocktake:create', 'stocktake:count',
     // Điều chỉnh tồn kho (lập sau kiểm kê, không phê duyệt)
     'adjustment:read', 'adjustment:create',
     // Sự cố (xem)
@@ -120,8 +122,8 @@ export const ROLE_DEFAULTS = {
     'delivery-request:read',
     // Phiếu xuất kho: xem + xác nhận xuất hàng vật lý + hoàn tất (theo swimlane)
     'delivery:read', 'delivery:ship',
-    // Kiểm kê (chỉ xem — thực hiện đếm theo phiếu đã được tạo)
-    'stocktake:read',
+    // Kiểm kê (xem + nhập số liệu đếm)
+    'stocktake:read', 'stocktake:count',
     // Sự cố (lập khi phát hiện thiếu/hỏng lúc nhận hàng)
     'incident:read', 'incident:create',
     // Tồn kho
@@ -167,11 +169,10 @@ export const ROLE_DEFAULTS = {
 export const getEffectivePermissions = async (userId, userRole) => {
   if (userRole === 'Admin') return null; // Admin bypass — null = toàn quyền
 
-  // Lấy quyền mặc định của vai trò từ DB
-  const rolePerms = await RolePermission.findAll({ where: { roleCode: userRole } });
-  const basePerms = new Set(rolePerms.map(rp => rp.permissionCode));
+  // Dùng ROLE_DEFAULTS làm nguồn gốc (luôn đồng bộ với code, không phụ thuộc DB)
+  const basePerms = new Set(ROLE_DEFAULTS[userRole] || []);
 
-  // Lấy ghi đè cá nhân từ DB và áp dụng
+  // Áp dụng ghi đè cá nhân từ DB
   const overrides = await UserPermission.findAll({ where: { userId } });
   for (const o of overrides) {
     if (o.type === 'grant') basePerms.add(o.permissionCode);
