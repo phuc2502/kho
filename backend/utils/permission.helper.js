@@ -35,6 +35,7 @@ export const PERMISSION_CATALOG = [
   { code: 'delivery:create',           name: 'Tạo phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:update',           name: 'Sửa phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:approve',          name: 'Duyệt phiếu xuất',                 group: 'Vận hành Nhập & Xuất' },
+  { code: 'delivery:ship',             name: 'Xác nhận xuất hàng (Nhân viên kho)', group: 'Vận hành Nhập & Xuất' },
 
   // Kiểm kê & Điều chỉnh
   { code: 'stocktake:read',     name: 'Xem phiếu kiểm kê',               group: 'Kiểm kê & Điều chỉnh' },
@@ -73,7 +74,7 @@ export const ROLE_DEFAULTS = {
     // Yêu cầu xuất kho (xem tất cả yêu cầu từ Sale)
     'delivery-request:read',
     // Phiếu xuất kho (xem + phê duyệt; KeToanKho mới lập phiếu)
-    'delivery:read', 'delivery:update', 'delivery:approve',
+    'delivery:read', 'delivery:update', 'delivery:approve', 'delivery:ship',
     // Kiểm kê & Điều chỉnh (xem + phê duyệt)
     'stocktake:read', 'stocktake:approve',
     'adjustment:read', 'adjustment:approve',
@@ -95,7 +96,7 @@ export const ROLE_DEFAULTS = {
     'receipt:read', 'receipt:create', 'receipt:update',
     // Yêu cầu xuất kho (xem yêu cầu từ Sale)
     'delivery-request:read',
-    // Phiếu xuất kho (lập + sửa, không phê duyệt — QuanLyKho phê duyệt)
+    // Phiếu xuất kho (lập + sửa + gửi phê duyệt, không phê duyệt — QuanLyKho phê duyệt)
     'delivery:read', 'delivery:create', 'delivery:update',
     // Kiểm kê (lập + đối chiếu, không phê duyệt)
     'stocktake:read', 'stocktake:create',
@@ -117,8 +118,8 @@ export const ROLE_DEFAULTS = {
     'receipt:read',
     // Yêu cầu xuất kho (xem)
     'delivery-request:read',
-    // Phiếu xuất kho (chỉ xem — KeToanKho lập phiếu, NhanVienKho thực hiện xuất hàng vật lý)
-    'delivery:read',
+    // Phiếu xuất kho: xem + xác nhận xuất hàng vật lý + hoàn tất (theo swimlane)
+    'delivery:read', 'delivery:ship',
     // Kiểm kê (chỉ xem — thực hiện đếm theo phiếu đã được tạo)
     'stocktake:read',
     // Sự cố (lập khi phát hiện thiếu/hỏng lúc nhận hàng)

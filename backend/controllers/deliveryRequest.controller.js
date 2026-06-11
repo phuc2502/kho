@@ -1,6 +1,7 @@
 import { DeliveryRequest, DeliveryRequestItem } from '../models/deliveryRequest.model.js';
 import { Product } from '../models/product.model.js';
 import { User } from '../models/user.model.js';
+import { Inventory } from '../models/inventory.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 
@@ -71,6 +72,7 @@ export const createDeliveryRequest = async (req, res, next) => {
   try {
     const { tenKhachHang, note, items } = req.body;
 
+    // --- Validation dữ liệu đầu vào ---
     if (!tenKhachHang?.trim()) {
       await t.rollback();
       return res.status(400).json({ message: 'Vui lòng nhập tên khách hàng' });
@@ -78,6 +80,23 @@ export const createDeliveryRequest = async (req, res, next) => {
     if (!items || items.length === 0) {
       await t.rollback();
       return res.status(400).json({ message: 'Yêu cầu phải có ít nhất 1 sản phẩm' });
+    }
+
+    // Kiểm tra chi tiết từng item: productId tồn tại, quantity hợp lệ
+    for (const item of items) {
+      if (!item.productId) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Mỗi sản phẩm phải có mã sản phẩm hợp lệ' });
+      }
+      const product = await Product.findByPk(item.productId, { transaction: t });
+      if (!product) {
+        await t.rollback();
+        return res.status(400).json({ message: `Sản phẩm với ID ${item.productId} không tồn tại trong hệ thống` });
+      }
+      if (!item.quantity || parseInt(item.quantity) < 1) {
+        await t.rollback();
+        return res.status(400).json({ message: `Số lượng sản phẩm "${product.name}" phải lớn hơn 0` });
+      }
     }
 
     // Sinh mã yêu cầu: YC-YYYYMMDD-XXXX
@@ -98,7 +117,7 @@ export const createDeliveryRequest = async (req, res, next) => {
       totalAmount += (parseFloat(item.priceEstimate) || 0) * (parseInt(item.quantity) || 0);
     }
 
-    // Tạo yêu cầu
+    // Tạo yêu cầu với trạng thái ban đầu là pending
     const request = await DeliveryRequest.create({
       code,
       tenKhachHang: tenKhachHang.trim(),
@@ -126,7 +145,7 @@ export const createDeliveryRequest = async (req, res, next) => {
       action: 'deliveryrequest.create',
       entity: 'deliveryrequest',
       entityId: request._id,
-      payload: { code, tenKhachHang: req.body.tenKhachHang }
+      payload: { code, tenKhachHang: req.body.tenKhachHang, itemCount: items.length }
     });
 
     // Trả về record đầy đủ
@@ -143,6 +162,78 @@ export const createDeliveryRequest = async (req, res, next) => {
   }
 };
 
+// ── POST /api/v1/delivery-requests/:id/check-stock ───────────────
+// Kế toán kho kiểm tra tồn kho trước khi lập phiếu xuất
+// - Nếu đủ: trả về danh sách sản phẩm khả dụng, trạng thái yêu cầu giữ nguyên pending
+// - Nếu thiếu: cập nhật trạng thái yêu cầu thành insufficient_stock, trả về chi tiết thiếu
+export const checkDeliveryRequestStock = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const request = await DeliveryRequest.findByPk(id, {
+      include: [
+        {
+          model: DeliveryRequestItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['_id', 'sku', 'name', 'unit'] }]
+        }
+      ]
+    });
+
+    if (!request) return res.status(404).json({ message: 'Không tìm thấy yêu cầu' });
+    if (['completed', 'cancelled'].includes(request.status)) {
+      return res.status(400).json({ message: 'Không thể kiểm tra yêu cầu đã hoàn thành hoặc đã huỷ' });
+    }
+
+    const checkResults = [];
+    let allSufficient = true;
+
+    for (const item of request.items) {
+      // Tổng tồn kho của sản phẩm này trên tất cả vị trí
+      const inventories = await Inventory.findAll({ where: { productId: item.productId } });
+      const totalStock = inventories.reduce((sum, inv) => sum + (inv.quantity || 0), 0);
+      const sufficient = totalStock >= item.quantity;
+      if (!sufficient) allSufficient = false;
+
+      checkResults.push({
+        productId: item.productId,
+        sku: item.product?.sku,
+        productName: item.product?.name,
+        requestedQty: item.quantity,
+        availableQty: totalStock,
+        sufficient
+      });
+    }
+
+    // Cập nhật trạng thái yêu cầu theo kết quả kiểm tra
+    const newStatus = allSufficient ? 'pending' : 'insufficient_stock';
+    if (request.status !== newStatus) {
+      await request.update({ status: newStatus });
+    }
+
+    await recordAudit({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'deliveryrequest.checkStock',
+      entity: 'deliveryrequest',
+      entityId: request._id,
+      payload: { code: request.code, allSufficient, checkResults }
+    });
+
+    res.json({
+      requestId: request._id,
+      code: request.code,
+      status: newStatus,
+      allSufficient,
+      message: allSufficient
+        ? 'Tất cả sản phẩm đủ tồn kho – có thể lập phiếu xuất'
+        : 'Một số sản phẩm không đủ tồn kho – yêu cầu tạm dừng',
+      items: checkResults
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ── PATCH /api/v1/delivery-requests/:id/cancel ──────────────────
 // Sale huỷ yêu cầu của mình (chỉ khi đang pending)
 export const cancelDeliveryRequest = async (req, res, next) => {
@@ -151,8 +242,8 @@ export const cancelDeliveryRequest = async (req, res, next) => {
     const request = await DeliveryRequest.findByPk(id);
 
     if (!request) return res.status(404).json({ message: 'Không tìm thấy yêu cầu' });
-    if (request.status !== 'pending') {
-      return res.status(400).json({ message: 'Chỉ có thể huỷ yêu cầu đang chờ xử lý' });
+    if (!['pending', 'insufficient_stock'].includes(request.status)) {
+      return res.status(400).json({ message: 'Chỉ có thể huỷ yêu cầu đang chờ xử lý hoặc tạm dừng' });
     }
     if (req.user.role === 'Sale' && request.createdByUserId !== req.user._id) {
       return res.status(403).json({ message: 'Không có quyền huỷ yêu cầu này' });
@@ -176,11 +267,17 @@ export const cancelDeliveryRequest = async (req, res, next) => {
 };
 
 // ── PATCH /api/v1/delivery-requests/:id/status ──────────────────
-// Kho/QL cập nhật trạng thái (processing / completed)
+// Kế toán/Quản lý cập nhật trạng thái (processing / completed)
 export const updateDeliveryRequestStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+
+    // Chỉ Kế toán và Quản lý mới được cập nhật trạng thái yêu cầu
+    const allowedRoles = ['Admin', 'QuanLyKho', 'KeToanKho'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'Chỉ Kế toán hoặc Quản lý kho mới có thể cập nhật trạng thái yêu cầu xuất' });
+    }
 
     const allowed = ['processing', 'completed', 'cancelled'];
     if (!allowed.includes(status)) {

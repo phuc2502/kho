@@ -20,7 +20,7 @@ export const DeliveryRequest = sequelize.define('DeliveryRequest', {
     defaultValue: ''
   },
   status: {
-    type: DataTypes.ENUM('pending', 'processing', 'completed', 'cancelled'),
+    type: DataTypes.ENUM('pending', 'insufficient_stock', 'processing', 'completed', 'cancelled'),
     defaultValue: 'pending'
   },
   note: {

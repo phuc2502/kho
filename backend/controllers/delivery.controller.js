@@ -7,6 +7,23 @@ import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 
+// Helper: lấy phiếu xuất với đầy đủ thông tin liên quan
+const findDeliveryFull = (id) => Delivery.findByPk(id, {
+  include: [
+    { model: User, as: 'createdByUser', attributes: ['username', 'fullName', 'role'] },
+    {
+      model: DeliveryItem,
+      as: 'items',
+      include: [
+        { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
+        { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
+      ]
+    },
+    { model: DeliveryRequest, as: 'fromRequest', attributes: ['_id', 'code', 'status'] }
+  ]
+});
+
+// ── GET /api/v1/deliveries ───────────────────────────────────────
 export const getDeliveries = async (req, res, next) => {
   try {
     const deliveries = await Delivery.findAll({
@@ -31,6 +48,8 @@ export const getDeliveries = async (req, res, next) => {
   }
 };
 
+// ── POST /api/v1/deliveries ──────────────────────────────────────
+// Kế toán kho lập phiếu xuất nháp (có thể từ yêu cầu xuất kho)
 export const createDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
@@ -39,6 +58,10 @@ export const createDelivery = async (req, res, next) => {
     if (!tenKhachHang || !tenKhachHang.trim()) {
       await t.rollback();
       return res.status(400).json({ message: 'Tên khách hàng là bắt buộc' });
+    }
+    if (!items || items.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Phiếu xuất phải có ít nhất 1 sản phẩm' });
     }
 
     const count = await Delivery.count();
@@ -91,21 +114,17 @@ export const createDelivery = async (req, res, next) => {
 
     await t.commit();
 
-    const populated = await Delivery.findByPk(delivery._id, {
-      include: [
-        { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
-        {
-          model: DeliveryItem,
-          as: 'items',
-          include: [
-            { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
-            { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
-          ]
-        }
-      ]
+    const populated = await findDeliveryFull(delivery._id);
+
+    await recordAudit({
+      action: 'delivery.create',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: delivery._id,
+      payload: { code, totalAmount, itemCount: mappedItems.length }
     });
 
-    await recordAudit({ action: 'delivery.create', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: delivery._id, payload: { code, totalAmount, itemCount: mappedItems.length } });
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -113,11 +132,13 @@ export const createDelivery = async (req, res, next) => {
   }
 };
 
+// ── PUT /api/v1/deliveries/:id ───────────────────────────────────
+// Kế toán sửa nội dung phiếu (chỉ khi trạng thái draft)
 export const updateDelivery = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { tenKhachHang, items, status } = req.body;
+    const { tenKhachHang, items } = req.body;
 
     const delivery = await Delivery.findByPk(id, {
       include: [{ model: DeliveryItem, as: 'items' }]
@@ -126,9 +147,7 @@ export const updateDelivery = async (req, res, next) => {
       await t.rollback();
       return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
     }
-
-    // Chỉ được sửa nội dung (tenKhachHang, items) khi phiếu còn ở trạng thái Nháp
-    if ((tenKhachHang !== undefined || items !== undefined) && delivery.status !== 'draft') {
+    if (delivery.status !== 'draft') {
       await t.rollback();
       return res.status(400).json({ message: 'Chỉ có thể sửa nội dung phiếu xuất kho khi đang ở trạng thái Nháp' });
     }
@@ -168,79 +187,242 @@ export const updateDelivery = async (req, res, next) => {
       delivery.totalAmount = totalAmount;
     }
 
-    if (status) {
-      if (status === 'shipping') {
-        if (delivery.status !== 'approved') {
-          await t.rollback();
-          return res.status(400).json({ message: 'Chỉ có thể xác nhận xuất hàng từ trạng thái "Đã phê duyệt"' });
-        }
-      }
-
-      if (status === 'completed' || status === 'approved') {
-        const canApprove = req.user.role === 'Admin' || req.user.permissions.includes('delivery:approve');
-        if (!canApprove) {
-          await t.rollback();
-          return res.status(403).json({ message: 'Bạn không có quyền duyệt phiếu xuất kho' });
-        }
-
-        if (status === 'completed' && delivery.status !== 'completed') {
-          const itemsToProcess = items ? await DeliveryItem.findAll({ where: { deliveryId: id }, transaction: t }) : delivery.items;
-
-          for (const item of itemsToProcess) {
-            const stock = await Inventory.findOne({
-              where: {
-                productId: item.productId,
-                warehouseNodeId: item.warehouseNodeId
-              },
-              transaction: t
-            });
-
-            const currentQty = stock ? stock.quantity : 0;
-            if (currentQty < item.quantity) {
-              const prod = await Product.findByPk(item.productId, { transaction: t });
-              await t.rollback();
-              return res.status(400).json({
-                message: `Sản phẩm ${prod ? prod.name : 'không xác định'} không đủ tồn kho tại vị trí chỉ định. (Yêu cầu: ${item.quantity}, Hiện có: ${currentQty})`
-              });
-            }
-          }
-
-          for (const item of itemsToProcess) {
-            const stock = await Inventory.findOne({
-              where: {
-                productId: item.productId,
-                warehouseNodeId: item.warehouseNodeId
-              },
-              transaction: t
-            });
-
-            stock.quantity -= Number(item.quantity);
-            await stock.save({ transaction: t });
-          }
-        }
-      }
-      delivery.status = status;
-    }
-
     await delivery.save({ transaction: t });
     await t.commit();
 
-    const populated = await Delivery.findByPk(id, {
-      include: [
-        { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
-        {
-          model: DeliveryItem,
-          as: 'items',
-          include: [
-            { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
-            { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
-          ]
-        }
-      ]
+    const populated = await findDeliveryFull(id);
+    await recordAudit({
+      action: 'delivery.update',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: { code: populated.code }
+    });
+    res.json(populated);
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    next(error);
+  }
+};
+
+// ── PATCH /api/v1/deliveries/:id/submit ─────────────────────────
+// Kế toán gửi phiếu lên cho Quản lý phê duyệt (draft → approved sơ bộ → chờ duyệt)
+// Trong thiết kế này draft = chờ phê duyệt, hành động submit là yêu cầu Quản lý xem xét
+// Không đổi status model nhưng tạo audit để phân biệt hành động gửi duyệt
+export const submitDelivery = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const delivery = await Delivery.findByPk(id);
+    if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
+    if (delivery.status !== 'draft') {
+      return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang ở trạng thái Nháp' });
+    }
+
+    // Đánh dấu đã gửi duyệt bằng audit log (draft giữ nguyên — Quản lý xem và duyệt)
+    await recordAudit({
+      action: 'delivery.submitForApproval',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: { code: delivery.code, message: 'Kế toán gửi phiếu xuất để Quản lý phê duyệt' }
     });
 
-    const actionVerb = status === 'completed' ? 'delivery.complete' : status === 'approved' ? 'delivery.approve' : status === 'shipping' ? 'delivery.shipping' : status === 'rejected' ? 'delivery.reject' : 'delivery.update';
-    await recordAudit({ action: actionVerb, userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { status, code: populated.code } });
+    const populated = await findDeliveryFull(id);
+    res.json({ message: 'Đã gửi phiếu xuất kho để Quản lý phê duyệt', delivery: populated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── PATCH /api/v1/deliveries/:id/approve ────────────────────────
+// Quản lý kho phê duyệt phiếu xuất (draft → approved)
+export const approveDelivery = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const delivery = await Delivery.findByPk(id);
+    if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
+    if (delivery.status !== 'draft') {
+      return res.status(400).json({ message: 'Chỉ có thể phê duyệt phiếu đang ở trạng thái Nháp' });
+    }
+
+    await delivery.update({ status: 'approved' });
+
+    await recordAudit({
+      action: 'delivery.approve',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: { code: delivery.code }
+    });
+
+    const populated = await findDeliveryFull(id);
+    res.json(populated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── PATCH /api/v1/deliveries/:id/reject ─────────────────────────
+// Quản lý kho từ chối phiếu xuất (draft → rejected), có ghi nguyên nhân
+export const rejectDelivery = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const delivery = await Delivery.findByPk(id);
+    if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
+    if (delivery.status !== 'draft') {
+      return res.status(400).json({ message: 'Chỉ có thể từ chối phiếu đang ở trạng thái Nháp' });
+    }
+
+    await delivery.update({ status: 'rejected' });
+
+    await recordAudit({
+      action: 'delivery.reject',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: { code: delivery.code, reason: reason || 'Không có ghi chú' }
+    });
+
+    const populated = await findDeliveryFull(id);
+    res.json(populated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── PATCH /api/v1/deliveries/:id/ship ───────────────────────────
+// Nhân viên kho xác nhận xuất hàng vật lý (approved → shipping)
+// Tương ứng bước: Kiểm hàng → Đóng gói → Xác nhận xuất hàng
+export const shipDelivery = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const delivery = await Delivery.findByPk(id);
+    if (!delivery) return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
+    if (delivery.status !== 'approved') {
+      return res.status(400).json({ message: 'Chỉ có thể xác nhận xuất hàng từ trạng thái "Đã phê duyệt"' });
+    }
+
+    await delivery.update({ status: 'shipping' });
+
+    await recordAudit({
+      action: 'delivery.shipping',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: { code: delivery.code, message: 'Nhân viên kho đã bàn giao hàng cho đơn vị vận chuyển' }
+    });
+
+    const populated = await findDeliveryFull(id);
+    res.json(populated);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── PATCH /api/v1/deliveries/:id/complete ───────────────────────
+// Nhân viên kho hoàn tất sau khi nhận lại phiếu ký nhận (shipping → completed)
+// Hệ thống: trừ tồn kho + lưu lịch sử giao dịch xuất kho chi tiết từng sản phẩm
+export const completeDelivery = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const delivery = await Delivery.findByPk(id, {
+      include: [{ model: DeliveryItem, as: 'items' }]
+    });
+    if (!delivery) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' });
+    }
+    if (delivery.status !== 'shipping') {
+      await t.rollback();
+      return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang ở trạng thái "Đang vận chuyển"' });
+    }
+
+    // Kiểm tra tồn kho lần cuối trước khi trừ
+    for (const item of delivery.items) {
+      const stock = await Inventory.findOne({
+        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
+        transaction: t
+      });
+      const currentQty = stock ? stock.quantity : 0;
+      if (currentQty < item.quantity) {
+        const prod = await Product.findByPk(item.productId, { transaction: t });
+        await t.rollback();
+        return res.status(400).json({
+          message: `Sản phẩm "${prod?.name || 'không xác định'}" không đủ tồn kho tại vị trí chỉ định. (Yêu cầu: ${item.quantity}, Hiện có: ${currentQty})`
+        });
+      }
+    }
+
+    // Trừ tồn kho và ghi lịch sử giao dịch từng sản phẩm
+    const stockDeductions = [];
+    for (const item of delivery.items) {
+      const stock = await Inventory.findOne({
+        where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
+        transaction: t
+      });
+      const beforeQty = stock.quantity;
+      stock.quantity -= Number(item.quantity);
+      await stock.save({ transaction: t });
+
+      const prod = await Product.findByPk(item.productId, { transaction: t });
+      const node = await WarehouseNode.findByPk(item.warehouseNodeId, { transaction: t });
+      stockDeductions.push({
+        productId: item.productId,
+        sku: prod?.sku,
+        productName: prod?.name,
+        warehouseNode: node?.code,
+        deductedQty: item.quantity,
+        beforeQty,
+        afterQty: stock.quantity
+      });
+    }
+
+    // Cập nhật trạng thái phiếu xuất thành hoàn tất
+    await delivery.update({ status: 'completed' }, { transaction: t });
+
+    // Tự động cập nhật trạng thái yêu cầu xuất kho liên kết thành completed
+    if (delivery.requestId) {
+      await DeliveryRequest.update(
+        { status: 'completed' },
+        { where: { _id: delivery.requestId }, transaction: t }
+      );
+    }
+
+    await t.commit();
+
+    // Ghi audit log tổng hợp hoàn tất
+    await recordAudit({
+      action: 'delivery.complete',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: { code: delivery.code }
+    });
+
+    // Ghi audit log chi tiết lịch sử giao dịch xuất kho từng sản phẩm
+    await recordAudit({
+      action: 'delivery.stock_deducted',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'delivery',
+      entityId: Number(id),
+      payload: {
+        code: delivery.code,
+        message: 'Hệ thống cập nhật số lượng tồn kho sau xuất hàng',
+        deductions: stockDeductions
+      }
+    });
+
+    const populated = await findDeliveryFull(id);
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
