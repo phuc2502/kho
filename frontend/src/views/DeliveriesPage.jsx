@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DeliveryModel } from '../models/delivery.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { IncidentModel } from '../models/incident.model.js';
@@ -69,6 +70,7 @@ export const DeliveriesPage = () => {
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
   const [allNodes, setAllNodes] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -81,20 +83,22 @@ export const DeliveriesPage = () => {
   const [incidentItems, setIncidentItems] = useState([]);
 
   const [tenKhachHang, setTenKhachHang] = useState('');
-  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
+  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [dData, pData, wData] = await Promise.all([
+      const [dData, pData, wData, catData] = await Promise.all([
         DeliveryModel.getAll(),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setDeliveries(dData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
       setAllNodes(wData);
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu phiếu xuất: ' + error.message);
     } finally {
@@ -104,7 +108,7 @@ export const DeliveriesPage = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleAddItemRow = () => setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
+  const handleAddItemRow = () => setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
   const handleRemoveItemRow = (idx) => setItems(items.filter((_, i) => i !== idx));
   const handleItemChange = (idx, field, val) => {
     const newItems = [...items];
@@ -113,6 +117,7 @@ export const DeliveriesPage = () => {
       const prod = products.find(p => p._id === val);
       if (prod) newItems[idx].price = prod.priceOut;
     }
+    if (field === '_category') { newItems[idx].product = ''; }
     if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNode = ''; }
     if (field === '_rack') { newItems[idx].warehouseNode = ''; }
     setItems(newItems);
@@ -129,7 +134,7 @@ export const DeliveriesPage = () => {
       warehouseNode: i.warehouseNode?._id || i.warehouseNodeId,
       _zone: '',
       _rack: ''
-    })) || [{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
+    })) || [{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
     setShowAddModal(true);
   };
 
@@ -168,7 +173,7 @@ export const DeliveriesPage = () => {
       setShowAddModal(false);
       setEditingDelivery(null);
       setTenKhachHang('');
-      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
+      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi: ' + error.message);
@@ -375,7 +380,7 @@ export const DeliveriesPage = () => {
                 <Clipboard className="w-5 h-5 text-primary-500" />
                 {editingDelivery ? `Sửa phiếu ${editingDelivery.code}` : 'Lập Phiếu Xuất Kho'}
               </h3>
-              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
               <div>
@@ -411,11 +416,18 @@ export const DeliveriesPage = () => {
                     <div key={idx} className="bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200 space-y-2.5">
                       {/* Dòng 1: Sản phẩm + Số lượng + Đơn giá + Xóa */}
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <select value={item._category} onChange={(e) => handleItemChange(idx, '_category', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                            <option value="">-- Tất cả danh mục --</option>
+                            {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                          </select>
                           <select required value={item.product} onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
                             className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
                             <option value="" disabled>-- Chọn sản phẩm --</option>
-                            {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
+                            {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
+                              <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
+                            ))}
                           </select>
                         </div>
                         <div className="w-28 relative">
@@ -481,7 +493,7 @@ export const DeliveriesPage = () => {
                   <strong className="text-slate-900">{formatCurrency(items.reduce((s, i) => s + (Number(i.quantity) * Number(i.price) || 0), 0))}</strong>
                 </span>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
+                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
                   <button type="submit" className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-primary-500/10">
                     {editingDelivery ? 'Lưu thay đổi' : 'Tạo phiếu'}
                   </button>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AdjustmentModel } from '../models/adjustment.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { InventoryModel } from '../models/inventory.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
@@ -14,6 +15,7 @@ export const AdjustmentsPage = () => {
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
   const [allNodes, setAllNodes] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -23,20 +25,22 @@ export const AdjustmentsPage = () => {
   // Form states
   const [reason, setReason] = useState('count_correction');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '' }]);
+  const [items, setItems] = useState([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [adjData, pData, wData] = await Promise.all([
+      const [adjData, pData, wData, catData] = await Promise.all([
         AdjustmentModel.getAll(),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setAdjustments(adjData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
       setAllNodes(wData);
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải phiếu điều chỉnh: ' + error.message);
     } finally {
@@ -49,7 +53,7 @@ export const AdjustmentsPage = () => {
   }, []);
 
   const handleAddItemRow = () => {
-    setItems([...items, { productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '' }]);
+    setItems([...items, { productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '', _category: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -75,6 +79,7 @@ export const AdjustmentsPage = () => {
         newItems[idx].systemQty = 0;
       }
     }
+    if (field === '_category') { newItems[idx].productId = ''; }
     if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNodeId = ''; }
     if (field === '_rack') { newItems[idx].warehouseNodeId = ''; }
     setItems(newItems);
@@ -102,7 +107,7 @@ export const AdjustmentsPage = () => {
       setShowAddModal(false);
       setReason('count_correction');
       setNote('');
-      setItems([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '' }]);
+      setItems([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lập phiếu điều chỉnh thất bại: ' + error.message);
@@ -322,8 +327,13 @@ export const AdjustmentsPage = () => {
                 <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
                   {items.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <div className="col-span-4">
-                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Sản phẩm</label>
+                      <div className="col-span-4 space-y-1">
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-0.5">Sản phẩm</label>
+                        <select value={item._category} onChange={(e) => handleItemChange(idx, '_category', e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                          <option value="">-- Tất cả danh mục --</option>
+                          {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
                         <select
                           required
                           value={item.productId}
@@ -331,7 +341,7 @@ export const AdjustmentsPage = () => {
                           className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
                         >
                           <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => (
+                          {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
                             <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
                           ))}
                         </select>

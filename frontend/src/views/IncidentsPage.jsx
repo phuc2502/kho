@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { IncidentModel } from '../models/incident.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { ReceiptModel } from '../models/receipt.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
@@ -12,6 +13,7 @@ export const IncidentsPage = () => {
   const [incidents, setIncidents] = useState([]);
   const [products, setProducts] = useState([]);
   const [receipts, setReceipts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -22,7 +24,7 @@ export const IncidentsPage = () => {
   const [type, setType] = useState('shortage');
   const [refId, setRefId] = useState('');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState([{ productId: '', quantity: 1 }]);
+  const [items, setItems] = useState([{ productId: '', quantity: 1, _category: '' }]);
 
   // Detail/Edit States
   const [editStatus, setEditStatus] = useState('open');
@@ -32,14 +34,16 @@ export const IncidentsPage = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [incData, pData, rData] = await Promise.all([
+      const [incData, pData, rData, catData] = await Promise.all([
         IncidentModel.getAll(),
         ProductModel.getAll(),
-        ReceiptModel.getAll()
+        ReceiptModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setIncidents(incData);
       setProducts(pData);
       setReceipts(rData);
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu sự cố: ' + error.message);
     } finally {
@@ -52,7 +56,7 @@ export const IncidentsPage = () => {
   }, []);
 
   const handleAddItemRow = () => {
-    setItems([...items, { productId: '', quantity: 1 }]);
+    setItems([...items, { productId: '', quantity: 1, _category: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -62,6 +66,7 @@ export const IncidentsPage = () => {
   const handleItemChange = (idx, field, val) => {
     const newItems = [...items];
     newItems[idx][field] = val;
+    if (field === '_category') { newItems[idx].productId = ''; }
     setItems(newItems);
   };
 
@@ -89,7 +94,7 @@ export const IncidentsPage = () => {
       setType('shortage');
       setRefId('');
       setNote('');
-      setItems([{ productId: '', quantity: 1 }]);
+      setItems([{ productId: '', quantity: 1, _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi báo cáo sự cố: ' + error.message);
@@ -330,7 +335,14 @@ export const IncidentsPage = () => {
                 <div className="space-y-3 max-h-[220px] overflow-y-auto pr-2">
                   {items.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <div className="col-span-8">
+                      <div className="col-span-8 space-y-1">
+                        <select value={item._category} onChange={(e) => handleItemChange(idx, '_category', e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                          <option value="">-- Tất cả danh mục --</option>
+                          {categories.map(c => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                          ))}
+                        </select>
                         <select
                           required
                           value={item.productId}
@@ -338,7 +350,7 @@ export const IncidentsPage = () => {
                           className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
                         >
                           <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => (
+                          {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
                             <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
                           ))}
                         </select>

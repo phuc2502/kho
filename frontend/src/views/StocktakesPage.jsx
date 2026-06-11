@@ -4,6 +4,7 @@ import { StocktakeModel } from '../models/stocktake.model.js';
 import { AdjustmentModel } from '../models/adjustment.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
@@ -80,6 +81,7 @@ export const StocktakesPage = () => {
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
   const [allNodes, setAllNodes] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -89,20 +91,22 @@ export const StocktakesPage = () => {
 
   const [formNote, setFormNote] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
-  const [formItems, setFormItems] = useState([{ productId: '', warehouseNodeId: '', _zone: '', _rack: '' }]);
+  const [formItems, setFormItems] = useState([{ productId: '', warehouseNodeId: '', _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [stData, pData, wData] = await Promise.all([
+      const [stData, pData, wData, catData] = await Promise.all([
         StocktakeModel.getAll(),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setStocktakes(stData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
       setAllNodes(wData);
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu kiểm kê: ' + error.message);
     } finally {
@@ -129,11 +133,12 @@ export const StocktakesPage = () => {
     }
   }, []);
 
-  const handleAddFormRow = () => setFormItems([...formItems, { productId: '', warehouseNodeId: '', _zone: '', _rack: '' }]);
+  const handleAddFormRow = () => setFormItems([...formItems, { productId: '', warehouseNodeId: '', _zone: '', _rack: '', _category: '' }]);
   const handleRemoveFormRow = (idx) => setFormItems(formItems.filter((_, i) => i !== idx));
   const handleFormItemChange = (idx, field, val) => {
     const next = [...formItems];
     next[idx][field] = val;
+    if (field === '_category') { next[idx].productId = ''; }
     if (field === '_zone') { next[idx]._rack = ''; next[idx].warehouseNodeId = ''; }
     if (field === '_rack') { next[idx].warehouseNodeId = ''; }
     setFormItems(next);
@@ -156,7 +161,7 @@ export const StocktakesPage = () => {
       setShowAddModal(false);
       setFormNote('');
       setFormDate(new Date().toISOString().split('T')[0]);
-      setFormItems([{ productId: '', warehouseNodeId: '', _zone: '', _rack: '' }]);
+      setFormItems([{ productId: '', warehouseNodeId: '', _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi lập phiếu: ' + error.message);
@@ -401,12 +406,19 @@ export const StocktakesPage = () => {
                 <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
                   {formItems.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-11 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <div className="col-span-5">
-                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Sản phẩm *</label>
+                      <div className="col-span-5 space-y-1">
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-0.5">Sản phẩm *</label>
+                        <select value={item._category} onChange={(e) => handleFormItemChange(idx, '_category', e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                          <option value="">-- Tất cả danh mục --</option>
+                          {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
                         <select required value={item.productId} onChange={(e) => handleFormItemChange(idx, 'productId', e.target.value)}
                           className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
                           <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
+                          {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
+                            <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
+                          ))}
                         </select>
                       </div>
                       <div className="col-span-5 space-y-1">

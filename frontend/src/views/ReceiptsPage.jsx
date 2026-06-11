@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ReceiptModel } from '../models/receipt.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { IncidentModel } from '../models/incident.model.js';
@@ -17,6 +18,7 @@ export const ReceiptsPage = () => {
   const [loading, setLoading] = useState(true);
 
   const [allNodes, setAllNodes] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
@@ -29,20 +31,22 @@ export const ReceiptsPage = () => {
 
   // Form states
   const [ghiChu, setGhiChu] = useState('');
-  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
+  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [rData, pData, wData] = await Promise.all([
+      const [rData, pData, wData, catData] = await Promise.all([
         ReceiptModel.getAll(),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setReceipts(rData);
       setProducts(pData);
       setAllNodes(wData);
       setBins(wData.filter(n => n.type === 'bin'));
+      setCategories(catData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu phiếu nhập: ' + error.message);
     } finally {
@@ -55,7 +59,7 @@ export const ReceiptsPage = () => {
   }, []);
 
   const handleAddItemRow = () => {
-    setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+    setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -69,6 +73,7 @@ export const ReceiptsPage = () => {
       const prod = products.find(p => p._id === val);
       if (prod) newItems[idx].price = prod.priceIn;
     }
+    if (field === '_category') { newItems[idx].product = ''; }
     if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNode = ''; }
     if (field === '_rack') { newItems[idx].warehouseNode = ''; }
     setItems(newItems);
@@ -96,7 +101,7 @@ export const ReceiptsPage = () => {
       toast.success('Lập phiếu nhập kho nháp thành công');
       setShowAddModal(false);
       setGhiChu('');
-      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
+      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi lập phiếu nhập: ' + error.message);
@@ -334,7 +339,17 @@ export const ReceiptsPage = () => {
                     <div key={idx} className="bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200 space-y-2.5">
                       {/* Dòng 1: Sản phẩm + Số lượng + Đơn giá + Xóa */}
                       <div className="flex items-center gap-3">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <select
+                            value={item._category}
+                            onChange={(e) => handleItemChange(idx, '_category', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                          >
+                            <option value="">-- Tất cả danh mục --</option>
+                            {categories.map(c => (
+                              <option key={c._id} value={c._id}>{c.name}</option>
+                            ))}
+                          </select>
                           <select
                             required
                             value={item.product}
@@ -342,7 +357,7 @@ export const ReceiptsPage = () => {
                             className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
                           >
                             <option value="" disabled>-- Chọn sản phẩm --</option>
-                            {products.map(p => (
+                            {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
                               <option key={p._id} value={p._id}>{p.sku} – {p.name}</option>
                             ))}
                           </select>
