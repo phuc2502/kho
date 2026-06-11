@@ -5,6 +5,7 @@ import { User } from '../models/user.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { StockCard } from '../models/stockCard.model.js';
 
 export const getReceipts = async (req, res, next) => {
   try {
@@ -174,8 +175,28 @@ export const updateReceipt = async (req, res, next) => {
               transaction: t
             });
 
+            const qtyBefore = inventoryRecord.quantity;
             inventoryRecord.quantity += Number(item.quantity);
             await inventoryRecord.save({ transaction: t });
+            const qtyAfter = inventoryRecord.quantity;
+
+            // Tự động ghi nhận Thẻ kho (Stock Card)
+            const count = await StockCard.count({ transaction: t });
+            const scCode = `TK-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+
+            await StockCard.create({
+              code: scCode,
+              productId: item.productId,
+              warehouseNodeId: item.warehouseNodeId,
+              refCode: receipt.code,
+              type: 'import',
+              qtyBefore,
+              qtyChange: Number(item.quantity),
+              qtyAfter,
+              note: `Nhập kho tự động theo phiếu ${receipt.code}`,
+              recordedAt: new Date(),
+              createdByUserId: req.user._id
+            }, { transaction: t });
           }
         }
       }

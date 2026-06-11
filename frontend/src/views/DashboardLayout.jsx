@@ -33,6 +33,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/inventory',          label: 'Tồn kho',               icon: Database,      permission: 'inventory:read'         },
       { path: '/receipts',           label: 'Phiếu nhập kho',        icon: ArrowDownLeft, permission: 'receipt:read'            },
+      { path: '/stock-cards',        label: 'Thẻ kho',               icon: History,       permission: 'inventory:read'         },
       { path: '/delivery-requests',  label: 'Yêu cầu xuất kho',      icon: FileText,      permission: 'delivery-request:read'  },
       { path: '/deliveries',         label: 'Phiếu xuất kho',        icon: ArrowUpRight,  permission: 'delivery:read'          },
       { path: '/stocktakes',         label: 'Kiểm kê kho',           icon: ClipboardList, permission: 'stocktake:read'         },

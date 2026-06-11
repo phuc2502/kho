@@ -8,6 +8,8 @@ import { InventoryPage } from './views/InventoryPage.jsx';
 import { ReceiptsPage } from './views/ReceiptsPage.jsx';
 import { DeliveriesPage } from './views/DeliveriesPage.jsx';
 import { ProductsPage } from './views/ProductsPage.jsx';
+import { StockCardsPage } from './views/StockCardsPage.jsx';
+
 import { WarehouseStructurePage } from './views/WarehouseStructurePage.jsx';
 import { UserManagementPage } from './views/UserManagementPage.jsx';
 import { StocktakesPage } from './views/StocktakesPage.jsx';
@@ -93,6 +95,13 @@ const App = () => {
                 <ReceiptsPage />
               </ProtectedRoute>
             } />
+
+            <Route path="stock-cards" element={
+              <ProtectedRoute permission="inventory:read">
+                <StockCardsPage />
+              </ProtectedRoute>
+            } />
+
             
             <Route path="delivery-requests" element={
               <ProtectedRoute permission="delivery-request:read">

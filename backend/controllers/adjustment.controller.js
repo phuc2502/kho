@@ -5,6 +5,7 @@ import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { StockCard } from '../models/stockCard.model.js';
 
 const adjustmentIncludes = [
   { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
@@ -118,6 +119,7 @@ export const approveAdjustment = async (req, res, next) => {
     }
 
     // Apply delta to Inventory
+    let currentCardCount = await StockCard.count({ transaction: t });
     for (const item of adjustment.items) {
       const [inventoryRecord] = await Inventory.findOrCreate({
         where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
@@ -125,7 +127,8 @@ export const approveAdjustment = async (req, res, next) => {
         transaction: t
       });
 
-      const newQty = Number(inventoryRecord.quantity) + Number(item.delta);
+      const qtyBefore = Number(inventoryRecord.quantity);
+      const newQty = qtyBefore + Number(item.delta);
       if (newQty < 0) {
         const prod = await Product.findByPk(item.productId, { transaction: t });
         await t.rollback();
@@ -136,6 +139,25 @@ export const approveAdjustment = async (req, res, next) => {
 
       inventoryRecord.quantity = newQty;
       await inventoryRecord.save({ transaction: t });
+      const qtyAfter = newQty;
+
+      // Tự động ghi nhận Thẻ kho (Stock Card)
+      currentCardCount++;
+      const scCode = `TK-${new Date().getFullYear()}-${String(currentCardCount).padStart(5, '0')}`;
+
+      await StockCard.create({
+        code: scCode,
+        productId: item.productId,
+        warehouseNodeId: item.warehouseNodeId,
+        refCode: adjustment.code,
+        type: 'adjustment',
+        qtyBefore,
+        qtyChange: Number(item.delta),
+        qtyAfter,
+        note: `Điều chỉnh tồn kho tự động theo phiếu ${adjustment.code}`,
+        recordedAt: new Date(),
+        createdByUserId: req.user._id
+      }, { transaction: t });
     }
 
     adjustment.status = 'completed';

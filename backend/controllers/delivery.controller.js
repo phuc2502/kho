@@ -6,6 +6,7 @@ import { User } from '../models/user.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { StockCard } from '../models/stockCard.model.js';
 
 // Helper: lấy phiếu xuất với đầy đủ thông tin liên quan
 const findDeliveryFull = (id) => Delivery.findByPk(id, {
@@ -363,6 +364,8 @@ export const completeDelivery = async (req, res, next) => {
 
     // Trừ tồn kho và ghi lịch sử giao dịch từng sản phẩm
     const stockDeductions = [];
+    let currentCardCount = await StockCard.count({ transaction: t });
+
     for (const item of delivery.items) {
       const stock = await Inventory.findOne({
         where: { productId: item.productId, warehouseNodeId: item.warehouseNodeId },
@@ -371,6 +374,7 @@ export const completeDelivery = async (req, res, next) => {
       const beforeQty = stock.quantity;
       stock.quantity -= Number(item.quantity);
       await stock.save({ transaction: t });
+      const afterQty = stock.quantity;
 
       const prod = await Product.findByPk(item.productId, { transaction: t });
       const node = await WarehouseNode.findByPk(item.warehouseNodeId, { transaction: t });
@@ -381,8 +385,26 @@ export const completeDelivery = async (req, res, next) => {
         warehouseNode: node?.code,
         deductedQty: item.quantity,
         beforeQty,
-        afterQty: stock.quantity
+        afterQty: afterQty
       });
+
+      // Tự động ghi nhận Thẻ kho (Stock Card)
+      currentCardCount++;
+      const scCode = `TK-${new Date().getFullYear()}-${String(currentCardCount).padStart(5, '0')}`;
+
+      await StockCard.create({
+        code: scCode,
+        productId: item.productId,
+        warehouseNodeId: item.warehouseNodeId,
+        refCode: delivery.code,
+        type: 'export',
+        qtyBefore: beforeQty,
+        qtyChange: -Number(item.quantity),
+        qtyAfter: afterQty,
+        note: `Xuất kho tự động theo phiếu ${delivery.code}`,
+        recordedAt: new Date(),
+        createdByUserId: req.user._id
+      }, { transaction: t });
     }
 
     // Cập nhật trạng thái phiếu xuất thành hoàn tất

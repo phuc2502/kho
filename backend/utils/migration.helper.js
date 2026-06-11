@@ -404,5 +404,35 @@ export const runMigrations = async () => {
     console.warn('Migration warning (Inventories.minStock):', err.message);
   }
 
+  // ——— 16. [THÊM MỚI] Tạo bảng StockCards nếu chưa có (v2.0) ———
+  try {
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS StockCards (
+        _id             INT AUTO_INCREMENT PRIMARY KEY,
+        code            VARCHAR(50)  NOT NULL UNIQUE        COMMENT 'Mã số thẻ kho tự động sinh',
+        product         INT          NOT NULL               COMMENT 'FK -> Products._id',
+        warehouseNode   INT          NOT NULL               COMMENT 'FK -> WarehouseNodes._id',
+        refCode         VARCHAR(100) NOT NULL               COMMENT 'Mã chứng từ tham chiếu',
+        type            ENUM('import', 'export', 'adjustment', 'manual') NOT NULL DEFAULT 'manual' COMMENT 'Loại biến động',
+        qtyBefore       INT          NOT NULL DEFAULT 0     COMMENT 'Số lượng trước biến động',
+        qtyChange       INT          NOT NULL               COMMENT 'Số lượng thay đổi',
+        qtyAfter        INT          NOT NULL DEFAULT 0     COMMENT 'Số lượng sau biến động',
+        note            TEXT         NULL                   COMMENT 'Ghi chú lý do biến động',
+        recordedAt      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Ngày giờ ghi nhận',
+        createdByUser   INT          NOT NULL               COMMENT 'FK -> Users._id',
+        createdAt       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_sc_product      (product),
+        INDEX idx_sc_node         (warehouseNode),
+        INDEX idx_sc_recordedAt   (recordedAt),
+        INDEX idx_sc_refCode      (refCode)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='Bảng Thẻ kho (Stock Card) lưu vết biến động tồn kho (v2.0)'
+    `);
+    console.log('Migration: StockCards table ready (v2.0)');
+  } catch (err) {
+    console.warn('Migration warning (StockCards):', err.message);
+  }
+
   console.log('Migrations completed.');
 };

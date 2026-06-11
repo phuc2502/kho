@@ -15,6 +15,7 @@ import { auditLogRouter } from './routes/auditLog.routes.js';
 import { emailLogRouter }    from './routes/email-log.routes.js'; // [THÊM MỚI]
 import { deliveryRequestRouter } from './routes/deliveryRequest.routes.js';
 import { dashboardRouter }   from './routes/dashboard.routes.js'; // [THÊM MỚI v2.0]
+import { stockCardRouter }    from './routes/stockCard.routes.js'; // [THÊM MỚI]
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api/v1/receipts', receiptRouter);
 app.use('/api/v1/delivery-requests', deliveryRequestRouter);
 app.use('/api/v1/deliveries', deliveryRouter);
 app.use('/api/v1/inventory', inventoryRouter);
+app.use('/api/v1/stock-cards', stockCardRouter); // [THÊM MỚI]
 app.use('/api/v1/stocktakes', stocktakeRouter);
 app.use('/api/v1/adjustments', adjustmentRouter);
 app.use('/api/v1/incidents', incidentRouter);
