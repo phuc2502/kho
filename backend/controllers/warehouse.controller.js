@@ -18,6 +18,8 @@ export const getWarehouseNodes = async (req, res, next) => {
   }
 };
 
+const CHILD_TYPE = { warehouse: 'zone', zone: 'aisle', aisle: 'rack', rack: 'bin' };
+
 export const createWarehouseNode = async (req, res, next) => {
   try {
     const { name, code, type, parent } = req.body;
@@ -33,6 +35,13 @@ export const createWarehouseNode = async (req, res, next) => {
       if (!parentNode) {
         return res.status(400).json({ message: 'Vị trí cha không hợp lệ hoặc không tồn tại' });
       }
+      if (CHILD_TYPE[parentNode.type] !== type) {
+        return res.status(400).json({
+          message: `Loại "${type}" không thể là con của loại "${parentNode.type}". Chỉ được thêm loại "${CHILD_TYPE[parentNode.type] || 'không hợp lệ'}".`
+        });
+      }
+    } else if (type !== 'warehouse') {
+      return res.status(400).json({ message: `Loại "${type}" phải có vị trí cha. Chỉ loại "warehouse" mới là cấp cao nhất.` });
     }
 
     const node = await WarehouseNode.create({
@@ -66,6 +75,21 @@ export const updateWarehouseNode = async (req, res, next) => {
           return res.status(400).json({ message: `Mã vị trí ${codeUpper} đã được sử dụng` });
         }
         node.code = codeUpper;
+      }
+    }
+
+    const finalType = type || node.type;
+    const finalParentId = parent !== undefined ? (parent || null) : node.parentId;
+
+    if (finalParentId) {
+      const parentNode = await WarehouseNode.findByPk(finalParentId);
+      if (!parentNode) {
+        return res.status(400).json({ message: 'Vị trí cha không hợp lệ hoặc không tồn tại' });
+      }
+      if (CHILD_TYPE[parentNode.type] !== finalType) {
+        return res.status(400).json({
+          message: `Loại "${finalType}" không thể là con của loại "${parentNode.type}". Chỉ được đặt loại "${CHILD_TYPE[parentNode.type] || 'không hợp lệ'}".`
+        });
       }
     }
 

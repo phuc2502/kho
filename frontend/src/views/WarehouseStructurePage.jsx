@@ -50,7 +50,16 @@ const NEXT_TYPE = {
   zone:      'aisle',
   aisle:     'rack',
   rack:      'bin',
-  bin:       'bin',
+  bin:       null,
+};
+
+// required parent type for each node type
+const PARENT_TYPE = {
+  warehouse: null,
+  zone:      'warehouse',
+  aisle:     'zone',
+  rack:      'aisle',
+  bin:       'rack',
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -467,10 +476,21 @@ export const WarehouseStructurePage = () => {
   const openAddChild = (parentNode) => {
     setEditingNode(null);
     setFName(''); setFCode('');
-    setFType(NEXT_TYPE[parentNode.type] || 'bin');
+    setFType(NEXT_TYPE[parentNode.type]);
     setFParent(String(parentNode._id));
     setParentLabel(`${parentNode.code} — ${parentNode.name}`);
     setShowModal(true);
+  };
+
+  const handleTypeChange = (t) => {
+    setFType(t);
+    if (fParent) {
+      const parentNode = nodes.find(n => n._id === parseInt(fParent));
+      if (parentNode && parentNode.type !== PARENT_TYPE[t]) {
+        setFParent('');
+        setParentLabel('');
+      }
+    }
   };
 
   const openEdit = (node) => {
@@ -768,15 +788,21 @@ export const WarehouseStructurePage = () => {
                 <div className="grid grid-cols-5 gap-1.5">
                   {Object.entries(TYPE_CONFIG).map(([t, cfg]) => {
                     const Icon = cfg.icon;
+                    const isChildMode = !editingNode && fParent !== '';
+                    const isDisabled = isChildMode && t !== fType;
                     return (
                       <button
                         key={t}
                         type="button"
-                        onClick={() => setFType(t)}
+                        disabled={isDisabled}
+                        onClick={() => !isDisabled && handleTypeChange(t)}
+                        title={isDisabled ? `Khi thêm con, loại phải là "${TYPE_CONFIG[fType]?.label}"` : undefined}
                         className={`flex flex-col items-center gap-1 py-2 rounded-xl border-2 text-[10px] font-bold transition-all ${
                           fType === t
                             ? `${cfg.badge} border-current scale-105 shadow-sm`
-                            : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                            : isDisabled
+                              ? 'border-slate-100 text-slate-300 cursor-not-allowed'
+                              : 'border-slate-200 text-slate-400 hover:border-slate-300'
                         }`}
                       >
                         <Icon className="w-4 h-4" />
@@ -785,6 +811,11 @@ export const WarehouseStructurePage = () => {
                     );
                   })}
                 </div>
+                {!editingNode && fParent !== '' && (
+                  <p className="text-[10px] text-amber-600 mt-1.5">
+                    Loại đã được cố định theo cấp bậc phân cấp kho.
+                  </p>
+                )}
               </div>
 
               {/* Code */}
@@ -814,7 +845,14 @@ export const WarehouseStructurePage = () => {
               {/* Parent */}
               {fType !== 'warehouse' && (
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Thuộc vị trí cha</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Thuộc vị trí cha
+                    {PARENT_TYPE[fType] && (
+                      <span className="ml-1 text-slate-400 font-normal">
+                        (chỉ chọn được: {TYPE_CONFIG[PARENT_TYPE[fType]]?.label})
+                      </span>
+                    )}
+                  </label>
                   <select
                     value={fParent}
                     onChange={e => setFParent(e.target.value)}
@@ -823,7 +861,7 @@ export const WarehouseStructurePage = () => {
                     <option value="">— Không có cha (cấp cao nhất) —</option>
                     {nodes
                       .filter(n => !editingNode || n._id !== editingNode._id)
-                      .filter(n => n.type !== 'bin')
+                      .filter(n => PARENT_TYPE[fType] && n.type === PARENT_TYPE[fType])
                       .map(n => (
                         <option key={n._id} value={n._id}>
                           {n.code} — {n.name} [{TYPE_CONFIG[n.type]?.label || n.type}]

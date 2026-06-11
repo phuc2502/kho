@@ -1,6 +1,20 @@
 MySQL Connected successfully.
 Migration: Removed admin-only permissions from non-Admin roles
 Migration: EmailLogs table ready
+Migration: Cleared old QC role permissions — seeder will re-seed
+Migration: DeliveryRequests & DeliveryRequestItems tables ready
+Migration: Removed delivery:read/create from Sale role
+Migration: Seeded delivery-request permissions
+Migration: Warehouse structure expanded with aisle + rack levels
+Migration: SoSerial table with Han_bao_hanh ready (v2.0)
+Migrations completed.
+Database synced successfully.
+Permission catalog and role defaults seeded successfully.
+Server is running on port 4000
+MySQL Connected successfully.
+Migration: Removed admin-only permissions from non-Admin roles
+Migration: EmailLogs table ready
+Migration: Cleared old QC role permissions — seeder will re-seed
 Migration: DeliveryRequests & DeliveryRequestItems tables ready
 Migration: Removed delivery:read/create from Sale role
 Migration: Seeded delivery-request permissions

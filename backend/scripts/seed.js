@@ -438,10 +438,148 @@ const seed = async () => {
     await DeliveryRequestItem.create({ deliveryRequestId: ycx7._id, productId: p2._id, quantity: 200, priceEstimate: 22000 });
     await setDates('DeliveryRequests', ycx7._id, 65, 60);
 
-    console.log('✓ DeliveryRequests (7): completed×2, processing×2, pending×2, cancelled×1');
-    console.log('  YCX-001 → DL-001 (Samsung Q1) | YCX-002 → DL-003 (HP Q1)');
-    console.log('  YCX-003 → DL-008 (Samsung Q2) | YCX-004 → DL-014 (Panasonic)');
-    console.log('  YCX-005/006 đang chờ xử lý    | YCX-007 đã huỷ');
+    // ── Bổ sung yêu cầu cho 10 phiếu xuất còn thiếu ─────────────
+
+    // YCX-008 → DL-002 (Dell Q1 – thanh ray, 65 ngày)
+    const ycx8 = await DeliveryRequest.create({
+      code: 'YCX-2026-00008',
+      tenKhachHang: 'Dell Technologies Vietnam',
+      status: 'completed',
+      note: 'Đơn Q1/2026 – thanh ray dẫn hướng SLK-380 cho dòng Inspiron 15.',
+      totalAmount: (200 * 46000),
+      createdByUserId: accountant1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx8._id, productId: p3._id, quantity: 200, priceEstimate: 46000 });
+    await setDates('DeliveryRequests', ycx8._id, 67, 65);
+    await Delivery.update({ requestId: ycx8._id }, { where: { _id: dl2._id } });
+
+    // YCX-009 → DL-004 (Lenovo Q1 – MIM, 50 ngày)
+    const ycx9 = await DeliveryRequest.create({
+      code: 'YCX-2026-00009',
+      tenKhachHang: 'Lenovo Technology Vietnam',
+      status: 'completed',
+      note: 'Đơn Q1/2026 – linh kiện MIM giá đỡ bản lề & khung camera cho ThinkPad X1.',
+      totalAmount: (3 * 162000) + (2 * 136000),
+      createdByUserId: staff2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx9._id, productId: p5._id, quantity: 3, priceEstimate: 162000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx9._id, productId: p6._id, quantity: 2, priceEstimate: 136000 });
+    await setDates('DeliveryRequests', ycx9._id, 52, 50);
+    await Delivery.update({ requestId: ycx9._id }, { where: { _id: dl4._id } });
+
+    // YCX-010 → DL-005 (Asus Q1 – thanh ray + cơ cấu trượt, 42 ngày)
+    const ycx10 = await DeliveryRequest.create({
+      code: 'YCX-2026-00010',
+      tenKhachHang: 'Asus Technology Vietnam',
+      status: 'completed',
+      note: 'Đơn Q1/2026 – SLK-380 & SL2IN1 cho ROG & ZenBook.',
+      totalAmount: (250 * 46000) + (80 * 92000),
+      createdByUserId: accountant2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx10._id, productId: p3._id, quantity: 250, priceEstimate: 46000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx10._id, productId: p4._id, quantity: 80,  priceEstimate: 92000 });
+    await setDates('DeliveryRequests', ycx10._id, 44, 42);
+    await Delivery.update({ requestId: ycx10._id }, { where: { _id: dl5._id } });
+
+    // YCX-011 → DL-006 (LG Q1 – trục xoay, 38 ngày)
+    const ycx11 = await DeliveryRequest.create({
+      code: 'YCX-2026-00011',
+      tenKhachHang: 'LG Electronics Vietnam',
+      status: 'completed',
+      note: 'Đơn Q1/2026 – bản lề 360° & 180° cho LG Gram.',
+      totalAmount: (80 * 30000) + (50 * 22000),
+      createdByUserId: staff1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx11._id, productId: p1._id, quantity: 80, priceEstimate: 30000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx11._id, productId: p2._id, quantity: 50, priceEstimate: 22000 });
+    await setDates('DeliveryRequests', ycx11._id, 40, 38);
+    await Delivery.update({ requestId: ycx11._id }, { where: { _id: dl6._id } });
+
+    // YCX-012 → DL-007 (Acer Q1 – bản lề + cơ cấu trượt, 35 ngày)
+    const ycx12 = await DeliveryRequest.create({
+      code: 'YCX-2026-00012',
+      tenKhachHang: 'Acer Inc. Vietnam Branch',
+      status: 'completed',
+      note: 'Đơn Q1/2026 – H180-156 & SL2IN1 cho Swift & Aspire.',
+      totalAmount: (120 * 22000) + (60 * 92000),
+      createdByUserId: accountant1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx12._id, productId: p2._id, quantity: 120, priceEstimate: 22000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx12._id, productId: p4._id, quantity: 60,  priceEstimate: 92000 });
+    await setDates('DeliveryRequests', ycx12._id, 37, 35);
+    await Delivery.update({ requestId: ycx12._id }, { where: { _id: dl7._id } });
+
+    // YCX-013 → DL-009 (Dell Q2 – bản lề 180°, 15 ngày)
+    const ycx13 = await DeliveryRequest.create({
+      code: 'YCX-2026-00013',
+      tenKhachHang: 'Dell Technologies Vietnam',
+      status: 'completed',
+      note: 'Đơn Q2/2026 – H180-156 bổ sung cho Vostro 14.',
+      totalAmount: (150 * 22000),
+      createdByUserId: staff1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx13._id, productId: p2._id, quantity: 150, priceEstimate: 22000 });
+    await setDates('DeliveryRequests', ycx13._id, 17, 15);
+    await Delivery.update({ requestId: ycx13._id }, { where: { _id: dl9._id } });
+
+    // YCX-014 → DL-010 (HP Q2 – SL2IN1 + MIM, 10 ngày)
+    const ycx14 = await DeliveryRequest.create({
+      code: 'YCX-2026-00014',
+      tenKhachHang: 'HP Vietnam Sales',
+      status: 'completed',
+      note: 'Đơn Q2/2026 – cơ cấu trượt & MIM giá đỡ cho HP Spectre x360.',
+      totalAmount: (80 * 92000) + (2 * 162000),
+      createdByUserId: accountant2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx14._id, productId: p4._id, quantity: 80, priceEstimate: 92000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx14._id, productId: p5._id, quantity: 2,  priceEstimate: 162000 });
+    await setDates('DeliveryRequests', ycx14._id, 12, 10);
+    await Delivery.update({ requestId: ycx14._id }, { where: { _id: dl10._id } });
+
+    // YCX-015 → DL-011 (Asus Q2 – thanh ray, 7 ngày)
+    const ycx15 = await DeliveryRequest.create({
+      code: 'YCX-2026-00015',
+      tenKhachHang: 'Asus Technology Vietnam',
+      status: 'completed',
+      note: 'Đơn Q2/2026 – SLK-380 cho ExpertBook B9.',
+      totalAmount: (100 * 46000),
+      createdByUserId: staff2._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx15._id, productId: p3._id, quantity: 100, priceEstimate: 46000 });
+    await setDates('DeliveryRequests', ycx15._id, 9, 7);
+    await Delivery.update({ requestId: ycx15._id }, { where: { _id: dl11._id } });
+
+    // YCX-016 → DL-012 (Lenovo Q2 – bản lề, 3 ngày)
+    const ycx16 = await DeliveryRequest.create({
+      code: 'YCX-2026-00016',
+      tenKhachHang: 'Lenovo Technology Vietnam',
+      status: 'completed',
+      note: 'Đơn Q2/2026 – bản lề 360° & 180° cho IdeaPad Flex.',
+      totalAmount: (50 * 30000) + (50 * 22000),
+      createdByUserId: accountant1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx16._id, productId: p1._id, quantity: 50, priceEstimate: 30000 });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx16._id, productId: p2._id, quantity: 50, priceEstimate: 22000 });
+    await setDates('DeliveryRequests', ycx16._id, 5, 3);
+    await Delivery.update({ requestId: ycx16._id }, { where: { _id: dl12._id } });
+
+    // YCX-017 → DL-013 (MSI – đang xử lý, hôm nay)
+    const ycx17 = await DeliveryRequest.create({
+      code: 'YCX-2026-00017',
+      tenKhachHang: 'MSI Vietnam',
+      status: 'processing',
+      note: 'Yêu cầu khẩn – bản lề 360° cho MSI Prestige 13 AI, cần xuất trong ngày.',
+      totalAmount: (30 * 30000),
+      createdByUserId: staff1._id,
+    });
+    await DeliveryRequestItem.create({ deliveryRequestId: ycx17._id, productId: p1._id, quantity: 30, priceEstimate: 30000 });
+    await Delivery.update({ requestId: ycx17._id }, { where: { _id: dl13._id } });
+
+    console.log('✓ DeliveryRequests (17): completed×12, processing×3, pending×2, cancelled×1');
+    console.log('  YCX-001→DL-001 | YCX-002→DL-003 | YCX-003→DL-008 | YCX-004→DL-014');
+    console.log('  YCX-008→DL-002 | YCX-009→DL-004 | YCX-010→DL-005 | YCX-011→DL-006');
+    console.log('  YCX-012→DL-007 | YCX-013→DL-009 | YCX-014→DL-010 | YCX-015→DL-011');
+    console.log('  YCX-016→DL-012 | YCX-017→DL-013 | YCX-005/006 pending | YCX-007 cancelled');
 
     // ══════════════════════════════════════════════════════════════
     // TÓM TẮT
