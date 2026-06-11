@@ -68,6 +68,7 @@ export const DeliveriesPage = () => {
   const [deliveries, setDeliveries] = useState([]);
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
+  const [allNodes, setAllNodes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -80,7 +81,7 @@ export const DeliveriesPage = () => {
   const [incidentItems, setIncidentItems] = useState([]);
 
   const [tenKhachHang, setTenKhachHang] = useState('');
-  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
 
   const fetchData = async () => {
     try {
@@ -93,6 +94,7 @@ export const DeliveriesPage = () => {
       setDeliveries(dData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
+      setAllNodes(wData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu phiếu xuất: ' + error.message);
     } finally {
@@ -102,7 +104,7 @@ export const DeliveriesPage = () => {
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleAddItemRow = () => setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+  const handleAddItemRow = () => setItems([...items, { product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
   const handleRemoveItemRow = (idx) => setItems(items.filter((_, i) => i !== idx));
   const handleItemChange = (idx, field, val) => {
     const newItems = [...items];
@@ -111,6 +113,8 @@ export const DeliveriesPage = () => {
       const prod = products.find(p => p._id === val);
       if (prod) newItems[idx].price = prod.priceOut;
     }
+    if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNode = ''; }
+    if (field === '_rack') { newItems[idx].warehouseNode = ''; }
     setItems(newItems);
   };
 
@@ -122,8 +126,10 @@ export const DeliveriesPage = () => {
       product: i.product?._id || i.productId,
       quantity: i.quantity,
       price: i.price,
-      warehouseNode: i.warehouseNode?._id || i.warehouseNodeId
-    })) || [{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+      warehouseNode: i.warehouseNode?._id || i.warehouseNodeId,
+      _zone: '',
+      _rack: ''
+    })) || [{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
     setShowAddModal(true);
   };
 
@@ -162,7 +168,7 @@ export const DeliveriesPage = () => {
       setShowAddModal(false);
       setEditingDelivery(null);
       setTenKhachHang('');
-      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi: ' + error.message);
@@ -217,6 +223,27 @@ export const DeliveriesPage = () => {
         {cfg.label}
       </span>
     );
+  };
+
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
   };
 
   return (
@@ -348,7 +375,7 @@ export const DeliveriesPage = () => {
                 <Clipboard className="w-5 h-5 text-primary-500" />
                 {editingDelivery ? `Sửa phiếu ${editingDelivery.code}` : 'Lập Phiếu Xuất Kho'}
               </h3>
-              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
               <div>
@@ -372,50 +399,76 @@ export const DeliveriesPage = () => {
                 </div>
 
                 {/* Column headers */}
-                <div className="grid grid-cols-12 gap-2 px-1">
-                  <div className="col-span-4 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sản phẩm *</div>
-                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-center">Số lượng</div>
-                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Đơn giá xuất (đ)</div>
-                  <div className="col-span-3 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Khay lấy hàng *</div>
-                  <div className="col-span-1"></div>
+                <div className="flex items-center gap-2 px-1">
+                  <div className="flex-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sản phẩm *</div>
+                  <div className="w-28 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-center">Số lượng</div>
+                  <div className="w-32 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Đơn giá xuất (đ)</div>
+                  <div className="w-7"></div>
                 </div>
 
-                <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                   {items.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <div className="col-span-4">
-                        <select required value={item.product} onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
-                          <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
-                        </select>
-                      </div>
-                      <div className="col-span-2 relative">
-                        <input type="number" required min="1" value={item.quantity}
-                          onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 text-center" />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">
-                          {products.find(p => p._id == item.product)?.unit || 'cái'}
-                        </span>
-                      </div>
-                      <div className="col-span-2 relative">
-                        <input type="number" required min="0" value={item.price}
-                          onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg pl-2 pr-5 py-1.5 text-xs text-slate-700 text-right" />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">đ</span>
-                      </div>
-                      <div className="col-span-3">
-                        <select required value={item.warehouseNode} onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
-                          <option value="" disabled>-- Chọn khay --</option>
-                          {bins.map(b => <option key={b._id} value={b._id}>{b.code} ({b.name})</option>)}
-                        </select>
-                      </div>
-                      <div className="col-span-1 text-center">
+                    <div key={idx} className="bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200 space-y-2.5">
+                      {/* Dòng 1: Sản phẩm + Số lượng + Đơn giá + Xóa */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <select required value={item.product} onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                            <option value="" disabled>-- Chọn sản phẩm --</option>
+                            {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="w-28 relative">
+                          <input type="number" required min="1" value={item.quantity}
+                            onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 text-center" />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">
+                            {products.find(p => p._id == item.product)?.unit || 'cái'}
+                          </span>
+                        </div>
+                        <div className="w-32 relative">
+                          <input type="number" required min="0" value={item.price}
+                            onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg pl-2 pr-5 py-1.5 text-xs text-slate-700 text-right" />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">đ</span>
+                        </div>
                         <button type="button" disabled={items.length <= 1} onClick={() => handleRemoveItemRow(idx)}
                           className="p-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg disabled:opacity-50">
                           <X className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                      {/* Dòng 2: Phân cấp vị trí */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khu vực</p>
+                          <select value={item._zone} onChange={(e) => handleItemChange(idx, '_zone', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                            <option value="">-- Tất cả --</option>
+                            {allNodes.filter(n => n.type === 'zone').map(z => (
+                              <option key={z._id} value={z._id}>{z.code} – {z.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Kệ chứa</p>
+                          <select value={item._rack} onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                            <option value="">-- Tất cả --</option>
+                            {getDescOfType(item._zone, 'rack').map(r => (
+                              <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1"><span className="text-red-400 mr-0.5">*</span> Khay (Bin)</p>
+                          <select required value={item.warehouseNode} onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                            <option value="" disabled>-- Chọn khay --</option>
+                            {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                              <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -428,7 +481,7 @@ export const DeliveriesPage = () => {
                   <strong className="text-slate-900">{formatCurrency(items.reduce((s, i) => s + (Number(i.quantity) * Number(i.price) || 0), 0))}</strong>
                 </span>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
+                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setTenKhachHang(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
                   <button type="submit" className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-primary-500/10">
                     {editingDelivery ? 'Lưu thay đổi' : 'Tạo phiếu'}
                   </button>

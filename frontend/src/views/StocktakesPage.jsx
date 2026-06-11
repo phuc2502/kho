@@ -79,6 +79,7 @@ export const StocktakesPage = () => {
   const [stocktakes, setStocktakes] = useState([]);
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
+  const [allNodes, setAllNodes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -88,7 +89,7 @@ export const StocktakesPage = () => {
 
   const [formNote, setFormNote] = useState('');
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
-  const [formItems, setFormItems] = useState([{ productId: '', warehouseNodeId: '' }]);
+  const [formItems, setFormItems] = useState([{ productId: '', warehouseNodeId: '', _zone: '', _rack: '' }]);
 
   const fetchData = async () => {
     try {
@@ -101,6 +102,7 @@ export const StocktakesPage = () => {
       setStocktakes(stData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
+      setAllNodes(wData);
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu kiểm kê: ' + error.message);
     } finally {
@@ -127,11 +129,13 @@ export const StocktakesPage = () => {
     }
   }, []);
 
-  const handleAddFormRow = () => setFormItems([...formItems, { productId: '', warehouseNodeId: '' }]);
+  const handleAddFormRow = () => setFormItems([...formItems, { productId: '', warehouseNodeId: '', _zone: '', _rack: '' }]);
   const handleRemoveFormRow = (idx) => setFormItems(formItems.filter((_, i) => i !== idx));
   const handleFormItemChange = (idx, field, val) => {
     const next = [...formItems];
     next[idx][field] = val;
+    if (field === '_zone') { next[idx]._rack = ''; next[idx].warehouseNodeId = ''; }
+    if (field === '_rack') { next[idx].warehouseNodeId = ''; }
     setFormItems(next);
   };
 
@@ -152,7 +156,7 @@ export const StocktakesPage = () => {
       setShowAddModal(false);
       setFormNote('');
       setFormDate(new Date().toISOString().split('T')[0]);
-      setFormItems([{ productId: '', warehouseNodeId: '' }]);
+      setFormItems([{ productId: '', warehouseNodeId: '', _zone: '', _rack: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi lập phiếu: ' + error.message);
@@ -252,6 +256,27 @@ export const StocktakesPage = () => {
     } catch (error) {
       toast.error('Xóa thất bại: ' + error.message);
     }
+  };
+
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
   };
 
   return (
@@ -384,13 +409,40 @@ export const StocktakesPage = () => {
                           {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
                         </select>
                       </div>
-                      <div className="col-span-5">
+                      <div className="col-span-5 space-y-1">
                         <label className="block text-[10px] text-slate-400 font-semibold mb-1">Vị trí (Bin) *</label>
-                        <select required value={item.warehouseNodeId} onChange={(e) => handleFormItemChange(idx, 'warehouseNodeId', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
-                          <option value="" disabled>-- Chọn khay --</option>
-                          {bins.map(b => <option key={b._id} value={b._id}>{b.code} ({b.name})</option>)}
-                        </select>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5">Khu vực</p>
+                            <select value={item._zone} onChange={(e) => handleFormItemChange(idx, '_zone', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="">Tất cả</option>
+                              {allNodes.filter(n => n.type === 'zone').map(z => (
+                                <option key={z._id} value={z._id}>{z.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5">Kệ</p>
+                            <select value={item._rack} onChange={(e) => handleFormItemChange(idx, '_rack', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="">Tất cả</option>
+                              {getDescOfType(item._zone, 'rack').map(r => (
+                                <option key={r._id} value={r._id}>{r.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5"><span className="text-red-400">*</span> Bin</p>
+                            <select required value={item.warehouseNodeId} onChange={(e) => handleFormItemChange(idx, 'warehouseNodeId', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="" disabled>-- Chọn --</option>
+                              {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                                <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
                       <div className="col-span-1 pt-4 text-center">
                         <button type="button" disabled={formItems.length <= 1} onClick={() => handleRemoveFormRow(idx)}

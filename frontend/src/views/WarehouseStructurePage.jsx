@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
   Plus, Edit3, Trash2, X, ChevronDown, ChevronRight,
   Warehouse, LayoutGrid, AlignJustify, Layers, Package,
-  ScanLine, LayoutDashboard
+  ScanLine, LayoutDashboard, Filter
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────
@@ -320,6 +320,12 @@ export const WarehouseStructurePage = () => {
   const [highlightId,  setHighlightId]  = useState(null);
   const searchRef = useRef(null);
 
+  // Hierarchical filter selects
+  const [filterWh,    setFilterWh]    = useState('');
+  const [filterZone,  setFilterZone]  = useState('');
+  const [filterAisle, setFilterAisle] = useState('');
+  const [filterRack,  setFilterRack]  = useState('');
+
   // Visual grid modal
   const [gridNode, setGridNode] = useState(null);
 
@@ -383,6 +389,52 @@ export const WarehouseStructurePage = () => {
 
   const expandAll  = () => setExpandedIds(new Set(collectAllIds(tree)));
   const collapseAll = () => setExpandedIds(new Set());
+
+  // ── Hierarchical filter helpers ───────────────────────────
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return nodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      nodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
+  };
+
+  const applyHierarchyFilter = () => {
+    const targetId = parseInt(filterRack || filterAisle || filterZone || filterWh) || null;
+    if (!targetId) return;
+    const nodeMap = {};
+    nodes.forEach(n => { nodeMap[n._id] = n; });
+    const toExpand = new Set();
+    let cur = nodeMap[targetId];
+    while (cur) {
+      toExpand.add(cur._id);
+      cur = cur.parentId ? nodeMap[cur.parentId] : null;
+    }
+    setExpandedIds(toExpand);
+    setHighlightId(targetId);
+    setTimeout(() => {
+      document.getElementById(`wnode-${targetId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    setTimeout(() => setHighlightId(null), 3000);
+  };
+
+  const clearHierarchyFilter = () => {
+    setFilterWh(''); setFilterZone(''); setFilterAisle(''); setFilterRack('');
+    setExpandedIds(new Set(tree.map(n => n._id)));
+  };
 
   // ── Barcode search ────────────────────────────────────────
   const handleSearch = (e) => {
@@ -512,6 +564,94 @@ export const WarehouseStructurePage = () => {
               Thêm vị trí
             </button>
           </PermissionGuard>
+        </div>
+      </div>
+
+      {/* Hierarchical filter bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide self-center shrink-0">
+            <Filter className="w-3.5 h-3.5" /> Lọc theo phân cấp
+          </div>
+
+          {/* Kho */}
+          <div className="space-y-1 min-w-[150px]">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase">Kho</p>
+            <select
+              value={filterWh}
+              onChange={e => { setFilterWh(e.target.value); setFilterZone(''); setFilterAisle(''); setFilterRack(''); }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+            >
+              <option value="">Tất cả kho</option>
+              {nodes.filter(n => n.type === 'warehouse').map(n => (
+                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Khu vực */}
+          <div className="space-y-1 min-w-[150px]">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase">Khu vực</p>
+            <select
+              value={filterZone}
+              onChange={e => { setFilterZone(e.target.value); setFilterAisle(''); setFilterRack(''); }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+            >
+              <option value="">Tất cả</option>
+              {getDescOfType(filterWh, 'zone').map(n => (
+                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dãy kệ */}
+          <div className="space-y-1 min-w-[150px]">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase">Dãy kệ</p>
+            <select
+              value={filterAisle}
+              onChange={e => { setFilterAisle(e.target.value); setFilterRack(''); }}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+            >
+              <option value="">Tất cả</option>
+              {getDescOfType(filterZone || filterWh, 'aisle').map(n => (
+                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Kệ chứa */}
+          <div className="space-y-1 min-w-[150px]">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase">Kệ chứa</p>
+            <select
+              value={filterRack}
+              onChange={e => setFilterRack(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+            >
+              <option value="">Tất cả</option>
+              {getDescOfType(filterAisle || filterZone || filterWh, 'rack').map(n => (
+                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-2 self-end">
+            <button
+              onClick={applyHierarchyFilter}
+              disabled={!filterWh && !filterZone && !filterAisle && !filterRack}
+              className="px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold disabled:opacity-40 transition-colors"
+            >
+              Điều hướng
+            </button>
+            {(filterWh || filterZone || filterAisle || filterRack) && (
+              <button
+                onClick={clearHierarchyFilter}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors"
+              >
+                Xóa bộ lọc
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -42,6 +42,7 @@ export const DeliveryRequestsPage = () => {
   const [requests, setRequests]         = useState([]);
   const [products, setProducts]         = useState([]);
   const [bins, setBins]                 = useState([]);
+  const [allNodes, setAllNodes]         = useState([]);
   const [loading, setLoading]           = useState(true);
 
   // Modals
@@ -70,6 +71,7 @@ export const DeliveryRequestsPage = () => {
       setRequests(rData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
+      setAllNodes(wData);
     } catch (err) {
       toast.error('Lỗi khi tải dữ liệu: ' + err.message);
     } finally {
@@ -144,7 +146,9 @@ export const DeliveryRequestsPage = () => {
       productUnit: i.product?.unit || '',
       quantity: i.quantity,
       price: i.priceEstimate || 0,
-      warehouseNode: ''
+      warehouseNode: '',
+      _zone: '',
+      _rack: ''
     })));
     setShowFulfillModal(req);
   };
@@ -186,6 +190,27 @@ export const DeliveryRequestsPage = () => {
     pending:    requests.filter(r => r.status === 'pending').length,
     processing: requests.filter(r => r.status === 'processing').length,
     completed:  requests.filter(r => r.status === 'completed').length,
+  };
+
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
   };
 
   // ── Render ────────────────────────────────────────────────
@@ -608,24 +633,59 @@ export const DeliveryRequestsPage = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                      {/* Khay lấy hàng */}
-                      <div>
-                        <label className="text-[10px] font-semibold text-slate-400 uppercase">Khay lấy hàng <span className="text-red-500">*</span></label>
-                        <select
-                          value={item.warehouseNode}
-                          onChange={e => {
-                            const next = [...fulfillItems];
-                            next[idx].warehouseNode = e.target.value;
-                            setFulfillItems(next);
-                          }}
-                          required
-                          className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20 bg-white"
-                        >
-                          <option value="">-- Chọn khay --</option>
-                          {bins.map(b => (
-                            <option key={b._id} value={b._id}>{b.name} {b.code ? `(${b.code})` : ''}</option>
-                          ))}
-                        </select>
+                      {/* Vị trí lấy hàng (cascade) */}
+                      <div className="col-span-2 space-y-2">
+                        <label className="text-[10px] font-semibold text-slate-400 uppercase">Vị trí lấy hàng <span className="text-red-500">*</span></label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khu vực</p>
+                            <select value={item._zone}
+                              onChange={e => {
+                                const next = [...fulfillItems];
+                                next[idx]._zone = e.target.value;
+                                next[idx]._rack = '';
+                                next[idx].warehouseNode = '';
+                                setFulfillItems(next);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400">
+                              <option value="">-- Tất cả --</option>
+                              {allNodes.filter(n => n.type === 'zone').map(z => (
+                                <option key={z._id} value={z._id}>{z.code} – {z.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Kệ chứa</p>
+                            <select value={item._rack}
+                              onChange={e => {
+                                const next = [...fulfillItems];
+                                next[idx]._rack = e.target.value;
+                                next[idx].warehouseNode = '';
+                                setFulfillItems(next);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400">
+                              <option value="">-- Tất cả --</option>
+                              {getDescOfType(item._zone, 'rack').map(r => (
+                                <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1"><span className="text-red-400 mr-0.5">*</span> Khay (Bin)</p>
+                            <select required value={item.warehouseNode}
+                              onChange={e => {
+                                const next = [...fulfillItems];
+                                next[idx].warehouseNode = e.target.value;
+                                setFulfillItems(next);
+                              }}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400">
+                              <option value="">-- Chọn khay --</option>
+                              {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                                <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
                       {/* Đơn giá */}
                       <div>

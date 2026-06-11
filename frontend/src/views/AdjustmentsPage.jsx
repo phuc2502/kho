@@ -13,6 +13,7 @@ export const AdjustmentsPage = () => {
   const [adjustments, setAdjustments] = useState([]);
   const [products, setProducts] = useState([]);
   const [bins, setBins] = useState([]);
+  const [allNodes, setAllNodes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -22,7 +23,7 @@ export const AdjustmentsPage = () => {
   // Form states
   const [reason, setReason] = useState('count_correction');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0 }]);
+  const [items, setItems] = useState([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '' }]);
 
   const fetchData = async () => {
     try {
@@ -35,6 +36,7 @@ export const AdjustmentsPage = () => {
       setAdjustments(adjData);
       setProducts(pData);
       setBins(wData.filter(n => n.type === 'bin'));
+      setAllNodes(wData);
     } catch (error) {
       toast.error('Lỗi khi tải phiếu điều chỉnh: ' + error.message);
     } finally {
@@ -47,7 +49,7 @@ export const AdjustmentsPage = () => {
   }, []);
 
   const handleAddItemRow = () => {
-    setItems([...items, { productId: '', warehouseNodeId: '', systemQty: 0, delta: 0 }]);
+    setItems([...items, { productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '' }]);
   };
 
   const handleRemoveItemRow = (idx) => {
@@ -73,6 +75,8 @@ export const AdjustmentsPage = () => {
         newItems[idx].systemQty = 0;
       }
     }
+    if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNodeId = ''; }
+    if (field === '_rack') { newItems[idx].warehouseNodeId = ''; }
     setItems(newItems);
   };
 
@@ -98,7 +102,7 @@ export const AdjustmentsPage = () => {
       setShowAddModal(false);
       setReason('count_correction');
       setNote('');
-      setItems([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0 }]);
+      setItems([{ productId: '', warehouseNodeId: '', systemQty: 0, delta: 0, _zone: '', _rack: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lập phiếu điều chỉnh thất bại: ' + error.message);
@@ -154,6 +158,27 @@ export const AdjustmentsPage = () => {
         {labels[status] || status}
       </span>
     );
+  };
+
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
   };
 
   return (
@@ -312,19 +337,40 @@ export const AdjustmentsPage = () => {
                         </select>
                       </div>
 
-                      <div className="col-span-3">
-                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Vị trí (Bin)</label>
-                        <select
-                          required
-                          value={item.warehouseNodeId}
-                          onChange={(e) => handleItemChange(idx, 'warehouseNodeId', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
-                        >
-                          <option value="" disabled>-- Chọn vị trí --</option>
-                          {bins.map(b => (
-                            <option key={b._id} value={b._id}>{b.code} ({b.name})</option>
-                          ))}
-                        </select>
+                      <div className="col-span-3 space-y-1">
+                        <label className="block text-[10px] text-slate-400 font-semibold mb-1">Vị trí lưu kho</label>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5">Khu vực</p>
+                            <select value={item._zone} onChange={(e) => handleItemChange(idx, '_zone', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="">Tất cả</option>
+                              {allNodes.filter(n => n.type === 'zone').map(z => (
+                                <option key={z._id} value={z._id}>{z.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5">Kệ</p>
+                            <select value={item._rack} onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="">Tất cả</option>
+                              {getDescOfType(item._zone, 'rack').map(r => (
+                                <option key={r._id} value={r._id}>{r.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-0.5"><span className="text-red-400">*</span> Bin</p>
+                            <select required value={item.warehouseNodeId} onChange={(e) => handleItemChange(idx, 'warehouseNodeId', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:border-primary-500">
+                              <option value="" disabled>-- Chọn --</option>
+                              {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                                <option key={b._id} value={b._id}>{b.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="col-span-2 text-center bg-slate-100 py-1.5 rounded-lg border border-slate-200 h-[46px] flex flex-col justify-center">

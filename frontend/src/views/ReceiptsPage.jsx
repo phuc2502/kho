@@ -16,6 +16,8 @@ export const ReceiptsPage = () => {
   const [bins, setBins] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [allNodes, setAllNodes] = useState([]);
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
@@ -27,7 +29,7 @@ export const ReceiptsPage = () => {
 
   // Form states
   const [ghiChu, setGhiChu] = useState('');
-  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+  const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
 
   const fetchData = async () => {
     try {
@@ -39,6 +41,7 @@ export const ReceiptsPage = () => {
       ]);
       setReceipts(rData);
       setProducts(pData);
+      setAllNodes(wData);
       setBins(wData.filter(n => n.type === 'bin'));
     } catch (error) {
       toast.error('Lỗi khi tải dữ liệu phiếu nhập: ' + error.message);
@@ -62,14 +65,12 @@ export const ReceiptsPage = () => {
   const handleItemChange = (idx, field, val) => {
     const newItems = [...items];
     newItems[idx][field] = val;
-
-    // Automatically fill default priceIn if product is selected
     if (field === 'product') {
       const prod = products.find(p => p._id === val);
-      if (prod) {
-        newItems[idx].price = prod.priceIn;
-      }
+      if (prod) newItems[idx].price = prod.priceIn;
     }
+    if (field === '_zone') { newItems[idx]._rack = ''; newItems[idx].warehouseNode = ''; }
+    if (field === '_rack') { newItems[idx].warehouseNode = ''; }
     setItems(newItems);
   };
 
@@ -95,7 +96,7 @@ export const ReceiptsPage = () => {
       toast.success('Lập phiếu nhập kho nháp thành công');
       setShowAddModal(false);
       setGhiChu('');
-      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '' }]);
+      setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '' }]);
       fetchData();
     } catch (error) {
       toast.error('Lỗi khi lập phiếu nhập: ' + error.message);
@@ -162,6 +163,28 @@ export const ReceiptsPage = () => {
         {s.label}
       </span>
     );
+  };
+
+  // Lấy tất cả nodes con (đệ quy) của parentId có type cho trước
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
   };
 
   return (
@@ -299,77 +322,49 @@ export const ReceiptsPage = () => {
                 </div>
 
                 {/* Column headers */}
-                <div className="grid grid-cols-12 gap-3 px-1">
-                  <div className="col-span-4 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sản phẩm *</div>
-                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-center">Số lượng</div>
-                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Đơn giá sản xuất (đ)</div>
-                  <div className="col-span-3 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Vị trí lưu kho *</div>
-                  <div className="col-span-1"></div>
+                <div className="flex items-center gap-3 px-1">
+                  <div className="flex-1 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sản phẩm *</div>
+                  <div className="w-28 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-center">Số lượng</div>
+                  <div className="w-32 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Đơn giá (đ)</div>
+                  <div className="w-7"></div>
                 </div>
 
-                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                   {items.map((item, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-3 items-center bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200">
-                      {/* Sản phẩm */}
-                      <div className="col-span-4">
-                        <select
-                          required
-                          value={item.product}
-                          onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
-                        >
-                          <option value="" disabled>-- Chọn sản phẩm --</option>
-                          {products.map(p => (
-                            <option key={p._id} value={p._id}>{p.sku} – {p.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Số lượng */}
-                      <div className="col-span-2 relative">
-                        <input
-                          type="number"
-                          required
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 text-center focus:outline-none focus:border-primary-400"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">
-                          {products.find(p => p._id == item.product)?.unit || 'cái'}
-                        </span>
-                      </div>
-
-                      {/* Đơn giá nhập */}
-                      <div className="col-span-2 relative">
-                        <input
-                          type="number"
-                          required
-                          min="0"
-                          value={item.price}
-                          onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg pl-2 pr-5 py-1.5 text-xs text-slate-700 text-right focus:outline-none focus:border-primary-400"
-                        />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">đ</span>
-                      </div>
-
-                      {/* Vị trí lưu kho */}
-                      <div className="col-span-3">
-                        <select
-                          required
-                          value={item.warehouseNode}
-                          onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
-                        >
-                          <option value="" disabled>-- Chọn vị trí --</option>
-                          {bins.map(b => (
-                            <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Xóa dòng */}
-                      <div className="col-span-1 text-center">
+                    <div key={idx} className="bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200 space-y-2.5">
+                      {/* Dòng 1: Sản phẩm + Số lượng + Đơn giá + Xóa */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <select
+                            required
+                            value={item.product}
+                            onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                          >
+                            <option value="" disabled>-- Chọn sản phẩm --</option>
+                            {products.map(p => (
+                              <option key={p._id} value={p._id}>{p.sku} – {p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="w-28 relative">
+                          <input
+                            type="number" required min="1" value={item.quantity}
+                            onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 text-center focus:outline-none focus:border-primary-400"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">
+                            {products.find(p => p._id == item.product)?.unit || 'cái'}
+                          </span>
+                        </div>
+                        <div className="w-32 relative">
+                          <input
+                            type="number" required min="0" value={item.price}
+                            onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg pl-2 pr-5 py-1.5 text-xs text-slate-700 text-right focus:outline-none focus:border-primary-400"
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-300 pointer-events-none select-none">đ</span>
+                        </div>
                         <button
                           type="button"
                           disabled={items.length <= 1}
@@ -379,6 +374,55 @@ export const ReceiptsPage = () => {
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+
+                      {/* Dòng 2: Phân cấp vị trí lưu kho */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Khu vực */}
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khu vực</p>
+                          <select
+                            value={item._zone}
+                            onChange={(e) => handleItemChange(idx, '_zone', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                          >
+                            <option value="">-- Tất cả --</option>
+                            {allNodes.filter(n => n.type === 'zone').map(z => (
+                              <option key={z._id} value={z._id}>{z.code} – {z.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Kệ chứa */}
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Kệ chứa</p>
+                          <select
+                            value={item._rack}
+                            onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                          >
+                            <option value="">-- Tất cả --</option>
+                            {getDescOfType(item._zone, 'rack').map(r => (
+                              <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Khay / Bin */}
+                        <div>
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">
+                            <span className="text-red-400 mr-0.5">*</span> Khay (Bin)
+                          </p>
+                          <select
+                            required
+                            value={item.warehouseNode}
+                            onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                          >
+                            <option value="" disabled>-- Chọn khay --</option>
+                            {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                              <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                   ))}
