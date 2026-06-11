@@ -88,12 +88,16 @@ const seed = async () => {
     const zoneA = await WarehouseNode.create({ name:'Khu A – Trục xoay',               code:'ZONE-A',     type:'zone', parentId:wh._id });
     const zoneB = await WarehouseNode.create({ name:'Khu B – Thanh trượt',             code:'ZONE-B',     type:'zone', parentId:wh._id });
     const zoneC = await WarehouseNode.create({ name:'Khu C – MIM',                     code:'ZONE-C',     type:'zone', parentId:wh._id });
-    // Racks (kệ chứa) — cấp trung gian giữa zone và bin
-    const rackA1 = await WarehouseNode.create({ name:'Kệ A1', code:'RACK-A1', type:'rack', parentId:zoneA._id });
-    const rackA2 = await WarehouseNode.create({ name:'Kệ A2', code:'RACK-A2', type:'rack', parentId:zoneA._id });
-    const rackB1 = await WarehouseNode.create({ name:'Kệ B1', code:'RACK-B1', type:'rack', parentId:zoneB._id });
-    const rackB2 = await WarehouseNode.create({ name:'Kệ B2', code:'RACK-B2', type:'rack', parentId:zoneB._id });
-    const rackC1 = await WarehouseNode.create({ name:'Kệ C1', code:'RACK-C1', type:'rack', parentId:zoneC._id });
+    // Aisles (dãy kệ) — cấp giữa zone và rack
+    const aisleA1 = await WarehouseNode.create({ name:'Dãy kệ A1', code:'DKE-A1', type:'aisle', parentId:zoneA._id });
+    const aisleB1 = await WarehouseNode.create({ name:'Dãy kệ B1', code:'DKE-B1', type:'aisle', parentId:zoneB._id });
+    const aisleC1 = await WarehouseNode.create({ name:'Dãy kệ C1', code:'DKE-C1', type:'aisle', parentId:zoneC._id });
+    // Racks (kệ chứa) — con của dãy kệ
+    const rackA1 = await WarehouseNode.create({ name:'Kệ A1', code:'RACK-A1', type:'rack', parentId:aisleA1._id });
+    const rackA2 = await WarehouseNode.create({ name:'Kệ A2', code:'RACK-A2', type:'rack', parentId:aisleA1._id });
+    const rackB1 = await WarehouseNode.create({ name:'Kệ B1', code:'RACK-B1', type:'rack', parentId:aisleB1._id });
+    const rackB2 = await WarehouseNode.create({ name:'Kệ B2', code:'RACK-B2', type:'rack', parentId:aisleB1._id });
+    const rackC1 = await WarehouseNode.create({ name:'Kệ C1', code:'RACK-C1', type:'rack', parentId:aisleC1._id });
     // Bins (khay chứa) — cấp lá
     const binA101 = await WarehouseNode.create({ name:'Kệ A1, Hàng 1', code:'VT-A1-01', type:'bin', parentId:rackA1._id });
     const binA102 = await WarehouseNode.create({ name:'Kệ A1, Hàng 2', code:'VT-A1-02', type:'bin', parentId:rackA1._id });
@@ -103,7 +107,7 @@ const seed = async () => {
     const binB201 = await WarehouseNode.create({ name:'Kệ B2, Hàng 1', code:'VT-B2-01', type:'bin', parentId:rackB2._id });
     const binC101 = await WarehouseNode.create({ name:'Kệ C1, Hàng 1', code:'VT-C1-01', type:'bin', parentId:rackC1._id });
     const binC102 = await WarehouseNode.create({ name:'Kệ C1, Hàng 2', code:'VT-C1-02', type:'bin', parentId:rackC1._id });
-    console.log('✓ Warehouse: WH-FST-HN → ZONE A/B/C → 5 racks → 8 bins');
+    console.log('✓ Warehouse: WH-FST-HN → ZONE A/B/C → 3 aisles → 5 racks → 8 bins');
 
     // ══════════════════════════════════════════════════════════════
     // 5. INVENTORY (tồn kho hiện tại)

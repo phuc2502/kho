@@ -1,15 +1,11 @@
 /**
  * Mở cửa sổ mới, render HTML in, tự gọi window.print() sau 400ms.
+ * Dùng Blob URL để đảm bảo encoding UTF-8 đúng cho tiếng Việt.
  * @param {string} htmlContent - Nội dung HTML bên trong <body>
  * @param {string} title - Tiêu đề cửa sổ in
  */
 export const printDocument = (htmlContent, title = 'In phiếu') => {
-  const w = window.open('', '_blank', 'width=960,height=760');
-  if (!w) {
-    alert('Trình duyệt đã chặn cửa sổ pop-up. Vui lòng cho phép pop-up để in.');
-    return;
-  }
-  w.document.write(`<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8"/>
@@ -71,13 +67,26 @@ export const printDocument = (htmlContent, title = 'In phiếu') => {
 </head>
 <body>
   <div class="no-print">
-    <button class="primary" onclick="window.print()">🖨 In ngay</button>
-    <button onclick="window.close()">✕ Đóng</button>
+    <button class="primary" onclick="window.print()">&#128424; In ngay</button>
+    <button onclick="window.close()">&#10005; &#272;&#243;ng</button>
     <span style="font-size:12px;color:#555;margin-left:8px">${title}</span>
   </div>
   ${htmlContent}
 </body>
-</html>`);
-  w.document.close();
-  w.addEventListener('load', () => setTimeout(() => w.print(), 350));
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank', 'width=960,height=760');
+
+  if (!w) {
+    URL.revokeObjectURL(url);
+    alert('Trình duyệt đã chặn cửa sổ pop-up. Vui lòng cho phép pop-up để in.');
+    return;
+  }
+
+  w.addEventListener('load', () => {
+    setTimeout(() => w.print(), 350);
+    URL.revokeObjectURL(url);
+  });
 };
