@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { Inventory }              from '../models/inventory.model.js';
 import { Product }                from '../models/product.model.js';
+import { SoSerial }               from '../models/soSerial.model.js';
 import { Delivery, DeliveryItem } from '../models/delivery.model.js';
 import { Receipt,  ReceiptItem  } from '../models/receipt.model.js';
 import { WarehouseNode }           from '../models/warehouseNode.model.js';
@@ -79,14 +80,29 @@ export const getDashboardStats = async (req, res, next) => {
       .slice(0, 10);
 
     // ─── 3. SẮP HẾT BẢO HÀNH ────────────────────────────────────────────────
-    // Placeholder — bảng SoSerial chưa có cột Han_bao_hanh (v2.0 thiết kế)
-    // Trả về mảng rỗng; khi migrate DB thêm cột này thì bỏ stub và dùng query thật.
-    const warrantyExpiring = [];
-    // TODO (v2.0 DB migration):
-    //   SELECT ss.Ma_serial, ss.Han_bao_hanh, p.name
-    //   FROM SoSerial ss JOIN SanPham p ON ss.Ma_san_pham = p._id
-    //   WHERE ss.Han_bao_hanh BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
-    //   ORDER BY ss.Han_bao_hanh ASC LIMIT 20;
+    // Bảng SoSerial đã có cột Han_bao_hanh (migration v2.0).
+    // Lấy các serial có hạn bảo hành trong [NOW, NOW + WARRANTY_DAYS].
+    const dateWarrantyEnd = new Date(now.getTime() + WARRANTY_DAYS * 24 * 60 * 60 * 1000);
+
+    const warrantyRaw = await SoSerial.findAll({
+      where: {
+        Han_bao_hanh: { [Op.between]: [now, dateWarrantyEnd] }
+      },
+      include: [{ model: Product, as: 'product', attributes: ['name', 'sku'] }],
+      order: [['Han_bao_hanh', 'ASC']],
+      limit: 20,
+    });
+
+    const warrantyExpiring = warrantyRaw.map(ss => ({
+      serialId:    ss._id,
+      serialCode:  ss.Ma_serial,
+      productName: ss.product?.name || ss.product?.sku || '—',
+      productSku:  ss.product?.sku,
+      expiryDate:  ss.Han_bao_hanh,
+      daysLeft:    Math.max(0, Math.ceil(
+        (new Date(ss.Han_bao_hanh) - now) / (1000 * 60 * 60 * 24)
+      )),
+    }));
 
     // ─── 4. HÀNG TỒN LÂU NGÀY ───────────────────────────────────────────────
     // Inventory quantity > 0, updatedAt < (now - SLOW_DAYS), sorted oldest first

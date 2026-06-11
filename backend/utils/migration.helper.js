@@ -353,5 +353,40 @@ export const runMigrations = async () => {
     console.warn('Migration warning (warehouse structure):', err.message);
   }
 
+  // ——— 14. Tạo / cập nhật bảng SoSerial với cột Han_bao_hanh (v2.0) ———
+  // Nếu bảng chưa tồn tại → CREATE TABLE đầy đủ.
+  // Nếu bảng đã có nhưng thiếu cột Han_bao_hanh → ALTER TABLE ADD COLUMN.
+  try {
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS SoSerial (
+        _id           INT AUTO_INCREMENT PRIMARY KEY,
+        Ma_serial     VARCHAR(100)  NOT NULL UNIQUE        COMMENT 'Mã số serial ghi trên linh kiện',
+        Ma_san_pham   INT           NOT NULL               COMMENT 'FK → Products._id',
+        Han_bao_hanh  DATETIME      NULL                   COMMENT 'Ngày hết hạn bảo hành',
+        Ngay_nhap     DATETIME      NULL                   COMMENT 'Ngày nhập kho',
+        So_phieu_nhap VARCHAR(50)   NULL                   COMMENT 'Mã phiếu nhập liên quan',
+        createdAt     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_ss_product      (Ma_san_pham),
+        INDEX idx_ss_han_bao_hanh (Han_bao_hanh)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        COMMENT='Bảng số serial linh kiện điện tử (v2.0)'
+    `);
+
+    // Bảo đảm cột Han_bao_hanh tồn tại ngay cả khi bảng đã được tạo từ trước
+    const ssDesc = await qi.describeTable('SoSerial');
+    if (!ssDesc.Han_bao_hanh) {
+      await qi.addColumn('SoSerial', 'Han_bao_hanh', {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Ngày hết hạn bảo hành'
+      });
+      console.log('Migration: Added SoSerial.Han_bao_hanh');
+    }
+    console.log('Migration: SoSerial table with Han_bao_hanh ready (v2.0)');
+  } catch (err) {
+    console.warn('Migration warning (SoSerial):', err.message);
+  }
+
   console.log('Migrations completed.');
 };

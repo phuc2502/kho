@@ -599,14 +599,14 @@ export const DashboardPage = () => {
               />
               {analytics.warrantyExpiring.items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 gap-2">
-                  <div style={{ background: '#f5f3ff', borderRadius: 8, padding: 10, color: '#7c3aed' }}>
+                  <div style={{ background: '#f0fdf4', borderRadius: 8, padding: 10, color: '#16a34a' }}>
                     <ShieldAlert size={20} />
                   </div>
                   <p style={{ color: '#b8b2aa', fontSize: 11, textAlign: 'center', lineHeight: 1.5 }}>
-                    Chưa có dữ liệu bảo hành.
+                    Không có serial nào sắp hết hạn bảo hành ✓
                     <br />
-                    <span style={{ color: '#7c3aed', fontSize: 10 }}>
-                      Cần migrate cột <code>Han_bao_hanh</code> vào bảng SoSerial (v2.0).
+                    <span style={{ color: '#b8b2aa', fontSize: 10 }}>
+                      Trong {analytics.warrantyExpiring.days} ngày tới
                     </span>
                   </p>
                 </div>
