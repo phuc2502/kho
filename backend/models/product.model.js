@@ -37,7 +37,7 @@ export const Product = sequelize.define('Product', {
       min: 0,
       isGreaterThanPriceIn(value) {
         if (parseFloat(value) <= parseFloat(this.priceIn)) {
-          throw new Error('Giá bán ra (priceOut) phải lớn hơn giá nhập vào (priceIn)');
+          throw new Error('Giá bán ra (priceOut) phải lớn hơn giá sản xuất (priceIn)');
         }
       }
     }

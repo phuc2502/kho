@@ -22,7 +22,7 @@ export const createProduct = async (req, res, next) => {
     if (exists) return res.status(400).json({ message: `Mã SKU ${skuUpper} này đã được sử dụng` });
 
     if (Number(priceOut) <= Number(priceIn))
-      return res.status(400).json({ message: 'Giá bán ra (priceOut) phải lớn hơn giá nhập vào (priceIn)' });
+      return res.status(400).json({ message: 'Giá bán ra (priceOut) phải lớn hơn giá sản xuất (priceIn)' });
 
     const product = await Product.create({ sku: skuUpper, name, description, priceIn, priceOut, unit, categoryId: category });
     const populated = await Product.findByPk(product._id, { include: productInclude });
@@ -54,7 +54,7 @@ export const updateProduct = async (req, res, next) => {
     const finalPriceIn = priceIn !== undefined ? Number(priceIn) : Number(product.priceIn);
     const finalPriceOut = priceOut !== undefined ? Number(priceOut) : Number(product.priceOut);
     if (finalPriceOut <= finalPriceIn)
-      return res.status(400).json({ message: 'Giá bán ra (priceOut) phải lớn hơn giá nhập vào (priceIn)' });
+      return res.status(400).json({ message: 'Giá bán ra (priceOut) phải lớn hơn giá sản xuất (priceIn)' });
 
     if (name) product.name = name;
     if (description !== undefined) product.description = description;

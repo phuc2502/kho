@@ -85,37 +85,46 @@ Giao diện chạy tại: `http://localhost:5173`
 
 ### Danh sách tài khoản
 
-**Tài khoản đăng nhập:**
-- `admin@fositek.vn` / `admin123`
-- `hoang.vu@fositek.vn` / `quanly123`
-- `lananh.tran@fositek.vn` / `ketoan123`
+| Vai trò | Email | Mật khẩu |
+|:--------|:------|:---------|
+| 🔴 Admin | `admin@fositek.vn` | `admin123` |
+| 🟠 Quản lý kho | `hoang.vu@fositek.vn` | `quanly123` |
+| 🟡 Kế toán kho | `lananh.tran@fositek.vn` | `ketoan123` |
+| 🟡 Kế toán kho | `hang.bui@fositek.vn` | `ketoan123` |
+| 🟢 Nhân viên kho | `tuan.pham@fositek.vn` | `nhanvien123` |
+| 🟢 Nhân viên kho | `hung.le@fositek.vn` | `nhanvien123` |
+| 🔵 QC | `ngoc.do@fositek.vn` | `qc123456` |
+| 🟣 Sale | `sale.nguyen@fositek.vn` | `sale1234` |
 
 ---
 
 ### Ma trận phân quyền theo vai trò
 
-| Quyền hạn | Admin | Quản lý kho | Kế toán kho | Nhân viên kho |
-|:---|:---:|:---:|:---:|:---:|
-| **Quản lý người dùng & phân quyền** | ✅ | ❌ | ❌ | ❌ |
-| **Xem nhật ký hoạt động (Audit)** | ✅ | ✅ | ❌ | ❌ |
-| **Sản phẩm & Danh mục — Xem** | ✅ | ✅ | ✅ | ✅ |
-| **Sản phẩm & Danh mục — Thêm/Sửa/Xóa** | ✅ | ✅ | ❌ | ❌ |
-| **Sơ đồ kho — Xem** | ✅ | ✅ | ✅ | ✅ |
-| **Sơ đồ kho — Thêm/Sửa/Xóa** | ✅ | ✅ | ❌ | ❌ |
-| **Phiếu nhập — Xem** | ✅ | ✅ | ✅ | ✅ |
-| **Phiếu nhập — Lập & Sửa** | ✅ | ✅ | ✅ | ✅ |
-| **Phiếu nhập — Duyệt & Hoàn thành** | ✅ | ✅ | ❌ | ❌ |
-| **Phiếu xuất — Xem** | ✅ | ✅ | ✅ | ✅ |
-| **Phiếu xuất — Lập & Sửa** | ✅ | ✅ | ✅ | ✅ |
-| **Phiếu xuất — Duyệt & Hoàn thành** | ✅ | ✅ | ❌ | ❌ |
-| **Kiểm kê — Xem** | ✅ | ✅ | ✅ | ✅ |
-| **Kiểm kê — Lập & Sửa** | ✅ | ✅ | ✅ | ❌ |
-| **Kiểm kê — Phê duyệt** | ✅ | ✅ | ❌ | ❌ |
-| **Điều chỉnh tồn kho — Xem** | ✅ | ✅ | ✅ | ❌ |
-| **Điều chỉnh tồn kho — Lập** | ✅ | ✅ | ✅ | ❌ |
-| **Điều chỉnh tồn kho — Duyệt** | ✅ | ✅ | ❌ | ❌ |
-| **Báo cáo sự cố — Xem & Tạo** | ✅ | ✅ | ✅ | ✅ |
-| **Tồn kho — Xem số lượng thực tế** | ✅ | ✅ | ✅ | ✅ |
+| Quyền hạn | Admin | Quản lý kho | Kế toán kho | Nhân viên kho | QC | Sale |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Quản lý người dùng & phân quyền** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Xem nhật ký hoạt động (Audit)** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Sản phẩm & Danh mục — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Sản phẩm & Danh mục — Thêm/Sửa/Xóa** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Sơ đồ kho — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Sơ đồ kho — Thêm/Sửa/Xóa** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Tồn kho — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Phiếu nhập — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Phiếu nhập — Lập & Sửa** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Phiếu nhập — Duyệt & Hoàn thành** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Phiếu xuất — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Phiếu xuất — Lập & Sửa** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Phiếu xuất — Duyệt & Hoàn thành** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Yêu cầu xuất kho — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Yêu cầu xuất kho — Tạo mới** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Kiểm kê — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Kiểm kê — Lập & Sửa** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Kiểm kê — Phê duyệt** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Điều chỉnh tồn kho — Xem** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Điều chỉnh tồn kho — Lập** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Điều chỉnh tồn kho — Duyệt** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Sự cố — Xem** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Sự cố — Báo cáo** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 
 > **Admin** bypass toàn bộ kiểm tra quyền (superadmin).
 > Admin có thể cấp thêm hoặc thu hồi quyền cụ thể cho từng người dùng thông qua trang **Tài khoản** trong hệ thống.
@@ -136,8 +145,14 @@ Quản lý vận hành kho. Có quyền phê duyệt toàn bộ phiếu nhập/x
 #### 🟡 Kế toán kho (KeToanKho) — `lananh.tran@fositek.vn` · `hang.bui@fositek.vn`
 Lập phiếu nhập kho, phiếu xuất kho, phiếu kiểm kê và điều chỉnh tồn kho. **Không có quyền phê duyệt** — phiếu sau khi lập phải chờ Quản lý kho duyệt.
 
-#### 🟢 Nhân viên kho (NhanVienKho) — `tuan.pham@fositek.vn` · `hung.le@fositek.vn` · `ngoc.do@fositek.vn`
+#### 🟢 Nhân viên kho (NhanVienKho) — `tuan.pham@fositek.vn` · `hung.le@fositek.vn`
 Thao tác cơ bản: lập phiếu nhập/xuất (nháp), xem tồn kho, xem sơ đồ kho, báo cáo sự cố. Không tạo được phiếu kiểm kê, không điều chỉnh tồn kho, không phê duyệt bất kỳ phiếu nào.
+
+#### 🔵 QC (Kiểm soát chất lượng) — `ngoc.do@fositek.vn`
+Tương tự Nhân viên kho về quyền thao tác, tập trung vào kiểm tra chất lượng hàng nhập/xuất. Có thể lập phiếu nhập, phiếu xuất và báo cáo sự cố liên quan đến chất lượng. Không phê duyệt, không điều chỉnh tồn kho.
+
+#### 🟣 Sale (Kinh doanh) — `sale.nguyen@fositek.vn`
+Nhân viên kinh doanh. Quyền hạn tối thiểu, tập trung vào việc **tạo và theo dõi yêu cầu xuất kho** (delivery request) cho khách hàng. Chỉ xem được sản phẩm, tồn kho và sơ đồ kho — không thao tác trực tiếp vào phiếu xuất, phiếu nhập hay kiểm kê.
 
 ---
 

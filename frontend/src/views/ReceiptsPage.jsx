@@ -302,7 +302,7 @@ export const ReceiptsPage = () => {
                 <div className="grid grid-cols-12 gap-3 px-1">
                   <div className="col-span-4 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Sản phẩm *</div>
                   <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-center">Số lượng</div>
-                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Đơn giá nhập (đ)</div>
+                  <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide text-right">Đơn giá sản xuất (đ)</div>
                   <div className="col-span-3 text-[10px] font-bold text-slate-400 uppercase tracking-wide">Vị trí lưu kho *</div>
                   <div className="col-span-1"></div>
                 </div>

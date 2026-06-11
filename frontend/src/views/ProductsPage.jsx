@@ -92,7 +92,7 @@ export const ProductsPage = () => {
     }
 
     if (Number(priceOut) <= Number(priceIn)) {
-      toast.error('Giá bán (priceOut) phải lớn hơn giá nhập (priceIn)');
+      toast.error('Giá bán (priceOut) phải lớn hơn giá sản xuất (priceIn)');
       return;
     }
 
@@ -263,7 +263,7 @@ export const ProductsPage = () => {
                       <th className="px-6 py-4">Tên sản phẩm</th>
                       <th className="px-6 py-4">Danh mục</th>
                       <th className="px-6 py-4">Đơn vị</th>
-                      <th className="px-6 py-4 text-right">Giá nhập</th>
+                      <th className="px-6 py-4 text-right">Giá sản xuất</th>
                       <th className="px-6 py-4 text-right">Giá bán</th>
                       <th className="px-6 py-4 text-center">Thao tác</th>
                     </tr>
@@ -430,7 +430,7 @@ export const ProductsPage = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Giá nhập (VNĐ) *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Giá sản xuất (VNĐ) *</label>
                   <input
                     type="number"
                     required
