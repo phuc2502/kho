@@ -663,7 +663,8 @@ export const DeliveryRequestsPage = () => {
                                 next[idx].warehouseNode = '';
                                 setFulfillItems(next);
                               }}
-                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400">
+                              disabled={!item._zone}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed">
                               <option value="">-- Tất cả --</option>
                               {getDescOfType(item._zone, 'rack').map(r => (
                                 <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
@@ -678,7 +679,8 @@ export const DeliveryRequestsPage = () => {
                                 next[idx].warehouseNode = e.target.value;
                                 setFulfillItems(next);
                               }}
-                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400">
+                              disabled={!item._rack}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed">
                               <option value="">-- Chọn khay --</option>
                               {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
                                 <option key={b._id} value={b._id}>{b.code} · {b.name}</option>

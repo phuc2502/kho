@@ -29,6 +29,9 @@ export const ScannerPage = () => {
   const [allProducts, setAllProducts] = useState([]);
   const [allNodes, setAllNodes]       = useState([]);
 
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex]         = useState(-1);
+
   const inputRef = useRef(null);
 
   // ── Preload products + nodes ──────────────────────────────
@@ -58,6 +61,69 @@ export const ScannerPage = () => {
       return () => window.removeEventListener('focus', refocus);
     }
   }, [dataReady]);
+
+  // Suggestion filters
+  const suggestions = query.trim() ? [
+    ...allProducts.filter(p =>
+      p.sku?.toLowerCase().includes(query.toLowerCase()) ||
+      p.name?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 5).map(p => ({ type: 'product', label: p.name, code: p.sku, id: p._id })),
+    ...allNodes.filter(n =>
+      n.code?.toLowerCase().includes(query.toLowerCase()) ||
+      n.name?.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 5).map(n => ({ type: 'node', label: n.name, code: n.code, id: n._id }))
+  ] : [];
+
+  const selectSuggestion = async (item) => {
+    setQuery(item.code);
+    setShowSuggestions(false);
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      if (item.type === 'product') {
+        const product = allProducts.find(p => p._id === item.id);
+        if (product) {
+          const stockData = await InventoryModel.getStock(product._id, '');
+          const totalQty  = stockData.reduce((sum, s) => sum + s.quantity, 0);
+          setResult({ type: 'product', data: product, stock: stockData, totalQty });
+          addToHistory({ type: 'product', label: product.name, code: product.sku });
+          setQuery('');
+        }
+      } else {
+        const node = allNodes.find(n => n._id === item.id);
+        if (node) {
+          const stockData = await InventoryModel.getStock('', node._id);
+          setResult({ type: 'node', data: node, stock: stockData });
+          addToHistory({ type: 'node', label: node.name, code: node.code });
+          setQuery('');
+        }
+      }
+    } catch (err) {
+      setError('Lỗi khi tra cứu: ' + err.message);
+    } finally {
+      setLoading(false);
+      setTimeout(() => inputRef.current?.focus(), 150);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
 
   // ── Scan handler ──────────────────────────────────────────
   const handleScan = async (e) => {
@@ -141,7 +207,15 @@ export const ScannerPage = () => {
               className="w-full pl-14 pr-28 py-4 text-xl font-mono rounded-2xl border-2 border-primary-300 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-100 bg-primary-50 text-slate-900 placeholder:font-sans placeholder:text-base placeholder:text-slate-400 disabled:opacity-60 transition-all"
               placeholder="Quét mã vạch hoặc nhập SKU / mã Bin..."
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setError(null); }}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setError(null);
+                setShowSuggestions(true);
+                setActiveIndex(-1);
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               disabled={loading || !dataReady}
               autoComplete="off"
             />
@@ -163,6 +237,43 @@ export const ScannerPage = () => {
                 ? <Loader className="w-5 h-5 animate-spin" />
                 : <Search className="w-5 h-5" />}
             </button>
+
+            {/* Suggestions list */}
+            {showSuggestions && query.trim().length > 0 && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50">
+                <div className="py-2 divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                  {suggestions.map((item, idx) => {
+                    const isActive = idx === activeIndex;
+                    return (
+                      <button
+                        key={item.type + '-' + item.id}
+                        type="button"
+                        onClick={() => selectSuggestion(item)}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        className={`w-full px-5 py-3 flex items-center gap-3 transition-colors text-left ${
+                          isActive ? 'bg-primary-50 text-primary-900' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                          item.type === 'product' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'
+                        }`}>
+                          {item.type === 'product'
+                            ? <Package className="w-4 h-4" />
+                            : <MapPin className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{item.label}</p>
+                          <p className="text-xs font-mono text-slate-400 mt-0.5">{item.code}</p>
+                        </div>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                          {item.type === 'product' ? 'Sản phẩm' : 'Vị trí'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="text-center mt-3 space-y-1">

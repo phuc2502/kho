@@ -354,7 +354,8 @@ export const ReceiptsPage = () => {
                             required
                             value={item.product}
                             onChange={(e) => handleItemChange(idx, 'product', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                            disabled={!item._category}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
                           >
                             <option value="" disabled>-- Chọn sản phẩm --</option>
                             {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (
@@ -413,7 +414,8 @@ export const ReceiptsPage = () => {
                           <select
                             value={item._rack}
                             onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                            disabled={!item._zone}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
                           >
                             <option value="">-- Tất cả --</option>
                             {getDescOfType(item._zone, 'rack').map(r => (
@@ -430,7 +432,8 @@ export const ReceiptsPage = () => {
                             required
                             value={item.warehouseNode}
                             onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                            disabled={!item._rack}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
                           >
                             <option value="" disabled>-- Chọn khay --</option>
                             {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (

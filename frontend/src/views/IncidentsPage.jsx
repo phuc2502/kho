@@ -347,7 +347,8 @@ export const IncidentsPage = () => {
                           required
                           value={item.productId}
                           onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
+                          disabled={!item._category}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-500 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
                         >
                           <option value="" disabled>-- Chọn sản phẩm --</option>
                           {products.filter(p => !item._category || p.categoryId === parseInt(item._category)).map(p => (

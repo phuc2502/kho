@@ -640,6 +640,8 @@ export const UserManagementPage = () => {
   const [searchQuery, setSearchQuery]   = useState('');
   const [filterRole, setFilterRole]     = useState('');   // '' = tất cả
   const [filterStatus, setFilterStatus] = useState('');   // '' | 'active' | 'inactive' | 'reset'
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const filteredUsers = useMemo(() => users.filter(u => {
     if (searchQuery.trim()) {
@@ -656,6 +658,36 @@ export const UserManagementPage = () => {
     if (filterStatus === 'reset'    && !u.passwordResetRequested) return false;
     return true;
   }), [users, searchQuery, filterRole, filterStatus]);
+
+  const suggestions = searchQuery.trim() ? users.filter(u => {
+    const q = normalize(searchQuery.trim());
+    return normalize(u.fullName).includes(q) ||
+           normalize(u.email).includes(q) ||
+           normalize(u.username).includes(q);
+  }).slice(0, 6).map(u => ({ label: u.fullName || u.username, code: u.email || u.username, id: u._id })) : [];
+
+  const selectSuggestion = (item) => {
+    setSearchQuery(item.label);
+    setShowSuggestions(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -829,10 +861,42 @@ export const UserManagementPage = () => {
                 <input
                   type="text"
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                    setActiveIndex(-1);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                   placeholder="Tìm theo tên, email..."
                   className="w-full pl-8 pr-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-500/15 focus:bg-white transition-all"
                 />
+
+                {/* Suggestions Dropdown */}
+                {showSuggestions && searchQuery.trim().length > 0 && suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50">
+                    <div className="py-2 divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                      {suggestions.map((item, idx) => {
+                        const isActive = idx === activeIndex;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => selectSuggestion(item)}
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            className={`w-full px-4 py-2 flex items-center justify-between text-left text-xs transition-colors ${
+                              isActive ? 'bg-primary-50 text-primary-900 font-medium' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="truncate flex-1 mr-4">{item.label}</span>
+                            <span className="font-mono text-[10px] text-slate-400 shrink-0">{item.code}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
               <select
                 value={filterRole}

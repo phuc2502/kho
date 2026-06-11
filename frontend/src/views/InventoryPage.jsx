@@ -2,37 +2,49 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { InventoryModel } from '../models/inventory.model.js';
 import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
+import { CategoryModel } from '../models/category.model.js';
 import { BarcodeInput } from '../components/BarcodeInput.jsx';
 import { exportToCSV } from '../utils/exportCSV.js';
 import toast from 'react-hot-toast';
-import { Database, MapPin, Layers, Download, ScanLine, Search, X, Package, Tag } from 'lucide-react';
+import { Database, MapPin, Layers, Download, ScanLine, Search, X, Package, Tag, Warehouse } from 'lucide-react';
 
 export const InventoryPage = () => {
   const [stock, setStock] = useState([]);
   const [allStock, setAllStock] = useState([]);
   const [products, setProducts] = useState([]);
   const [nodes, setNodes] = useState([]);
+  const [allNodes, setAllNodes] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedWarehouse, setSelectedWarehouse] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
+  const [selectedRack, setSelectedRack] = useState('');
   const [selectedNode, setSelectedNode] = useState('');
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [searchText, setSearchText] = useState('');
   const [filterStatus, setFilterStatus] = useState(''); // '' | 'out' | 'low' | 'ok'
   const [detailProduct, setDetailProduct] = useState(null); // product object for detail modal
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [stockData, productsData, nodesData] = await Promise.all([
-        InventoryModel.getStock(selectedProduct, selectedNode),
+      const [stockData, productsData, nodesData, categoriesData] = await Promise.all([
+        InventoryModel.getStock('', ''),
         ProductModel.getAll(),
-        WarehouseModel.getAll()
+        WarehouseModel.getAll(),
+        CategoryModel.getAll()
       ]);
       setStock(stockData);
       setAllStock(stockData);
       setProducts(productsData);
+      setAllNodes(nodesData);
       setNodes(nodesData.filter(n => n.type === 'bin'));
+      setCategories(categoriesData);
     } catch (error) {
       toast.error('Lỗi khi tải tồn kho: ' + error.message);
     } finally {
@@ -40,7 +52,62 @@ export const InventoryPage = () => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [selectedProduct, selectedNode]);
+  useEffect(() => { fetchData(); }, []);
+
+  const isDescendant = (nodeId, ancestorId) => {
+    if (!nodeId || !ancestorId) return false;
+    let current = allNodes.find(n => n._id === parseInt(nodeId));
+    while (current) {
+      const pId = current.parentId ?? current.parent?._id;
+      if (pId === parseInt(ancestorId)) return true;
+      current = allNodes.find(n => n._id === pId);
+    }
+    return false;
+  };
+
+  const getDescOfType = (parentId, type) => {
+    if (!parentId) return allNodes.filter(n => n.type === type);
+    const pid = parseInt(parentId);
+    const result = [];
+    const queue = [pid];
+    const visited = new Set();
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      allNodes.forEach(n => {
+        const nPid = n.parentId ?? n.parent?._id;
+        if (nPid === id) {
+          if (n.type === type) result.push(n);
+          else queue.push(n._id);
+        }
+      });
+    }
+    return result;
+  };
+
+  const handleCategoryChange = (e) => {
+    setSelectedCategory(e.target.value);
+    setSelectedProduct('');
+  };
+
+  const handleWarehouseChange = (e) => {
+    setSelectedWarehouse(e.target.value);
+    setSelectedZone('');
+    setSelectedRack('');
+    setSelectedNode('');
+  };
+
+  const handleZoneChange = (e) => {
+    setSelectedZone(e.target.value);
+    setSelectedRack('');
+    setSelectedNode('');
+  };
+
+  const handleRackChange = (e) => {
+    setSelectedRack(e.target.value);
+    setSelectedNode('');
+  };
 
   // Barcode scan → filter by SKU or bin code
   const handleBarcodeScan = (scannedCode) => {
@@ -82,7 +149,7 @@ export const InventoryPage = () => {
 
   // Client-side filtering: tìm kiếm theo tên/SKU và lọc theo tình trạng tồn
   const displayedStock = useMemo(() => {
-    let result = stock;
+    let result = allStock;
     if (searchText.trim()) {
       const q = searchText.trim().toLowerCase();
       result = result.filter(item =>
@@ -91,13 +158,84 @@ export const InventoryPage = () => {
       );
     }
     if (filterStatus === 'out') result = result.filter(item => item.quantity === 0);
-    if (filterStatus === 'low') result = result.filter(item => item.quantity > 0 && item.quantity < 5);
-    if (filterStatus === 'ok') result = result.filter(item => item.quantity >= 5);
+    if (filterStatus === 'low') result = result.filter(item => item.quantity > 0 && item.quantity < (item.minStock || 5));
+    if (filterStatus === 'ok') result = result.filter(item => item.quantity >= (item.minStock || 5));
+
+    // Lọc theo Danh mục
+    if (selectedCategory) {
+      result = result.filter(item => {
+        const catId = item.product?.categoryId ?? item.product?.category?._id;
+        return String(catId) === String(selectedCategory);
+      });
+    }
+
+    // Lọc theo Sản phẩm
+    if (selectedProduct) {
+      result = result.filter(item => String(item.product?._id || item.product) === String(selectedProduct));
+    }
+
+    // Lọc theo Kho
+    if (selectedWarehouse) {
+      result = result.filter(item => {
+        const binId = item.warehouseNode?._id;
+        return isDescendant(binId, selectedWarehouse);
+      });
+    }
+
+    // Lọc theo Khu vực
+    if (selectedZone) {
+      result = result.filter(item => {
+        const binId = item.warehouseNode?._id;
+        return isDescendant(binId, selectedZone);
+      });
+    }
+
+    // Lọc theo Kệ chứa
+    if (selectedRack) {
+      result = result.filter(item => {
+        const binId = item.warehouseNode?._id;
+        return isDescendant(binId, selectedRack);
+      });
+    }
+
+    // Lọc theo Khay (Bin)
+    if (selectedNode) {
+      result = result.filter(item => String(item.warehouseNode?._id) === String(selectedNode));
+    }
+
     return result;
-  }, [stock, searchText, filterStatus]);
+  }, [allStock, searchText, filterStatus, selectedCategory, selectedProduct, selectedWarehouse, selectedZone, selectedRack, selectedNode, allNodes]);
 
   const formatCurrency = (val) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
+
+  const suggestions = searchText.trim() ? products.filter(p =>
+    p.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+    p.sku?.toLowerCase().includes(searchText.toLowerCase())
+  ).slice(0, 8).map(p => ({ label: p.name, code: p.sku, id: p._id })) : [];
+
+  const selectSuggestion = (item) => {
+    setSearchText(item.code);
+    setShowSuggestions(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -132,10 +270,42 @@ export const InventoryPage = () => {
             <input
               type="text"
               value={searchText}
-              onChange={e => setSearchText(e.target.value)}
+              onChange={e => {
+                setSearchText(e.target.value);
+                setShowSuggestions(true);
+                setActiveIndex(-1);
+              }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               placeholder="Tìm theo tên sản phẩm hoặc mã SKU..."
               className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-500 transition-colors"
             />
+
+            {/* Suggestions Dropdown */}
+            {showSuggestions && searchText.trim().length > 0 && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50">
+                <div className="py-2 divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                  {suggestions.map((item, idx) => {
+                    const isActive = idx === activeIndex;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectSuggestion(item)}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        className={`w-full px-4 py-2.5 flex items-center justify-between text-left text-sm transition-colors ${
+                          isActive ? 'bg-primary-50 text-primary-900 font-medium' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="truncate flex-1 mr-4">{item.label}</span>
+                        <span className="font-mono text-xs text-slate-400 shrink-0">{item.code}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           <div className="sm:w-52">
             <select
@@ -149,12 +319,21 @@ export const InventoryPage = () => {
               <option value="out">Hết hàng</option>
             </select>
           </div>
-          {(searchText || filterStatus) && (
+          {(searchText || filterStatus || selectedCategory || selectedProduct || selectedWarehouse || selectedZone || selectedRack || selectedNode) && (
             <button
-              onClick={() => { setSearchText(''); setFilterStatus(''); }}
+              onClick={() => {
+                setSearchText('');
+                setFilterStatus('');
+                setSelectedCategory('');
+                setSelectedProduct('');
+                setSelectedWarehouse('');
+                setSelectedZone('');
+                setSelectedRack('');
+                setSelectedNode('');
+              }}
               className="px-3 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors shrink-0"
             >
-              ✕ Xoá
+              ✕ Xoá bộ lọc
             </button>
           )}
         </div>
@@ -178,22 +357,103 @@ export const InventoryPage = () => {
         </div>
 
         {/* Dropdowns */}
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Lọc theo sản phẩm</label>
-            <select value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500">
-              <option value="">Tất cả sản phẩm</option>
-              {products.map(p => <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>)}
-            </select>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Lọc theo sản phẩm: Danh mục -> Sản phẩm */}
+          <div className="lg:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+              <Tag className="w-3 h-3 text-slate-400" /> Lọc theo sản phẩm
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Danh mục</label>
+                <select
+                  value={selectedCategory}
+                  onChange={handleCategoryChange}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
+                >
+                  <option value="">Tất cả danh mục</option>
+                  {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Sản phẩm</label>
+                <select
+                  value={selectedProduct}
+                  onChange={e => setSelectedProduct(e.target.value)}
+                  disabled={!selectedCategory}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-primary-500 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Tất cả sản phẩm</option>
+                  {products.filter(p => !selectedCategory || p.categoryId === parseInt(selectedCategory) || p.category?._id === parseInt(selectedCategory)).map(p => (
+                    <option key={p._id} value={p._id}>{p.sku} - {p.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Lọc theo vị trí (Bin)</label>
-            <select value={selectedNode} onChange={(e) => setSelectedNode(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:border-primary-500">
-              <option value="">Tất cả khay chứa</option>
-              {nodes.map(n => <option key={n._id} value={n._id}>{n.code} ({n.name})</option>)}
-            </select>
+
+          {/* Lọc theo vị trí kho: Kho -> Khu vực -> Kệ -> Khay */}
+          <div className="lg:col-span-8 bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+              <Warehouse className="w-3 h-3 text-slate-400" /> Lọc theo vị trí kho
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kho</label>
+                <select
+                  value={selectedWarehouse}
+                  onChange={handleWarehouseChange}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-primary-500"
+                >
+                  <option value="">Tất cả kho</option>
+                  {allNodes.filter(n => n.type === 'warehouse').map(w => (
+                    <option key={w._id} value={w._id}>{w.code} - {w.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Khu vực</label>
+                <select
+                  value={selectedZone}
+                  onChange={handleZoneChange}
+                  disabled={!selectedWarehouse}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-primary-500 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Tất cả khu vực</option>
+                  {getDescOfType(selectedWarehouse, 'zone').map(z => (
+                    <option key={z._id} value={z._id}>{z.code} - {z.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kệ chứa</label>
+                <select
+                  value={selectedRack}
+                  onChange={handleRackChange}
+                  disabled={!selectedZone}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-primary-500 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Tất cả kệ</option>
+                  {getDescOfType(selectedZone, 'rack').map(r => (
+                    <option key={r._id} value={r._id}>{r.code} - {r.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Khay chứa (Bin)</label>
+                <select
+                  value={selectedNode}
+                  onChange={e => setSelectedNode(e.target.value)}
+                  disabled={!selectedRack}
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-xs text-slate-700 focus:outline-none focus:border-primary-500 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Tất cả khay</option>
+                  {getDescOfType(selectedRack, 'bin').map(b => (
+                    <option key={b._id} value={b._id}>{b.code} - {b.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </div>

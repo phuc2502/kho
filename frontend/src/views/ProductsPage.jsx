@@ -16,6 +16,8 @@ export const ProductsPage = () => {
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   // Product Modals
   const [showProductModal, setShowProductModal] = useState(false);
@@ -202,6 +204,34 @@ export const ProductsPage = () => {
     return matchesSearch && matchesCategory;
   });
 
+  const suggestions = searchTerm.trim() ? products.filter(p =>
+    normalizeVi(p.name).includes(normalizeVi(searchTerm)) ||
+    normalizeVi(p.sku).includes(normalizeVi(searchTerm))
+  ).slice(0, 8).map(p => ({ label: p.name, code: p.sku, id: p._id })) : [];
+
+  const selectSuggestion = (item) => {
+    setSearchTerm(item.code);
+    setShowSuggestions(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Tabs */}
@@ -229,13 +259,47 @@ export const ProductsPage = () => {
           {/* Controls */}
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="flex flex-1 gap-3">
-              <input
-                type="text"
-                placeholder="Tìm sản phẩm theo tên hoặc SKU..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary-500"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Tìm sản phẩm theo tên hoặc SKU..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setShowSuggestions(true);
+                    setActiveIndex(-1);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary-500"
+                />
+
+                {/* Suggestions Dropdown */}
+                {showSuggestions && searchTerm.trim().length > 0 && suggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50">
+                    <div className="py-2 divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                      {suggestions.map((item, idx) => {
+                        const isActive = idx === activeIndex;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => selectSuggestion(item)}
+                            onMouseEnter={() => setActiveIndex(idx)}
+                            className={`w-full px-4 py-2.5 flex items-center justify-between text-left text-sm transition-colors ${
+                              isActive ? 'bg-primary-50 text-primary-900 font-medium' : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="truncate flex-1 mr-4">{item.label}</span>
+                            <span className="font-mono text-xs text-slate-400 shrink-0">{item.code}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}

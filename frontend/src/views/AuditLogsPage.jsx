@@ -259,6 +259,8 @@ export const AuditLogsPage = () => {
   const [filterAction, setFilterAction] = useState('');
   const [detailLog, setDetailLog] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   const fetchLogs = async (page = 1) => {
     try {
@@ -289,6 +291,41 @@ export const AuditLogsPage = () => {
     return matchesSearch && matchesAction;
   });
 
+  const uniqueUsernames = Array.from(new Set(logs.map(log => log.username).filter(Boolean)));
+  const matchedUsers = uniqueUsernames.filter(u => u.toLowerCase().includes(searchTerm.toLowerCase()));
+  const matchedActions = Object.entries(ACTION_MAP).filter(([key, label]) =>
+    key.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    label.toLowerCase().includes(searchTerm.toLowerCase())
+  ).slice(0, 5);
+
+  const suggestions = searchTerm.trim() ? [
+    ...matchedUsers.map(u => ({ type: 'user', label: u, code: 'Tài khoản' })),
+    ...matchedActions.map(([key, label]) => ({ type: 'action', label, code: key }))
+  ].slice(0, 8) : [];
+
+  const selectSuggestion = (item) => {
+    setSearchTerm(item.label);
+    setShowSuggestions(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter') {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectSuggestion(suggestions[activeIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -304,14 +341,46 @@ export const AuditLogsPage = () => {
       {/* Filters */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4">
         <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setShowSuggestions(true);
+              setActiveIndex(-1);
+            }}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder="Tìm theo tài khoản, hành động..."
             className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 focus:outline-none focus:border-primary-500"
           />
+
+          {/* Suggestions Dropdown */}
+          {showSuggestions && searchTerm.trim().length > 0 && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden z-50">
+              <div className="py-2 divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                {suggestions.map((item, idx) => {
+                  const isActive = idx === activeIndex;
+                  return (
+                    <button
+                      key={item.type + '-' + idx}
+                      type="button"
+                      onClick={() => selectSuggestion(item)}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                      className={`w-full px-4 py-2.5 flex items-center justify-between text-left text-sm transition-colors ${
+                        isActive ? 'bg-primary-50 text-primary-900 font-medium' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="truncate flex-1 mr-4">{item.label}</span>
+                      <span className="font-mono text-xs text-slate-400 shrink-0">{item.code}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div className="sm:w-64">
           <select
