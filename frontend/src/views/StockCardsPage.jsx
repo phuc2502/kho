@@ -199,6 +199,20 @@ export const StockCardsPage = () => {
     return stockCards.slice(start, start + ITEMS_PER_PAGE);
   }, [stockCards, currentPage]);
 
+  const handleResetFilters = () => {
+    setProductId('');
+    setSelectedCategory('');
+    setSelectedZone('');
+    setSelectedAisle('');
+    setSelectedRack('');
+    setWarehouseNodeId('');
+    setType('');
+    setStartDate('');
+    setEndDate('');
+    setRefCode('');
+    setCurrentPage(1);
+  };
+
   // CRUD actions
   const handleOpenAddModal = () => {
     setFormProductId('');
@@ -229,6 +243,22 @@ export const StockCardsPage = () => {
       });
       toast.success('Lập thẻ kho thủ công thành công');
       setShowAddModal(false);
+
+      // Đồng bộ bộ lọc tìm kiếm chính xác đến sản phẩm và vị trí vừa tạo
+      setProductId(formProductId);
+      setSelectedCategory(formCategory);
+      setSelectedZone(formZone);
+      setSelectedAisle(formAisle);
+      setSelectedRack(formRack);
+      setWarehouseNodeId(formNodeId);
+
+      // Reset các bộ lọc có thể gây ẩn thẻ kho mới
+      setType('');
+      setStartDate('');
+      setEndDate('');
+      setRefCode('');
+      setCurrentPage(1);
+
       fetchStockCards();
     } catch (error) {
       toast.error('Lỗi lập thẻ thủ công: ' + error.message);
@@ -444,9 +474,18 @@ export const StockCardsPage = () => {
 
       {/* Filter Options */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 no-print">
-        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-          <Filter className="w-4 h-4 text-slate-500" />
-          <h3 className="font-bold text-slate-700 text-sm">Bộ lọc nâng cao</h3>
+        <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-500" />
+            <h3 className="font-bold text-slate-700 text-sm">Bộ lọc nâng cao</h3>
+          </div>
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="text-xs text-primary-500 hover:text-primary-600 font-semibold transition-colors"
+          >
+            Xóa bộ lọc
+          </button>
         </div>
 
         {/* Sản phẩm */}
