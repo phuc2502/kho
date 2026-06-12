@@ -29,6 +29,10 @@ export const Receipt = sequelize.define('Receipt', {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0
   },
+  rejectNote: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   createdByUserId: {
     type: DataTypes.INTEGER,
     allowNull: false,

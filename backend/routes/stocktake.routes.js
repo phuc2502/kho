@@ -6,7 +6,8 @@ import {
   rejectStocktake,
   updateStocktake,
   submitStocktake,
-  deleteStocktake
+  deleteStocktake,
+  completeCounting
 } from '../controllers/stocktake.controller.js';
 import { authenticate, requirePermission } from '../middlewares/auth.middleware.js';
 
@@ -19,5 +20,6 @@ stocktakeRouter.post('/', requirePermission('stocktake:create'), createStocktake
 stocktakeRouter.put('/:id/approve', requirePermission('stocktake:approve'), approveStocktake);
 stocktakeRouter.patch('/:id/reject', requirePermission('stocktake:approve'), rejectStocktake);
 stocktakeRouter.patch('/:id/submit', requirePermission('stocktake:create'), submitStocktake);
+stocktakeRouter.patch('/:id/complete-counting', requirePermission('stocktake:count'), completeCounting);
 stocktakeRouter.put('/:id', requirePermission('stocktake:count'), updateStocktake);
 stocktakeRouter.delete('/:id', requirePermission('stocktake:create'), deleteStocktake);

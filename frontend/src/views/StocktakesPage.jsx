@@ -274,13 +274,26 @@ export const StocktakesPage = () => {
   const handleSubmit = async () => {
     try {
       const updated = await StocktakeModel.submit(selectedStocktake._id);
-      toast.success(updated.hasDiff
-        ? 'Đã gửi phê duyệt – phát hiện chênh lệch, biên bản đã được tạo tự động'
-        : 'Đã gửi phê duyệt – số lượng khớp, biên bản đã được tạo tự động');
+      toast.success('Đã lập biên bản kiểm kê chênh lệch và gửi trình quản lý phê duyệt!');
       setSelectedStocktake(updated);
       fetchData();
     } catch (error) {
-      toast.error('Gửi phê duyệt thất bại: ' + error.message);
+      toast.error('Lập biên bản thất bại: ' + error.message);
+    }
+  };
+
+  const handleCompleteCounting = async () => {
+    try {
+      const updated = await StocktakeModel.completeCounting(selectedStocktake._id);
+      if (updated.status === 'approved') {
+        toast.success('Số liệu kiểm đếm trùng khớp. Phiếu đã được tự động duyệt!');
+      } else {
+        toast.success('Phát hiện chênh lệch. Đã gửi thông báo yêu cầu Kế toán lập biên bản!');
+      }
+      setSelectedStocktake(updated);
+      fetchData();
+    } catch (error) {
+      toast.error('Hoàn tất kiểm đếm thất bại: ' + error.message);
     }
   };
 
@@ -872,14 +885,25 @@ export const StocktakesPage = () => {
                       {savingCounts ? 'Đang lưu...' : 'Lưu số liệu đếm'}
                     </button>
                   </PermissionGuard>
-                  <PermissionGuard permission="stocktake:create">
-                    <button
-                      onClick={handleSubmit}
-                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-violet-500/10"
-                    >
-                      <Send className="w-3.5 h-3.5" /> Gửi phê duyệt biên bản
-                    </button>
-                  </PermissionGuard>
+                  {!selectedStocktake.hasDiff ? (
+                    <PermissionGuard permission="stocktake:count">
+                      <button
+                        onClick={handleCompleteCounting}
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Hoàn tất kiểm đếm
+                      </button>
+                    </PermissionGuard>
+                  ) : (
+                    <PermissionGuard permission="stocktake:create">
+                      <button
+                        onClick={handleSubmit}
+                        className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-violet-500/10"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Lập biên bản
+                      </button>
+                    </PermissionGuard>
+                  )}
                 </>
               )}
 
@@ -923,8 +947,8 @@ export const StocktakesPage = () => {
                     item.product?.name || '',
                     item.warehouseNodeId?.code || item.warehouseNode?.code || '',
                     item.systemQty || 0,
-                    item.actualQty !== null && item.actualQty !== undefined ? item.actualQty : '',
-                    item.actualQty !== null && item.actualQty !== undefined ? (item.actualQty - item.systemQty) : ''
+                    item.countedQty !== null && item.countedQty !== undefined ? item.countedQty : '',
+                    item.countedQty !== null && item.countedQty !== undefined ? (item.countedQty - item.systemQty) : ''
                   ]);
                   exportToCSV(`chi_tiet_phieu_kiem_ke_${selectedStocktake.code}`, headers, rows);
                 }}
@@ -1057,10 +1081,10 @@ export const StocktakesPage = () => {
                   <td className="border border-black font-mono font-bold text-center">{item.warehouseNodeId?.code || item.warehouseNode?.code}</td>
                   <td className="border border-black text-center">{item.systemQty}</td>
                   <td className="border border-black text-center font-bold">
-                    {item.actualQty !== null && item.actualQty !== undefined ? item.actualQty : '—'}
+                    {item.countedQty !== null && item.countedQty !== undefined ? item.countedQty : '—'}
                   </td>
                   <td className="border border-black text-center font-bold">
-                    {item.actualQty !== null && item.actualQty !== undefined ? (item.actualQty - item.systemQty) : '—'}
+                    {item.countedQty !== null && item.countedQty !== undefined ? (item.countedQty - item.systemQty) : '—'}
                   </td>
                 </tr>
               ))}

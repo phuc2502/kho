@@ -114,7 +114,7 @@ export const updateReceipt = async (req, res, next) => {
   const t = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const { ghiChu, items, status } = req.body;
+    const { ghiChu, items, status, reason } = req.body;
 
     const receipt = await Receipt.findByPk(id, {
       include: [{ model: ReceiptItem, as: 'items' }]
@@ -170,6 +170,14 @@ export const updateReceipt = async (req, res, next) => {
         if (!canApprove) {
           await t.rollback();
           return res.status(403).json({ message: 'Bạn không có quyền duyệt/từ chối phiếu nhập kho' });
+        }
+
+        if (status === 'rejected') {
+          if (!reason || !reason.trim()) {
+            await t.rollback();
+            return res.status(400).json({ message: 'Vui lòng nhập lý do từ chối' });
+          }
+          receipt.rejectNote = reason.trim();
         }
 
         if (status === 'completed' && receipt.status !== 'completed') {
@@ -240,9 +248,12 @@ export const updateReceipt = async (req, res, next) => {
       const statusLabels = { approved: 'đã được phê duyệt', completed: 'đã hoàn tất', rejected: 'đã bị từ chối' };
       const label = statusLabels[status];
       if (label) {
+        const content = status === 'rejected'
+          ? `${req.user.fullName || req.user.username} đã từ chối phiếu nhập kho ${populated.code}. Lý do: ${receipt.rejectNote}`
+          : `${req.user.fullName || req.user.username} đã cập nhật phiếu nhập kho ${populated.code} sang trạng thái "${label}".`;
         createNotificationForUser(receipt.createdByUserId, {
           title: `Phiếu nhập ${populated.code} ${label}`,
-          content: `${req.user.fullName || req.user.username} đã cập nhật phiếu nhập kho ${populated.code} sang trạng thái "${label}".`,
+          content,
           type: 'receipt',
           refId: Number(id)
         });

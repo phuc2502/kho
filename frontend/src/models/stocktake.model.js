@@ -7,5 +7,6 @@ export const StocktakeModel = {
   reject:   async (id, reason) => await api.patch(`/stocktakes/${id}/reject`, { reason }),
   update:   async (id, data)   => await api.put(`/stocktakes/${id}`, data),
   submit:   async (id)         => await api.patch(`/stocktakes/${id}/submit`),
+  completeCounting: async (id) => await api.patch(`/stocktakes/${id}/complete-counting`),
   delete:   async (id)         => await api.delete(`/stocktakes/${id}`)
 };

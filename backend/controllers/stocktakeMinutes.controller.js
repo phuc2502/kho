@@ -214,6 +214,11 @@ export const rejectMinutes = async (req, res, next) => {
 
     await minutes.update({ status: 'rejected', rejectNote: reason.trim() });
 
+    const stocktake = await Stocktake.findByPk(minutes.stocktakeId);
+    if (stocktake) {
+      await stocktake.update({ status: 'counting', hasDiff: false });
+    }
+
     await recordAudit({
       action: 'stocktakeMinutes.reject',
       entity: 'StocktakeMinutes',

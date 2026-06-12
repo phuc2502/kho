@@ -628,5 +628,21 @@ export const runMigrations = async () => {
     console.warn('Migration warning (Stocktakes status enum):', err.message);
   }
 
+  // ——— 28. Thêm cột rejectNote vào Receipts ———
+  try {
+    const rcDesc28 = await qi.describeTable('Receipts');
+    if (!rcDesc28.rejectNote) {
+      await qi.addColumn('Receipts', 'rejectNote', {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        after: 'totalAmount'
+      });
+      console.log('Migration: Added Receipts.rejectNote');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Receipts.rejectNote):', err.message);
+  }
+
   console.log('Migrations completed.');
 };
+

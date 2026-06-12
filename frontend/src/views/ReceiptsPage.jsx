@@ -33,6 +33,9 @@ export const ReceiptsPage = () => {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
+  const [rejectReceiptId, setRejectReceiptId] = useState(null);
 
   // Quick Incident state
   const [showIncidentModal, setShowIncidentModal] = useState(false);
@@ -633,6 +636,15 @@ export const ReceiptsPage = () => {
                 </div>
               </div>
 
+              {selectedReceipt.status === 'rejected' && selectedReceipt.rejectNote && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex gap-2 text-xs text-red-700">
+                  <div>
+                    <p className="font-bold uppercase mb-1">Lý do từ chối</p>
+                    <p>{selectedReceipt.rejectNote}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Items details table */}
               <div className="space-y-2">
                 <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
@@ -707,7 +719,7 @@ export const ReceiptsPage = () => {
                 {(selectedReceipt.status === 'draft' || selectedReceipt.status === 'approved') && (
                   <PermissionGuard permission="receipt:approve">
                     <button
-                      onClick={() => handleTransitionStatus(selectedReceipt._id, 'rejected')}
+                      onClick={() => { setRejectReceiptId(selectedReceipt._id); setShowRejectModal(true); }}
                       className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
                     >
                       ❌ Từ chối
@@ -882,6 +894,56 @@ export const ReceiptsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200 p-6 space-y-4">
+            <h4 className="font-bold text-slate-800 flex items-center gap-2">
+              <span className="text-red-500">❌</span> Từ chối phiếu nhập kho
+            </h4>
+            <p className="text-sm text-slate-500">Vui lòng nhập lý do từ chối phiếu nhập kho này</p>
+            <textarea
+              value={rejectNote}
+              onChange={e => setRejectNote(e.target.value)}
+              rows={3}
+              placeholder="Nhập lý do từ chối (bắt buộc)..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-red-400 resize-none"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => { setShowRejectModal(false); setRejectNote(''); setRejectReceiptId(null); }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  if (!rejectNote.trim()) {
+                    toast.error('Vui lòng nhập lý do từ chối');
+                    return;
+                  }
+                  try {
+                    await ReceiptModel.update(rejectReceiptId, { status: 'rejected', reason: rejectNote.trim() });
+                    toast.success('Đã từ chối phiếu nhập kho');
+                    setShowRejectModal(false);
+                    setRejectNote('');
+                    setRejectReceiptId(null);
+                    setSelectedReceipt(null);
+                    fetchData();
+                  } catch (error) {
+                    toast.error('Từ chối thất bại: ' + error.message);
+                  }
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold shadow-md shadow-red-500/10 transition-colors"
+              >
+                Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CSS Styles for Print */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {

@@ -1,5 +1,6 @@
 import { Stocktake, StocktakeItem } from '../models/stocktake.model.js';
 import { StocktakeMinutes } from '../models/stocktakeMinutes.model.js';
+import { StocktakeReport } from '../models/stocktakeReport.model.js';
 import { Inventory } from '../models/inventory.model.js';
 import { Product } from '../models/product.model.js';
 import { WarehouseNode } from '../models/warehouseNode.model.js';
@@ -288,26 +289,24 @@ export const submitStocktake = async (req, res, next) => {
 
     if (stocktake.status !== 'counting') {
       await t.rollback();
-      return res.status(400).json({ message: 'Chỉ có thể gửi phê duyệt phiếu đang trong trạng thái "Đang kiểm kê"' });
+      return res.status(400).json({ message: 'Chỉ có thể lập biên bản khi phiếu đang trong trạng thái "Đang kiểm kê"' });
     }
 
-    const hasDiff = stocktake.items.some(
-      item => Number(item.countedQty) !== Number(item.systemQty)
-    );
+    if (!stocktake.hasDiff) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Số liệu kiểm kê trùng khớp hoàn toàn, hệ thống tự động hoàn tất, không cần lập biên bản thủ công.' });
+    }
 
     stocktake.status = 'submitted';
-    stocktake.hasDiff = hasDiff;
     stocktake.submittedByUserId = req.user._id;
     stocktake.submittedAt = new Date();
     await stocktake.save({ transaction: t });
 
-    // Auto-create biên bản kiểm kê
+    // Tạo biên bản kiểm kê chênh lệch ở trạng thái chờ duyệt
     await StocktakeMinutes.create({
       code: 'BB-' + stocktake.code,
       stocktakeId: stocktake._id,
-      summary: hasDiff
-        ? 'Phát hiện chênh lệch tồn kho sau kiểm đếm. Vui lòng xem xét biên bản.'
-        : 'Số liệu kiểm đếm khớp hoàn toàn với hệ thống.',
+      summary: 'Phát hiện chênh lệch tồn kho sau kiểm đếm. Vui lòng xem xét biên bản.',
       createdByUserId: req.user._id,
       status: 'pending_approval'
     }, { transaction: t });
@@ -320,51 +319,131 @@ export const submitStocktake = async (req, res, next) => {
       entityId: stocktake._id,
       userId: req.user._id,
       username: req.user.username,
-      payload: { code: stocktake.code, hasDiff }
+      payload: { code: stocktake.code, hasDiff: true }
     });
 
     const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
 
+    // Thông báo đến quản lý phê duyệt biên bản chênh lệch
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho'],
+      excludeUserId: req.user._id,
+      title: `Phê duyệt biên bản kiểm kê chênh lệch: BB-${stocktake.code}`,
+      content: `Biên bản kiểm kê BB-${stocktake.code} có chênh lệch số liệu đang chờ phê duyệt từ quản lý.`,
+      type: 'stocktake',
+      refId: stocktake._id
+    });
+
+    res.json(populated);
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    next(error);
+  }
+};
+
+export const completeCounting = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+
+    const stocktake = await Stocktake.findByPk(id, {
+      include: [{ model: StocktakeItem, as: 'items' }]
+    });
+    if (!stocktake) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy phiếu kiểm kê' });
+    }
+
+    if (stocktake.status !== 'counting') {
+      await t.rollback();
+      return res.status(400).json({ message: 'Chỉ có thể hoàn tất kiểm đếm khi phiếu đang trong trạng thái "Đang kiểm kê"' });
+    }
+
+    const hasDiff = stocktake.items.some(
+      item => Number(item.countedQty) !== Number(item.systemQty)
+    );
+
+    stocktake.hasDiff = hasDiff;
+
     if (!hasDiff) {
+      // TRÙNG KHỚP:
+      // Tự động chuyển trạng thái phiếu sang approved
+      stocktake.status = 'approved';
+      stocktake.submittedByUserId = req.user._id;
+      stocktake.submittedAt = new Date();
+      await stocktake.save({ transaction: t });
+
+      // Tự động tạo biên bản kiểm kê ở trạng thái approved
+      await StocktakeMinutes.create({
+        code: 'BB-' + stocktake.code,
+        stocktakeId: stocktake._id,
+        summary: 'Số liệu kiểm đếm khớp hoàn toàn với hệ thống.',
+        createdByUserId: req.user._id,
+        status: 'approved',
+        approvedByUserId: req.user._id,
+        approvedAt: new Date()
+      }, { transaction: t });
+
+      // Tự động tạo báo cáo kiểm kê
+      await StocktakeReport.create({
+        code: 'BC-' + stocktake.code,
+        stocktakeId: stocktake._id,
+        adjustmentId: null,
+        totalItems: stocktake.items.length,
+        matchedItems: stocktake.items.length,
+        discrepancyItems: 0,
+        totalShortage: 0,
+        totalSurplus: 0,
+        generatedByUserId: req.user._id
+      }, { transaction: t });
+
+      await t.commit();
+
+      await recordAudit({
+        action: 'stocktake.completeCounting',
+        entity: 'Stocktake',
+        entityId: stocktake._id,
+        userId: req.user._id,
+        username: req.user.username,
+        payload: { code: stocktake.code, hasDiff: false, autoCompleted: true }
+      });
+
       // Gửi thông báo khớp số liệu đến Kế toán kho
       sendNotification({
         targetRoles: ['KeToanKho'],
         excludeUserId: req.user._id,
         title: `Số liệu kiểm kê trùng khớp: ${stocktake.code}`,
-        content: `Số liệu kiểm đếm thực tế của phiếu kiểm kê ${stocktake.code} trùng khớp hoàn toàn với hệ thống.`,
-        type: 'stocktake',
-        refId: stocktake._id
-      });
-      // Gửi thông báo cho quản lý phê duyệt biên bản
-      sendNotification({
-        targetRoles: ['Admin', 'QuanLyKho'],
-        excludeUserId: req.user._id,
-        title: `Biên bản kiểm kê chờ phê duyệt: BB-${stocktake.code}`,
-        content: `Biên bản kiểm kê BB-${stocktake.code} (số liệu trùng khớp) đang chờ phê duyệt.`,
+        content: `Nhân viên kho đã hoàn tất kiểm đếm phiếu ${stocktake.code}. Số liệu trùng khớp hoàn toàn, hệ thống đã tự động duyệt phiếu.`,
         type: 'stocktake',
         refId: stocktake._id
       });
     } else {
+      // CHÊNH LỆCH:
+      // Phiếu kiểm kê vẫn giữ status = 'counting' nhưng hasDiff = true để KTK/NVK biết
+      await stocktake.save({ transaction: t });
+      await t.commit();
+
+      await recordAudit({
+        action: 'stocktake.completeCounting',
+        entity: 'Stocktake',
+        entityId: stocktake._id,
+        userId: req.user._id,
+        username: req.user.username,
+        payload: { code: stocktake.code, hasDiff: true, autoCompleted: false }
+      });
+
       // Gửi thông báo không khớp số liệu đến Kế toán kho để lập biên bản
       sendNotification({
         targetRoles: ['KeToanKho'],
         excludeUserId: req.user._id,
         title: `Phát hiện chênh lệch kiểm kê: ${stocktake.code}`,
-        content: `Phiếu kiểm kê ${stocktake.code} có sự chênh lệch giữa thực tế và hệ thống. Biên bản kiểm kê BB-${stocktake.code} đã được tự động tạo, vui lòng kiểm tra.`,
-        type: 'stocktake',
-        refId: stocktake._id
-      });
-      // Thông báo đến quản lý phê duyệt biên bản chênh lệch
-      sendNotification({
-        targetRoles: ['Admin', 'QuanLyKho'],
-        excludeUserId: req.user._id,
-        title: `Phê duyệt biên bản kiểm kê chênh lệch: BB-${stocktake.code}`,
-        content: `Biên bản kiểm kê BB-${stocktake.code} có chênh lệch số liệu đang chờ phê duyệt từ quản lý.`,
+        content: `Nhân viên kho đã hoàn tất kiểm đếm phiếu ${stocktake.code}. Phát hiện chênh lệch số liệu, vui lòng kiểm tra và lập biên bản kiểm kê để trình quản lý phê duyệt.`,
         type: 'stocktake',
         refId: stocktake._id
       });
     }
 
+    const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
