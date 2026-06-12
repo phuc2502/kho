@@ -12,6 +12,8 @@ import { StocktakeReport }         from '../models/stocktakeReport.model.js';
 import { Incident, IncidentItem }  from '../models/incident.model.js';
 import { DeliveryRequest, DeliveryRequestItem } from '../models/deliveryRequest.model.js';
 import { Customer }                from '../models/customer.model.js';
+import { Adjustment, AdjustmentItem } from '../models/adjustment.model.js';
+import { StockCard }               from '../models/stockCard.model.js';
 
 // helper: SET createdAt/updatedAt via raw SQL sau khi tạo (timestamps: true không cho set trực tiếp)
 const setDates = async (table, id, createdDaysAgo, updatedDaysAgo = createdDaysAgo - 1) => {
@@ -131,6 +133,11 @@ const seed = async () => {
     await sequelize.query(`UPDATE Inventories SET updatedAt=DATE_SUB(NOW(),INTERVAL 48 DAY) WHERE _id=?`, { replacements:[inv6._id] });
 
     console.log('✓ Inventory (8 dòng); 3 bin đặt updatedAt cũ cho widget tồn-lâu-ngày');
+
+    // Set minStock for MIM products (low quantity alerts)
+    await sequelize.query(`UPDATE Inventories SET minStock = 15 WHERE _id = ?`, { replacements: [inv7._id] }); // MIM-HB14 qty=7
+    await sequelize.query(`UPDATE Inventories SET minStock = 15 WHERE _id = ?`, { replacements: [inv8._id] }); // MIM-CB01 qty=5
+    console.log('✓ minStock set for MIM products (inv7=15, inv8=15)');
 
     // ══════════════════════════════════════════════════════════════
     // 6. RECEIPTS (5 phiếu nhập)
@@ -427,6 +434,38 @@ const seed = async () => {
     console.log('✓ StocktakeReports (2): BC-001 (khớp), BC-002 (chênh lệch)');
 
     // ══════════════════════════════════════════════════════════════
+    // 9b. ADJUSTMENTS (2 phiếu điều chỉnh tồn kho)
+    // ══════════════════════════════════════════════════════════════
+
+    // ADJ-001: Điều chỉnh sau kiểm kê ST-002 (SLK-380 thiếu 5)
+    const adj1 = await Adjustment.create({
+      code: 'ADJ-ST-2026-00001',
+      reason: 'count_correction',
+      status: 'completed',
+      note: 'Điều chỉnh giảm 5 bộ FST-SLK-380 tại VT-B1-01 sau kiểm kê đột xuất ST-2026-00002. Nguyên nhân thất thoát chưa xác định.',
+      createdByUserId: accountant1._id,
+      approvedByUserId: manager._id,
+      approvedAt: new Date('2026-04-25'),
+    });
+    await AdjustmentItem.create({ adjustmentId: adj1._id, productId: p3._id, warehouseNodeId: binB101._id, delta: -5 });
+    await setDates('Adjustments', adj1._id, 47, 46);
+    // Gắn điều chỉnh vào báo cáo kiểm kê ST-002
+    await StocktakeReport.update({ adjustmentId: adj1._id }, { where: { _id: rpt2._id } });
+
+    // ADJ-002: Điều chỉnh bản nháp tháng 6 (chờ duyệt)
+    const adj2 = await Adjustment.create({
+      code: 'ADJ-ST-2026-00002',
+      reason: 'damaged',
+      status: 'draft',
+      note: 'Phiếu điều chỉnh tháng 6: ghi nhận hàng hỏng phát hiện khi kiểm kho định kỳ. Chờ quản lý xem xét.',
+      createdByUserId: accountant2._id,
+    });
+    await AdjustmentItem.create({ adjustmentId: adj2._id, productId: p5._id, warehouseNodeId: binC101._id, delta: -2 });
+    await setDates('Adjustments', adj2._id, 4, 3);
+
+    console.log('✓ Adjustments (2): completed×1 (ADJ-001→ST-002), draft×1 (ADJ-002)');
+
+    // ══════════════════════════════════════════════════════════════
     // 9. INCIDENTS (3 sự cố — theo luồng nhập kho 2.2.1 & 2.3.1)
     // ══════════════════════════════════════════════════════════════
 
@@ -466,6 +505,42 @@ const seed = async () => {
     await setDates('Incidents', inc3._id, 30, 29);
 
     console.log('✓ Incidents (3): pending_approval×1, approved×2');
+
+    // ══════════════════════════════════════════════════════════════
+    // 9c. STOCK CARDS (thẻ kho — lịch sử giao dịch)
+    // ══════════════════════════════════════════════════════════════
+    // Tạo StockCard cho 2 phiếu nhập completed và 7 phiếu xuất lịch sử
+
+    const SC = StockCard;
+    // RC-001: nhập p1 500 cái tại binA101
+    await SC.create({ code:'SC-RC001-P1', productId:p1._id, warehouseNodeId:binA101._id, refCode:'RC-2026-00001', type:'import', qtyBefore:0,  qtyChange:500, qtyAfter:500, note:'Nhập lô tháng 1/2026', recordedAt:new Date('2026-03-15'), createdByUserId:staff1._id });
+    // RC-001: nhập p2 300 cái tại binA201
+    await SC.create({ code:'SC-RC001-P2', productId:p2._id, warehouseNodeId:binA201._id, refCode:'RC-2026-00001', type:'import', qtyBefore:0,  qtyChange:300, qtyAfter:300, note:'Nhập lô tháng 1/2026', recordedAt:new Date('2026-03-15'), createdByUserId:staff1._id });
+    // RC-002: nhập p3 700 bộ tại binB101
+    await SC.create({ code:'SC-RC002-P3', productId:p3._id, warehouseNodeId:binB101._id, refCode:'RC-2026-00002', type:'import', qtyBefore:0,  qtyChange:700, qtyAfter:700, note:'Nhập lô tháng 2/2026', recordedAt:new Date('2026-03-28'), createdByUserId:staff1._id });
+    // RC-002: nhập p4 200 bộ tại binB201
+    await SC.create({ code:'SC-RC002-P4', productId:p4._id, warehouseNodeId:binB201._id, refCode:'RC-2026-00002', type:'import', qtyBefore:0,  qtyChange:200, qtyAfter:200, note:'Nhập lô tháng 2/2026', recordedAt:new Date('2026-03-28'), createdByUserId:staff2._id });
+
+    // DL-001 Samsung: xuất p1 -150, p2 -80
+    await SC.create({ code:'SC-DL001-P1', productId:p1._id, warehouseNodeId:binA101._id, refCode:'DL-2026-00001', type:'export', qtyBefore:500, qtyChange:-150, qtyAfter:350, note:'Xuất Samsung Q1', recordedAt:new Date('2026-03-29'), createdByUserId:staff1._id });
+    await SC.create({ code:'SC-DL001-P2', productId:p2._id, warehouseNodeId:binA201._id, refCode:'DL-2026-00001', type:'export', qtyBefore:300, qtyChange:-80,  qtyAfter:220, note:'Xuất Samsung Q1', recordedAt:new Date('2026-03-29'), createdByUserId:staff1._id });
+    // DL-002 Dell: xuất p3 -200
+    await SC.create({ code:'SC-DL002-P3', productId:p3._id, warehouseNodeId:binB101._id, refCode:'DL-2026-00002', type:'export', qtyBefore:700, qtyChange:-200, qtyAfter:500, note:'Xuất Dell Q1', recordedAt:new Date('2026-04-09'), createdByUserId:staff2._id });
+    // DL-003 HP: xuất p1 -100, p4 -100
+    await SC.create({ code:'SC-DL003-P1', productId:p1._id, warehouseNodeId:binA101._id, refCode:'DL-2026-00003', type:'export', qtyBefore:350, qtyChange:-100, qtyAfter:250, note:'Xuất HP Q1',   recordedAt:new Date('2026-04-19'), createdByUserId:accountant1._id });
+    await SC.create({ code:'SC-DL003-P4', productId:p4._id, warehouseNodeId:binB201._id, refCode:'DL-2026-00003', type:'export', qtyBefore:200, qtyChange:-100, qtyAfter:100, note:'Xuất HP Q1',   recordedAt:new Date('2026-04-19'), createdByUserId:accountant1._id });
+    // ADJ-001: điều chỉnh p3 -5
+    await SC.create({ code:'SC-ADJ001-P3', productId:p3._id, warehouseNodeId:binB101._id, refCode:'ADJ-ST-2026-00001', type:'adjustment', qtyBefore:500, qtyChange:-5, qtyAfter:495, note:'Điều chỉnh sau kiểm kê ST-002', recordedAt:new Date('2026-04-25'), createdByUserId:accountant1._id });
+
+    // Set dates for StockCards
+    await sequelize.query(`UPDATE StockCards SET createdAt=DATE_SUB(NOW(),INTERVAL 90 DAY),updatedAt=DATE_SUB(NOW(),INTERVAL 90 DAY) WHERE code IN ('SC-RC001-P1','SC-RC001-P2')`);
+    await sequelize.query(`UPDATE StockCards SET createdAt=DATE_SUB(NOW(),INTERVAL 75 DAY),updatedAt=DATE_SUB(NOW(),INTERVAL 75 DAY) WHERE code IN ('SC-RC002-P3','SC-RC002-P4')`);
+    await sequelize.query(`UPDATE StockCards SET createdAt=DATE_SUB(NOW(),INTERVAL 74 DAY),updatedAt=DATE_SUB(NOW(),INTERVAL 74 DAY) WHERE code IN ('SC-DL001-P1','SC-DL001-P2')`);
+    await sequelize.query(`UPDATE StockCards SET createdAt=DATE_SUB(NOW(),INTERVAL 65 DAY),updatedAt=DATE_SUB(NOW(),INTERVAL 65 DAY) WHERE code IN ('SC-DL002-P3')`);
+    await sequelize.query(`UPDATE StockCards SET createdAt=DATE_SUB(NOW(),INTERVAL 55 DAY),updatedAt=DATE_SUB(NOW(),INTERVAL 55 DAY) WHERE code IN ('SC-DL003-P1','SC-DL003-P4')`);
+    await sequelize.query(`UPDATE StockCards SET createdAt=DATE_SUB(NOW(),INTERVAL 47 DAY),updatedAt=DATE_SUB(NOW(),INTERVAL 47 DAY) WHERE code IN ('SC-ADJ001-P3')`);
+
+    console.log('✓ StockCards (10): import×4, export×5, adjustment×1');
 
     // ══════════════════════════════════════════════════════════════
     // 10. DELIVERY REQUESTS — Yêu cầu xuất kho (7 yêu cầu)
