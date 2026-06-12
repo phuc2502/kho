@@ -155,12 +155,12 @@ export const createDelivery = async (req, res, next) => {
     });
     res.status(201).json(populated);
 
-    // Gửi thông báo cho Nhân viên kho và Quản lý kho khi tạo phiếu xuất mới
+    // Gửi thông báo cho Quản lý kho khi Kế toán tạo phiếu xuất (chờ phê duyệt)
     sendNotification({
-      targetRoles: ['Admin', 'QuanLyKho', 'NhanVienKho'],
+      targetRoles: ['Admin', 'QuanLyKho'],
       excludeUserId: req.user._id,
-      title: `Phiếu xuất kho mới: ${code}`,
-      content: `${req.user.fullName || req.user.username} vừa tạo phiếu xuất kho ${code} cho khách hàng "${resolvedName}". Vui lòng chuẩn bị hàng.`,
+      title: `Phiếu xuất kho mới chờ duyệt: ${code}`,
+      content: `${req.user.fullName || req.user.username} vừa tạo phiếu xuất kho ${code} cho khách hàng "${resolvedName}". Vui lòng xem xét và phê duyệt.`,
       type: 'delivery',
       refId: delivery._id
     });

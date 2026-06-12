@@ -177,9 +177,9 @@ export const createDeliveryRequest = async (req, res, next) => {
     });
     res.status(201).json(full);
 
-    // Gửi thông báo cho QuanLyKho, KeToanKho, Admin khi Sale tạo yêu cầu xuất kho
+    // Gửi thông báo cho Kế toán kho khi Sale tạo yêu cầu xuất kho (Kế toán kiểm tra tồn kho và lập phiếu xuất)
     sendNotification({
-      targetRoles: ['Admin', 'QuanLyKho', 'KeToanKho'],
+      targetRoles: ['KeToanKho'],
       excludeUserId: req.user._id,
       title: `Yêu cầu xuất kho mới: ${code}`,
       content: `${req.user.fullName || req.user.username} (Sale) vừa gửi yêu cầu xuất kho ${code} cho khách hàng "${resolvedName}" với ${items.length} sản phẩm. Vui lòng kiểm tra tồn kho và xử lý.`,
