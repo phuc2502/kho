@@ -8,6 +8,7 @@ import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 const minutesIncludes = [
   {
@@ -166,6 +167,17 @@ export const approveMinutes = async (req, res, next) => {
     });
 
     const populated = await StocktakeMinutes.findByPk(id, { include: minutesIncludes });
+
+    // Gửi thông báo phê duyệt thành công đến Kế toán kho
+    sendNotification({
+      targetRoles: ['KeToanKho'],
+      excludeUserId: req.user._id,
+      title: `Biên bản kiểm kê đã được phê duyệt: ${minutes.code}`,
+      content: `Quản lý đã phê duyệt biên bản kiểm kê ${minutes.code} (liên kết phiếu kiểm kê ${stocktake.code}). Tồn kho thực tế đã được cập nhật hoặc tạo phiếu điều chỉnh tự động.`,
+      type: 'stocktake',
+      refId: minutes._id
+    });
+
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -203,6 +215,17 @@ export const rejectMinutes = async (req, res, next) => {
     });
 
     const populated = await StocktakeMinutes.findByPk(id, { include: minutesIncludes });
+
+    // Gửi thông báo từ chối biên bản kiểm kê đến Kế toán kho
+    sendNotification({
+      targetRoles: ['KeToanKho'],
+      excludeUserId: req.user._id,
+      title: `Biên bản kiểm kê bị từ chối: ${minutes.code}`,
+      content: `Quản lý đã từ chối biên bản kiểm kê ${minutes.code}. Lý do: ${reason.trim()}. Vui lòng kiểm tra lại.`,
+      type: 'stocktake',
+      refId: minutes._id
+    });
+
     res.json(populated);
   } catch (error) {
     next(error);

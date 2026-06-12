@@ -6,6 +6,7 @@ import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 const stocktakeIncludes = [
   { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
@@ -87,6 +88,16 @@ export const createStocktake = async (req, res, next) => {
     });
 
     const populated = await Stocktake.findByPk(stocktake._id, { include: stocktakeIncludes });
+
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho'],
+      excludeUserId: req.user._id,
+      title: `Yêu cầu phê duyệt phiếu kiểm kê mới: ${finalCode}`,
+      content: `${req.user.fullName || req.user.username} vừa lập phiếu kiểm kê ${finalCode}. Vui lòng phê duyệt để bắt đầu kiểm đếm.`,
+      type: 'stocktake',
+      refId: stocktake._id
+    });
+
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -143,6 +154,16 @@ export const approveStocktake = async (req, res, next) => {
     });
 
     const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
+
+    sendNotification({
+      targetRoles: ['KeToanKho', 'NhanVienKho'],
+      excludeUserId: req.user._id,
+      title: `Yêu cầu kiểm đếm cho phiếu kiểm kê ${populated.code}`,
+      content: `Phiếu kiểm kê ${populated.code} đã được phê duyệt. Kế toán kho và Nhân viên kho vui lòng tiến hành kiểm đếm thực tế và cập nhật số liệu.`,
+      type: 'stocktake',
+      refId: Number(id)
+    });
+
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -180,6 +201,14 @@ export const rejectStocktake = async (req, res, next) => {
     });
 
     const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
+
+    createNotificationForUser(stocktake.createdByUserId, {
+      title: `Phiếu kiểm kê ${stocktake.code} bị từ chối phê duyệt`,
+      content: `${req.user.fullName || req.user.username} đã từ chối phiếu kiểm kê ${stocktake.code}. Lý do: ${reason.trim()}. Vui lòng kiểm tra và lập lại yêu cầu.`,
+      type: 'stocktake',
+      refId: stocktake._id
+    });
+
     res.json(populated);
   } catch (error) {
     next(error);
@@ -290,6 +319,47 @@ export const submitStocktake = async (req, res, next) => {
     });
 
     const populated = await Stocktake.findByPk(id, { include: stocktakeIncludes });
+
+    if (!hasDiff) {
+      // Gửi thông báo khớp số liệu đến Kế toán kho
+      sendNotification({
+        targetRoles: ['KeToanKho'],
+        excludeUserId: req.user._id,
+        title: `Số liệu kiểm kê trùng khớp: ${stocktake.code}`,
+        content: `Số liệu kiểm đếm thực tế của phiếu kiểm kê ${stocktake.code} trùng khớp hoàn toàn với hệ thống.`,
+        type: 'stocktake',
+        refId: stocktake._id
+      });
+      // Gửi thông báo cho quản lý phê duyệt biên bản
+      sendNotification({
+        targetRoles: ['Admin', 'QuanLyKho'],
+        excludeUserId: req.user._id,
+        title: `Biên bản kiểm kê chờ phê duyệt: BB-${stocktake.code}`,
+        content: `Biên bản kiểm kê BB-${stocktake.code} (số liệu trùng khớp) đang chờ phê duyệt.`,
+        type: 'stocktake',
+        refId: stocktake._id
+      });
+    } else {
+      // Gửi thông báo không khớp số liệu đến Kế toán kho để lập biên bản
+      sendNotification({
+        targetRoles: ['KeToanKho'],
+        excludeUserId: req.user._id,
+        title: `Phát hiện chênh lệch kiểm kê: ${stocktake.code}`,
+        content: `Phiếu kiểm kê ${stocktake.code} có sự chênh lệch giữa thực tế và hệ thống. Biên bản kiểm kê BB-${stocktake.code} đã được tự động tạo, vui lòng kiểm tra.`,
+        type: 'stocktake',
+        refId: stocktake._id
+      });
+      // Thông báo đến quản lý phê duyệt biên bản chênh lệch
+      sendNotification({
+        targetRoles: ['Admin', 'QuanLyKho'],
+        excludeUserId: req.user._id,
+        title: `Phê duyệt biên bản kiểm kê chênh lệch: BB-${stocktake.code}`,
+        content: `Biên bản kiểm kê BB-${stocktake.code} có chênh lệch số liệu đang chờ phê duyệt từ quản lý.`,
+        type: 'stocktake',
+        refId: stocktake._id
+      });
+    }
+
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
