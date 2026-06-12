@@ -8,5 +8,5 @@ incidentRouter.use(authenticate);
 
 incidentRouter.get('/', requirePermission('incident:read'), getIncidents);
 incidentRouter.post('/', requirePermission('incident:create'), createIncident);
-incidentRouter.put('/:id', requirePermission('incident:create'), updateIncident);
+incidentRouter.put('/:id', requirePermission('incident:approve'), updateIncident);
 incidentRouter.delete('/:id', requirePermission('incident:create'), deleteIncident);

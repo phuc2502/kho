@@ -593,58 +593,60 @@ export const IncidentsPage = () => {
               </div>
 
               {/* Status Update Form (Resolving incident) */}
-              <form onSubmit={handleUpdateIncidentStatus} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-                <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1">
-                  <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  CẬP NHẬT TRẠNG THÁI & HƯỚNG GIẢI QUYẾT (Xử lý sự cố)
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">Trạng thái sự cố</label>
-                    <select
-                      value={editStatus}
-                      onChange={(e) => setEditStatus(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-                    >
-                      <option value="open">Đang mở</option>
-                      <option value="resolved">Đã giải quyết</option>
-                      <option value="closed">Đã đóng</option>
-                    </select>
+              <PermissionGuard permission="incident:approve">
+                <form onSubmit={handleUpdateIncidentStatus} className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                    CẬP NHẬT TRẠNG THÁI & HƯỚNG GIẢI QUYẾT (Xử lý sự cố)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Trạng thái sự cố</label>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
+                      >
+                        <option value="open">Đang mở</option>
+                        <option value="resolved">Đã giải quyết</option>
+                        <option value="closed">Đã đóng</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Hướng xử lý hàng hóa</label>
+                      <select
+                        value={editAction}
+                        onChange={(e) => setEditAction(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
+                      >
+                        <option value="pending">Đang chờ xử lý</option>
+                        <option value="reorder">Đặt hàng lại</option>
+                        <option value="dispose">Tiêu hủy hàng lỗi</option>
+                        <option value="return_supplier">Trả lại nhà cung cấp</option>
+                        <option value="write_off">Khấu trừ tài sản</option>
+                      </select>
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">Hướng xử lý hàng hóa</label>
-                    <select
-                      value={editAction}
-                      onChange={(e) => setEditAction(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800"
-                    >
-                      <option value="pending">Đang chờ xử lý</option>
-                      <option value="reorder">Đặt hàng lại</option>
-                      <option value="dispose">Tiêu hủy hàng lỗi</option>
-                      <option value="return_supplier">Trả lại nhà cung cấp</option>
-                      <option value="write_off">Khấu trừ tài sản</option>
-                    </select>
+                    <label className="block text-[10px] font-semibold text-slate-600 mb-1">Ghi chú xử lý mới</label>
+                    <input
+                      type="text"
+                      value={editNote}
+                      onChange={(e) => setEditNote(e.target.value)}
+                      placeholder="Mô tả kết quả xử lý sự cố..."
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800"
+                    />
                   </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-slate-600 mb-1">Ghi chú xử lý mới</label>
-                  <input
-                    type="text"
-                    value={editNote}
-                    onChange={(e) => setEditNote(e.target.value)}
-                    placeholder="Mô tả kết quả xử lý sự cố..."
-                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800"
-                  />
-                </div>
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold shadow"
-                  >
-                    Lưu cập nhật
-                  </button>
-                </div>
-              </form>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-xs font-semibold shadow"
+                    >
+                      Lưu cập nhật
+                    </button>
+                  </div>
+                </form>
+              </PermissionGuard>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

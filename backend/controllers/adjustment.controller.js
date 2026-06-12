@@ -109,7 +109,7 @@ export const approveAdjustment = async (req, res, next) => {
     const { id } = req.params;
 
     // Permission check: only Admin or users with adjustment:approve
-    const canApprove = req.user.role === 'Admin' || req.user.permissions.includes('adjustment:approve');
+    const canApprove = req.user.role === 'Admin' || (req.user.effectivePermissions && req.user.effectivePermissions.includes('adjustment:approve'));
     if (!canApprove) {
       await t.rollback();
       return res.status(403).json({ message: 'Bạn không có quyền duyệt phiếu điều chỉnh tồn kho' });

@@ -165,11 +165,11 @@ export const updateReceipt = async (req, res, next) => {
     }
 
     if (status) {
-      if (status === 'completed' || status === 'approved') {
-        const canApprove = req.user.role === 'Admin' || req.user.permissions.includes('receipt:approve');
+      if (status === 'completed' || status === 'approved' || status === 'rejected') {
+        const canApprove = req.user.role === 'Admin' || (req.user.effectivePermissions && req.user.effectivePermissions.includes('receipt:approve'));
         if (!canApprove) {
           await t.rollback();
-          return res.status(403).json({ message: 'Bạn không có quyền duyệt phiếu nhập kho' });
+          return res.status(403).json({ message: 'Bạn không có quyền duyệt/từ chối phiếu nhập kho' });
         }
 
         if (status === 'completed' && receipt.status !== 'completed') {
@@ -247,6 +247,18 @@ export const updateReceipt = async (req, res, next) => {
           refId: Number(id)
         });
       }
+    }
+
+    // Khi quản lý phê duyệt phiếu nhập kho (status === 'approved'), thông báo đến nhân viên kho để nhận hàng
+    if (status === 'approved') {
+      sendNotification({
+        targetRoles: ['NhanVienKho'],
+        excludeUserId: req.user._id,
+        title: `Phiếu nhập kho được phê duyệt: ${populated.code}`,
+        content: `${req.user.fullName || req.user.username} đã phê duyệt phiếu nhập kho ${populated.code}. Nhân viên kho vui lòng chuẩn bị nhận hàng và cập nhật hoàn tất.`,
+        type: 'receipt',
+        refId: Number(id)
+      });
     }
 
     res.json(populated);

@@ -47,7 +47,8 @@ export const PERMISSION_CATALOG = [
   { code: 'adjustment:create',  name: 'Tạo phiếu điều chỉnh',            group: 'Kiểm kê & Điều chỉnh' },
   { code: 'adjustment:approve', name: 'Duyệt phiếu điều chỉnh',          group: 'Kiểm kê & Điều chỉnh' },
   { code: 'incident:read',      name: 'Xem báo cáo sự cố',               group: 'Kiểm kê & Điều chỉnh' },
-  { code: 'incident:create',    name: 'Tạo / Sửa báo cáo sự cố',        group: 'Kiểm kê & Điều chỉnh' },
+  { code: 'incident:create',    name: 'Báo cáo sự cố mới',               group: 'Kiểm kê & Điều chỉnh' },
+  { code: 'incident:approve',   name: 'Phê duyệt / Xử lý báo cáo sự cố', group: 'Kiểm kê & Điều chỉnh' },
 
   // Khách hàng
   { code: 'customer:read',   name: 'Xem danh sách khách hàng',  group: 'Cấu trúc Kho & Đối tác' },
@@ -87,8 +88,8 @@ export const ROLE_DEFAULTS = {
     // Kiểm kê & Điều chỉnh (xem + phê duyệt)
     'stocktake:read', 'stocktake:approve',
     'adjustment:read', 'adjustment:approve',
-    // Sự cố (xem + xử lý)
-    'incident:read', 'incident:create',
+    // Sự cố (xem + xử lý + phê duyệt)
+    'incident:read', 'incident:create', 'incident:approve',
     // Báo cáo tồn kho
     'inventory:read',
     // audit:read và user:manage chỉ dành cho Admin — không gán cho vai trò khác
