@@ -6,6 +6,7 @@ import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { StockCard } from '../models/stockCard.model.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 const adjustmentIncludes = [
   { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
@@ -86,6 +87,16 @@ export const createAdjustment = async (req, res, next) => {
 
     const populated = await Adjustment.findByPk(adjustment._id, { include: adjustmentIncludes });
     res.status(201).json(populated);
+
+    // Gửi thông báo cho Admin, QuanLyKho khi tạo phiếu điều chỉnh mới
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho'],
+      excludeUserId: req.user._id,
+      title: `Phiếu điều chỉnh tồn mới: ${finalCode}`,
+      content: `${req.user.fullName || req.user.username} vừa tạo phiếu điều chỉnh tồn kho ${finalCode} (${items.length} sản phẩm). Vui lòng xem xét và phê duyệt.`,
+      type: 'adjustment',
+      refId: adjustment._id
+    });
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);
@@ -177,6 +188,16 @@ export const approveAdjustment = async (req, res, next) => {
 
     const populated = await Adjustment.findByPk(id, { include: adjustmentIncludes });
     res.json(populated);
+
+    // Gửi thông báo cho người tạo phiếu khi được duyệt
+    if (adjustment.createdByUserId !== req.user._id) {
+      createNotificationForUser(adjustment.createdByUserId, {
+        title: `Phiếu điều chỉnh ${adjustment.code} đã được duyệt`,
+        content: `${req.user.fullName || req.user.username} đã phê duyệt phiếu điều chỉnh tồn kho ${adjustment.code}. Tồn kho đã được cập nhật.`,
+        type: 'adjustment',
+        refId: Number(id)
+      });
+    }
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);

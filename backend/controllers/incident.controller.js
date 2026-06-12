@@ -3,6 +3,7 @@ import { Product } from '../models/product.model.js';
 import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 const incidentIncludes = [
   { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
@@ -69,6 +70,17 @@ export const createIncident = async (req, res, next) => {
 
     const populated = await Incident.findByPk(incident._id, { include: incidentIncludes });
     res.status(201).json(populated);
+
+    // Gửi thông báo cho QuanLyKho, Admin khi có báo cáo sự cố mới
+    const typeLabels = { shortage: 'thiếu hụt', damage: 'hư hỏng', wrong_product: 'sai hàng', expired: 'hết hạn', other: 'khác' };
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho'],
+      excludeUserId: req.user._id,
+      title: `Sự cố mới: ${code} (${typeLabels[type] || type})`,
+      content: `${req.user.fullName || req.user.username} vừa báo cáo sự cố ${code} loại "${typeLabels[type] || type}". Vui lòng xem xét và xử lý.`,
+      type: 'incident',
+      refId: incident._id
+    });
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);
@@ -116,6 +128,20 @@ export const updateIncident = async (req, res, next) => {
 
     const populated = await Incident.findByPk(id, { include: incidentIncludes });
     res.json(populated);
+
+    // Gửi thông báo cho người báo cáo khi sự cố được xử lý hoặc đóng
+    if (status && incident.createdByUserId !== req.user._id) {
+      const statusLabels = { resolved: 'đã được giải quyết', closed: 'đã được đóng' };
+      const label = statusLabels[status];
+      if (label) {
+        createNotificationForUser(incident.createdByUserId, {
+          title: `Sự cố ${incident.code} ${label}`,
+          content: `${req.user.fullName || req.user.username} đã cập nhật sự cố ${incident.code} sang trạng thái "${label}".`,
+          type: 'incident',
+          refId: Number(id)
+        });
+      }
+    }
   } catch (error) {
     next(error);
   }

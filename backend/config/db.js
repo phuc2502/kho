@@ -56,6 +56,7 @@ export const connectDB = async () => {
     await import('../models/adjustment.model.js');
     await import('../models/incident.model.js');
     await import('../models/stockCard.model.js');
+    await import('../models/notification.model.js');
 
     // Chạy migration trước khi sync (đổi ENUM, thêm cột mới)
     const { runMigrations } = await import('../utils/migration.helper.js');

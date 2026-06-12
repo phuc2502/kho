@@ -8,6 +8,7 @@ import { Customer } from '../models/customer.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { StockCard } from '../models/stockCard.model.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 // Helper: lấy phiếu xuất với đầy đủ thông tin liên quan
 const findDeliveryFull = (id) => Delivery.findByPk(id, {
@@ -153,6 +154,16 @@ export const createDelivery = async (req, res, next) => {
       payload: { code, totalAmount, itemCount: mappedItems.length }
     });
     res.status(201).json(populated);
+
+    // Gửi thông báo cho Nhân viên kho và Quản lý kho khi tạo phiếu xuất mới
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho', 'NhanVienKho'],
+      excludeUserId: req.user._id,
+      title: `Phiếu xuất kho mới: ${code}`,
+      content: `${req.user.fullName || req.user.username} vừa tạo phiếu xuất kho ${code} cho khách hàng "${resolvedName}". Vui lòng chuẩn bị hàng.`,
+      type: 'delivery',
+      refId: delivery._id
+    });
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);
@@ -223,6 +234,16 @@ export const submitDelivery = async (req, res, next) => {
     await recordAudit({ action: 'delivery.submitForApproval', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(req.params.id), payload: { code: delivery.code } });
     const populated = await findDeliveryFull(req.params.id);
     res.json({ message: 'Đã gửi phiếu xuất kho để Quản lý phê duyệt', delivery: populated });
+
+    // Gửi thông báo cho Quản lý kho phê duyệt
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho'],
+      excludeUserId: req.user._id,
+      title: `Phiếu xuất kho chờ phê duyệt: ${delivery.code}`,
+      content: `${req.user.fullName || req.user.username} đã gửi phiếu xuất kho ${delivery.code} để phê duyệt. Vui lòng xem xét.`,
+      type: 'delivery',
+      refId: Number(req.params.id)
+    });
   } catch (error) { next(error); }
 };
 
@@ -267,6 +288,17 @@ export const approveDelivery = async (req, res, next) => {
     await recordAudit({ action: 'delivery.approve', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { code: delivery.code, message: 'Phê duyệt + giữ chỗ tồn kho thành công' } });
     const populated = await findDeliveryFull(id);
     res.json(populated);
+
+    // Gửi thông báo cho người tạo phiếu và Nhân viên kho
+    sendNotification({
+      targetRoles: ['NhanVienKho'],
+      targetUserIds: [delivery.createdByUserId],
+      excludeUserId: req.user._id,
+      title: `Phiếu xuất kho ${delivery.code} đã được phê duyệt`,
+      content: `${req.user.fullName || req.user.username} đã phê duyệt phiếu xuất kho ${delivery.code}. Nhân viên kho vui lòng tiến hành xuất hàng.`,
+      type: 'delivery',
+      refId: Number(id)
+    });
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);
@@ -288,6 +320,16 @@ export const rejectDelivery = async (req, res, next) => {
     await recordAudit({ action: 'delivery.reject', userId: req.user._id, username: req.user.username, entity: 'delivery', entityId: Number(id), payload: { code: delivery.code, reason: reason.trim() } });
     const populated = await findDeliveryFull(id);
     res.json(populated);
+
+    // Gửi thông báo cho người tạo phiếu khi bị từ chối
+    if (delivery.createdByUserId !== req.user._id) {
+      createNotificationForUser(delivery.createdByUserId, {
+        title: `Phiếu xuất kho ${delivery.code} bị từ chối`,
+        content: `${req.user.fullName || req.user.username} đã từ chối phiếu xuất kho ${delivery.code}. Lý do: ${reason.trim()}`,
+        type: 'delivery',
+        refId: Number(id)
+      });
+    }
   } catch (error) { next(error); }
 };
 
@@ -395,6 +437,16 @@ export const completeDelivery = async (req, res, next) => {
 
     const populated = await findDeliveryFull(id);
     res.json(populated);
+
+    // Gửi thông báo cho người tạo phiếu khi hoàn tất
+    if (delivery.createdByUserId !== req.user._id) {
+      createNotificationForUser(delivery.createdByUserId, {
+        title: `Phiếu xuất kho ${delivery.code} đã hoàn tất`,
+        content: `${req.user.fullName || req.user.username} đã hoàn tất xuất kho theo phiếu ${delivery.code}. Người nhận: ${signerName.trim()}.`,
+        type: 'delivery',
+        refId: Number(id)
+      });
+    }
   } catch (error) {
     if (!t.finished) await t.rollback();
     next(error);

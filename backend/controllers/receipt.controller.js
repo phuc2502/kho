@@ -6,6 +6,7 @@ import { WarehouseNode } from '../models/warehouseNode.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { StockCard } from '../models/stockCard.model.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 export const getReceipts = async (req, res, next) => {
   try {
@@ -91,6 +92,17 @@ export const createReceipt = async (req, res, next) => {
     });
 
     await recordAudit({ action: 'receipt.create', userId: req.user._id, username: req.user.username, entity: 'receipt', entityId: receipt._id, payload: { code, totalAmount, itemCount: mappedItems.length } });
+
+    // Gửi thông báo cho người có quyền phê duyệt phiếu nhập
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho'],
+      excludeUserId: req.user._id,
+      title: `Phiếu nhập kho mới: ${code}`,
+      content: `${req.user.fullName || req.user.username} vừa tạo phiếu nhập kho ${code} với ${mappedItems.length} sản phẩm, tổng giá trị ${Number(totalAmount).toLocaleString('vi-VN')}đ. Vui lòng xem xét và phê duyệt.`,
+      type: 'receipt',
+      refId: receipt._id
+    });
+
     res.status(201).json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();
@@ -222,6 +234,21 @@ export const updateReceipt = async (req, res, next) => {
 
     const actionVerb = status === 'completed' ? 'receipt.complete' : status === 'approved' ? 'receipt.approve' : status === 'rejected' ? 'receipt.reject' : 'receipt.update';
     await recordAudit({ action: actionVerb, userId: req.user._id, username: req.user.username, entity: 'receipt', entityId: Number(id), payload: { status, code: populated.code } });
+
+    // Gửi thông báo phản hồi cho người tạo phiếu khi trạng thái thay đổi
+    if (status && receipt.createdByUserId !== req.user._id) {
+      const statusLabels = { approved: 'đã được phê duyệt', completed: 'đã hoàn tất', rejected: 'đã bị từ chối' };
+      const label = statusLabels[status];
+      if (label) {
+        createNotificationForUser(receipt.createdByUserId, {
+          title: `Phiếu nhập ${populated.code} ${label}`,
+          content: `${req.user.fullName || req.user.username} đã cập nhật phiếu nhập kho ${populated.code} sang trạng thái "${label}".`,
+          type: 'receipt',
+          refId: Number(id)
+        });
+      }
+    }
+
     res.json(populated);
   } catch (error) {
     if (!t.finished) await t.rollback();

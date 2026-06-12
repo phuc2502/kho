@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../controllers/auth.context.jsx';
 import { UserModel } from '../models/user.model.js';
+import { NotificationBell } from '../components/NotificationBell.jsx';
 import {
   Users, Package, Warehouse, ShoppingBag, Database,
   ArrowDownLeft, ArrowUpRight, LogOut, ClipboardList,
@@ -287,19 +288,22 @@ export const DashboardLayout = () => {
             </h1>
           </div>
 
-          {/* Role pill */}
-          <span
-            className="px-3 py-1 text-[11px] font-medium truncate max-w-[120px] sm:max-w-none"
-            style={{
-              background:    '#f7f5f2',
-              color:         '#716b61',
-              border:        '1px solid #d9d3cb',
-              borderRadius:  '16px',
-              letterSpacing: '0.02em',
-            }}
-          >
-            {ROLE_LABELS[user?.role] || user?.role}
-          </span>
+          {/* Right: notification + role pill */}
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <span
+              className="px-3 py-1 text-[11px] font-medium truncate max-w-[120px] sm:max-w-none"
+              style={{
+                background:    '#f7f5f2',
+                color:         '#716b61',
+                border:        '1px solid #d9d3cb',
+                borderRadius:  '16px',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {ROLE_LABELS[user?.role] || user?.role}
+            </span>
+          </div>
         </header>
 
         {/* Page canvas — Cream Paper */}

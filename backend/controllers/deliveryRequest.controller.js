@@ -5,6 +5,7 @@ import { Inventory } from '../models/inventory.model.js';
 import { Customer } from '../models/customer.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
+import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
 
 // ── GET /api/v1/delivery-requests ───────────────────────────────
 // Sale: chỉ xem yêu cầu của mình
@@ -175,6 +176,16 @@ export const createDeliveryRequest = async (req, res, next) => {
       ]
     });
     res.status(201).json(full);
+
+    // Gửi thông báo cho QuanLyKho, KeToanKho, Admin khi Sale tạo yêu cầu xuất kho
+    sendNotification({
+      targetRoles: ['Admin', 'QuanLyKho', 'KeToanKho'],
+      excludeUserId: req.user._id,
+      title: `Yêu cầu xuất kho mới: ${code}`,
+      content: `${req.user.fullName || req.user.username} (Sale) vừa gửi yêu cầu xuất kho ${code} cho khách hàng "${resolvedName}" với ${items.length} sản phẩm. Vui lòng kiểm tra tồn kho và xử lý.`,
+      type: 'delivery_request',
+      refId: request._id
+    });
   } catch (error) {
     await t.rollback();
     next(error);
@@ -280,6 +291,16 @@ export const cancelDeliveryRequest = async (req, res, next) => {
     });
 
     res.json({ message: 'Đã huỷ yêu cầu', request });
+
+    // Nếu không phải chính người tạo tự huỷ, thông báo cho người tạo
+    if (request.createdByUserId !== req.user._id) {
+      createNotificationForUser(request.createdByUserId, {
+        title: `Yêu cầu xuất kho ${request.code} đã bị huỷ`,
+        content: `${req.user.fullName || req.user.username} đã huỷ yêu cầu xuất kho ${request.code}.`,
+        type: 'delivery_request',
+        refId: request._id
+      });
+    }
   } catch (error) {
     next(error);
   }
@@ -318,6 +339,18 @@ export const updateDeliveryRequestStatus = async (req, res, next) => {
     });
 
     res.json(request);
+
+    // Gửi thông báo phản hồi cho người tạo yêu cầu (thường là Sale)
+    if (request.createdByUserId !== req.user._id) {
+      const statusLabels = { processing: 'đang được xử lý', completed: 'đã hoàn tất', cancelled: 'đã bị huỷ' };
+      const label = statusLabels[status] || status;
+      createNotificationForUser(request.createdByUserId, {
+        title: `Yêu cầu xuất kho ${request.code} ${label}`,
+        content: `${req.user.fullName || req.user.username} đã cập nhật trạng thái yêu cầu xuất kho ${request.code} sang "${label}".`,
+        type: 'delivery_request',
+        refId: request._id
+      });
+    }
   } catch (error) {
     next(error);
   }
