@@ -6,7 +6,9 @@ import { CategoryModel } from '../models/category.model.js';
 import { PermissionGuard } from '../components/PermissionGuard.jsx';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
-import { Plus, Eye, Trash2, X, AlertTriangle, CheckCircle2, XCircle, Search, Calendar, Download, Info } from 'lucide-react';
+import { Plus, Eye, Trash2, X, AlertTriangle, CheckCircle2, XCircle, Search, Calendar, Download, Info, Printer } from 'lucide-react';
+import { printDocument } from '../utils/printDocument.js';
+import { incidentTemplate } from '../utils/printTemplates.js';
 import { exportToCSV } from '../utils/exportCSV.js';
 
 const TYPE_LABELS = {
@@ -607,6 +609,12 @@ export const IncidentsPage = () => {
                   </button>
                 </>
               )}
+              <button
+                onClick={() => printDocument(incidentTemplate(selectedIncident), `Báo cáo sự cố ${selectedIncident.code}`)}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" /> In / Lưu PDF
+              </button>
               <button
                 onClick={() => setSelectedIncident(null)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold"

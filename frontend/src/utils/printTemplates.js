@@ -248,7 +248,71 @@ export const stocktakeMinutesTemplate = (stocktake) => {
 };
 
 // ─────────────────────────────────────────────
-// 5. BÁO CÁO KIỂM KÊ (chỉ các mục có chênh lệch)
+// 5. BÁO CÁO SỰ CỐ NHẬP KHO
+// ─────────────────────────────────────────────
+export const incidentTemplate = (incident) => {
+  const typeMap = { hang_loi: 'Hàng lỗi (QC phát hiện)', hang_thieu: 'Hàng thiếu (NVK kiểm đếm)' };
+  const statusMap = { pending_approval: 'Chờ phê duyệt', approved: 'Đã phê duyệt', rejected: 'Từ chối' };
+
+  const rows = (incident.items || []).map((item, i) => `
+    <tr>
+      <td class="text-center">${i + 1}</td>
+      <td>${item.product?.name || '—'}</td>
+      <td class="text-center">${item.product?.sku || '—'}</td>
+      <td class="text-center">${item.product?.unit || 'Cái'}</td>
+      <td class="text-center font-bold" style="color:#c00">${item.quantity}</td>
+      <td>${item.reason || '—'}</td>
+    </tr>`).join('');
+
+  const rejectBlock = incident.status === 'rejected' && incident.rejectNote
+    ? `<div style="margin:12px 0;padding:10px;border:1px solid #f5a0a0;background:#fff5f5;font-size:12px">
+        <strong>Lý do từ chối:</strong> ${incident.rejectNote}
+       </div>` : '';
+
+  return `<div class="page">
+    ${header('Báo Cáo Sự Cố Nhập Kho', `Số phiếu: <strong>${incident.code}</strong>`)}
+
+  <div class="info-grid">
+    <div class="info-row"><span class="info-label">Loại sự cố:</span><span><strong>${typeMap[incident.type] || incident.type}</strong></span></div>
+    <div class="info-row"><span class="info-label">Trạng thái:</span><span>${statusMap[incident.status] || incident.status}</span></div>
+    <div class="info-row"><span class="info-label">Ngày lập:</span><span>${fmtDate(incident.createdAt)}</span></div>
+    <div class="info-row"><span class="info-label">Người báo cáo:</span><span>${incident.createdByUser?.fullName || incident.createdByUser?.username || '—'}</span></div>
+    ${incident.refId ? `<div class="info-row"><span class="info-label">Phiếu nhập liên kết:</span><span>${incident.refCode || `#${incident.refId}`}</span></div>` : ''}
+    ${incident.approvedByUser ? `<div class="info-row"><span class="info-label">Người phê duyệt:</span><span>${incident.approvedByUser?.fullName || incident.approvedByUser?.username || '—'}</span></div>` : ''}
+    <div class="info-row"><span class="info-label">Mô tả:</span><span>${incident.note || '—'}</span></div>
+  </div>
+
+  ${rejectBlock}
+
+  <table>
+    <thead><tr>
+      <th style="width:4%">STT</th><th>Tên sản phẩm</th><th style="width:12%">Mã SKU</th>
+      <th style="width:8%">ĐVT</th><th style="width:12%">SL gặp sự cố</th>
+      <th>Nguyên nhân / Mô tả lỗi</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div style="margin-top:12px;padding:10px;border:1px solid #ccc;background:#fffbea;font-size:12px">
+    <strong>Đề xuất xử lý:</strong>
+    ${incident.type === 'hang_loi'
+      ? 'Trả lại nhà cung cấp hoặc lập phiếu nhập riêng sau khi hàng được sửa chữa/thay thế.'
+      : 'Liên hệ nhà cung cấp để bổ sung số lượng còn thiếu hoặc điều chỉnh giá trị phiếu nhập.'}
+  </div>
+
+  <div class="signatures">
+    <div class="sig-row" style="grid-template-columns:repeat(3,1fr)">
+      <div class="sig-box"><div class="sig-title">Người báo cáo</div><div style="font-size:11px;color:#555">(Ký, ghi rõ họ tên)</div><div class="sig-space"></div><div class="sig-name">${incident.createdByUser?.fullName || incident.createdByUser?.username || ''}</div></div>
+      <div class="sig-box"><div class="sig-title">QC / Thủ kho xác nhận</div><div style="font-size:11px;color:#555">(Ký, ghi rõ họ tên)</div><div class="sig-space"></div><div class="sig-name">&nbsp;</div></div>
+      <div class="sig-box"><div class="sig-title">Quản lý kho (Phê duyệt)</div><div style="font-size:11px;color:#555">(Ký, ghi rõ họ tên)</div><div class="sig-space"></div><div class="sig-name">${incident.approvedByUser?.fullName || incident.approvedByUser?.username || ''}</div></div>
+    </div>
+  </div>
+  <div class="print-footer">In lúc: ${fmtDateTime()}</div>
+</div>`;
+};
+
+// ─────────────────────────────────────────────
+// 6. BÁO CÁO KIỂM KÊ (chỉ các mục có chênh lệch)
 // ─────────────────────────────────────────────
 export const stocktakeReportTemplate = (stocktake) => {
   const items = stocktake.items || [];

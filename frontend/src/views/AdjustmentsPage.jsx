@@ -202,16 +202,18 @@ export const AdjustmentsPage = () => {
 
   const renderStatusBadge = (status) => {
     const styles = {
-      draft: 'bg-slate-100 text-slate-700 border-slate-200',
-      completed: 'bg-emerald-100 text-emerald-700 border-emerald-200'
+      draft:     'bg-amber-100 text-amber-800 border-amber-300',
+      completed: 'bg-emerald-100 text-emerald-700 border-emerald-300',
     };
     const labels = {
-      draft: 'Bản nháp',
-      completed: 'Đã hoàn tất'
+      draft:     'Bản nháp',
+      completed: 'Đã hoàn tất',
     };
+    const cls = styles[status] ?? 'bg-slate-100 text-slate-500 border-slate-300';
+    const lbl = labels[status] ?? (status || 'Không rõ');
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase ${styles[status]}`}>
-        {labels[status] || status}
+      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${cls}`}>
+        {lbl}
       </span>
     );
   };

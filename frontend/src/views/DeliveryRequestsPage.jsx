@@ -6,7 +6,8 @@ import { WarehouseModel } from '../models/warehouse.model.js';
 import { CustomerModel } from '../models/customer.model.js';
 import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
-import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck, Ban, Clock, Search, Calendar } from 'lucide-react';
+import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck, Ban, Clock, Search, Calendar, Download } from 'lucide-react';
+import { exportToCSV } from '../utils/exportCSV.js';
 
 // ── Trạng thái yêu cầu ────────────────────────────────────────
 const REQ_STATUS = {
@@ -293,14 +294,33 @@ export const DeliveryRequestsPage = () => {
               : 'Xem và xử lý yêu cầu từ bộ phận kinh doanh. Tạo phiếu xuất kho tương ứng khi duyệt.'}
           </p>
         </div>
-        {isSale && (
+        <div className="flex gap-2">
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold transition-colors shadow-md shadow-primary-500/10"
+            onClick={() => {
+              const headers = ['Mã yêu cầu', 'Ngày tạo', 'Người tạo', 'Khách hàng', 'Số SP', 'Trạng thái'];
+              const rows = filtered.map(r => [
+                r.code || '',
+                r.createdAt?.split('T')[0] || '',
+                r.createdByUser?.username || '',
+                r.customerName || r.customer?.name || '',
+                r.items?.length || 0,
+                REQ_STATUS[r.status]?.label || r.status || ''
+              ]);
+              exportToCSV('yeu_cau_xuat_kho', headers, rows);
+            }}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold"
           >
-            <Plus className="w-4 h-4" /> Tạo yêu cầu mới
+            <Download className="w-4 h-4" /> Xuất CSV
           </button>
-        )}
+          {isSale && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold transition-colors shadow-md shadow-primary-500/10"
+            >
+              <Plus className="w-4 h-4" /> Tạo yêu cầu mới
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}

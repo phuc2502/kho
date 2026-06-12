@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ReceiptModel } from '../models/receipt.model.js';
 import { DeliveryModel } from '../models/delivery.model.js';
 import { InventoryModel } from '../models/inventory.model.js';
-import { exportToCSV } from '../utils/exportCSV.js';
+import { exportToExcel } from '../utils/exportExcel.js';
 import toast from 'react-hot-toast';
 import {
   BarChart2, Download, ArrowDownLeft, ArrowUpRight,
@@ -81,44 +81,64 @@ export const ReportsPage = () => {
 
   // --- Export functions ---
   const exportReceipts = () => {
-    const headers = ['Mã phiếu', 'Nhà cung cấp', 'Ngày lập', 'Số sản phẩm', 'Tổng tiền (VND)', 'Trạng thái'];
-    const rows = receipts.map(r => [
+    const headers = ['Mã phiếu', 'Ngày lập', 'Người lập', 'Số sản phẩm', 'Tổng tiền (VND)', 'Trạng thái'];
+    const rows = filteredReceipts.map(r => [
       r.code,
-      r.partner?.name || '',
       r.createdAt?.split('T')[0] || '',
+      r.createdByUser?.username || '',
       r.items?.length || 0,
       r.totalAmount || 0,
-      r.status
+      'Đã nhập kho'
     ]);
-    exportToCSV('phieu_nhap_kho', headers, rows);
-    toast.success('Đã xuất file phiếu nhập kho');
+    exportToExcel('bao_cao_nhap_kho', [{ name: 'Nhập kho', headers, rows }]);
+    toast.success('Đã xuất Excel phiếu nhập kho');
   };
 
   const exportDeliveries = () => {
-    const headers = ['Mã phiếu', 'Khách hàng', 'Ngày lập', 'Số sản phẩm', 'Tổng tiền (VND)', 'Trạng thái'];
-    const rows = deliveries.map(d => [
+    const headers = ['Mã phiếu', 'Ngày lập', 'Người lập', 'Khách hàng', 'Số sản phẩm', 'Tổng tiền (VND)', 'Trạng thái'];
+    const rows = filteredDeliveries.map(d => [
       d.code,
-      d.partner?.name || '',
       d.createdAt?.split('T')[0] || '',
+      d.createdByUser?.username || '',
+      d.tenKhachHang || d.partner?.name || '',
       d.items?.length || 0,
       d.totalAmount || 0,
-      d.status
+      'Hoàn tất'
     ]);
-    exportToCSV('phieu_xuat_kho', headers, rows);
-    toast.success('Đã xuất file phiếu xuất kho');
+    exportToExcel('bao_cao_xuat_kho', [{ name: 'Xuất kho', headers, rows }]);
+    toast.success('Đã xuất Excel phiếu xuất kho');
   };
 
   const exportInventory = () => {
-    const headers = ['Sản phẩm', 'SKU', 'Vị trí (Bin)', 'Mã vị trí', 'Số lượng tồn'];
-    const rows = inventory.map(i => [
-      i.product?.name || '',
-      i.product?.sku || '',
-      i.warehouseNode?.name || '',
-      i.warehouseNode?.code || '',
-      i.quantity || 0,
+    const headers = ['Tên sản phẩm', 'SKU', 'Đơn vị', 'Mã vị trí (Bin)', 'Tên vị trí', 'Số lượng tồn', 'Trạng thái'];
+    const rows = inventory
+      .sort((a, b) => (b.quantity || 0) - (a.quantity || 0))
+      .map(i => [
+        i.product?.name || '',
+        i.product?.sku || '',
+        i.product?.unit || 'Cái',
+        i.warehouseNode?.code || '',
+        i.warehouseNode?.name || '',
+        i.quantity || 0,
+        i.quantity === 0 ? 'Hết hàng' : i.quantity < 5 ? 'Sắp hết' : 'Còn hàng',
+      ]);
+    exportToExcel('ton_kho_thuc_te', [{ name: 'Tồn kho', headers, rows }]);
+    toast.success('Đã xuất Excel tồn kho');
+  };
+
+  const exportAllSheets = () => {
+    const rHeaders = ['Mã phiếu', 'Ngày lập', 'Người lập', 'Số sản phẩm', 'Tổng tiền (VND)'];
+    const rRows = filteredReceipts.map(r => [r.code, r.createdAt?.split('T')[0] || '', r.createdByUser?.username || '', r.items?.length || 0, r.totalAmount || 0]);
+    const dHeaders = ['Mã phiếu', 'Ngày lập', 'Người lập', 'Khách hàng', 'Số sản phẩm', 'Tổng tiền (VND)'];
+    const dRows = filteredDeliveries.map(d => [d.code, d.createdAt?.split('T')[0] || '', d.createdByUser?.username || '', d.tenKhachHang || '', d.items?.length || 0, d.totalAmount || 0]);
+    const iHeaders = ['Tên sản phẩm', 'SKU', 'Đơn vị', 'Mã vị trí (Bin)', 'Số lượng tồn', 'Trạng thái'];
+    const iRows = inventory.map(i => [i.product?.name || '', i.product?.sku || '', i.product?.unit || 'Cái', i.warehouseNode?.code || '', i.quantity || 0, i.quantity === 0 ? 'Hết hàng' : i.quantity < 5 ? 'Sắp hết' : 'Còn hàng']);
+    exportToExcel('bao_cao_kho_tong_hop', [
+      { name: 'Nhập kho', headers: rHeaders, rows: rRows },
+      { name: 'Xuất kho', headers: dHeaders, rows: dRows },
+      { name: 'Tồn kho', headers: iHeaders, rows: iRows },
     ]);
-    exportToCSV('ton_kho_thuc_te', headers, rows);
-    toast.success('Đã xuất file tồn kho');
+    toast.success('Đã xuất Excel báo cáo tổng hợp (3 sheet)');
   };
 
   return (
@@ -131,6 +151,12 @@ export const ReportsPage = () => {
           </h2>
           <p className="text-sm text-slate-500">Tổng hợp số liệu nhập - xuất - tồn kho theo kỳ</p>
         </div>
+        <button
+          onClick={exportAllSheets}
+          className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-600/10"
+        >
+          <Download className="w-4 h-4" /> Xuất Excel tổng hợp
+        </button>
       </div>
 
       {/* Tabs */}
@@ -238,7 +264,7 @@ export const ReportsPage = () => {
                 </h3>
                 <button onClick={exportReceipts}
                   className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-emerald-500/10">
-                  <Download className="w-3.5 h-3.5" /> Xuất CSV
+                  <Download className="w-3.5 h-3.5" /> Xuất Excel
                 </button>
               </div>
               {filteredReceipts.length === 0 ? (
@@ -287,7 +313,7 @@ export const ReportsPage = () => {
                 </h3>
                 <button onClick={exportDeliveries}
                   className="flex items-center gap-1.5 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-purple-500/10">
-                  <Download className="w-3.5 h-3.5" /> Xuất CSV
+                  <Download className="w-3.5 h-3.5" /> Xuất Excel
                 </button>
               </div>
               {filteredDeliveries.length === 0 ? (
@@ -336,7 +362,7 @@ export const ReportsPage = () => {
                 </h3>
                 <button onClick={exportInventory}
                   className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-500/10">
-                  <Download className="w-3.5 h-3.5" /> Xuất CSV
+                  <Download className="w-3.5 h-3.5" /> Xuất Excel
                 </button>
               </div>
               {inventory.length === 0 ? (

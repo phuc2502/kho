@@ -71,29 +71,31 @@ export const PERMISSION_CATALOG = [
 export const ROLE_DEFAULTS = {
   Admin: null,
 
-  // QuanLyKho: phê duyệt tất cả phiếu, quản lý sản phẩm + kho (không lập phiếu, không quản lý đối tác)
+  // QuanLyKho: toàn bộ quyền nghiệp vụ trừ 3 quyền admin-only và delivery-request:create (của Sale)
   QuanLyKho: [
-    // Sản phẩm & Danh mục (quản lý đầy đủ)
+    // Sản phẩm & Danh mục
     'product:read', 'product:create', 'product:update', 'product:delete',
     'category:read', 'category:create', 'category:update', 'category:delete',
-    // Cấu trúc kho (quản lý đầy đủ — không có partner vì Admin quản lý)
+    // Cấu trúc Kho & Đối tác
     'warehouse:read', 'warehouse:create', 'warehouse:update', 'warehouse:delete',
-    // Nhập kho (xem + phê duyệt; KeToanKho mới lập phiếu)
-    'receipt:read', 'receipt:update', 'receipt:approve',
-    // Khách hàng (quản lý đầy đủ)
-    'customer:read', 'customer:create', 'customer:update',
-    // Yêu cầu xuất kho (xem tất cả yêu cầu từ Sale)
+    'partner:read', 'partner:create', 'partner:update', 'partner:delete',
+    // Nhập kho (đầy đủ)
+    'receipt:read', 'receipt:create', 'receipt:update', 'receipt:approve', 'receipt:complete',
+    // Yêu cầu xuất kho (xem — không tạo, đó là quyền của Sale)
     'delivery-request:read',
-    // Phiếu xuất kho (xem + phê duyệt; KeToanKho mới lập phiếu; NhanVienKho xác nhận + hoàn tất)
-    'delivery:read', 'delivery:update', 'delivery:approve',
-    // Kiểm kê & Điều chỉnh (xem + phê duyệt)
-    'stocktake:read', 'stocktake:approve',
-    'adjustment:read', 'adjustment:approve',
-    // Sự cố (xem + xử lý + phê duyệt)
+    // Phiếu xuất kho (đầy đủ)
+    'delivery:read', 'delivery:create', 'delivery:update', 'delivery:approve', 'delivery:ship', 'delivery:complete',
+    // Kiểm kê (đầy đủ)
+    'stocktake:read', 'stocktake:create', 'stocktake:approve', 'stocktake:count',
+    // Điều chỉnh tồn kho (đầy đủ)
+    'adjustment:read', 'adjustment:create', 'adjustment:approve',
+    // Sự cố (đầy đủ)
     'incident:read', 'incident:create', 'incident:approve',
+    // Khách hàng (đầy đủ)
+    'customer:read', 'customer:create', 'customer:update',
     // Báo cáo tồn kho
     'inventory:read',
-    // audit:read và user:manage chỉ dành cho Admin — không gán cho vai trò khác
+    // KHÔNG gán: user:manage, audit:read, emaillog:read (admin-only); delivery-request:create (Sale)
   ],
 
   // KeToanKho: lập phiếu nhập/xuất/kiểm kê/điều chỉnh — không phê duyệt, không quản lý đối tác

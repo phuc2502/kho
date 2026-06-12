@@ -4,7 +4,7 @@ import { ProductModel } from '../models/product.model.js';
 import { WarehouseModel } from '../models/warehouse.model.js';
 import { CategoryModel } from '../models/category.model.js';
 import { BarcodeInput } from '../components/BarcodeInput.jsx';
-import { exportToCSV } from '../utils/exportCSV.js';
+import { exportToExcel } from '../utils/exportExcel.js';
 import toast from 'react-hot-toast';
 import { Database, MapPin, Layers, Download, ScanLine, Search, X, Package, Tag, Warehouse } from 'lucide-react';
 
@@ -147,17 +147,19 @@ export const InventoryPage = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ['SKU', 'Tên sản phẩm', 'Mã vị trí (Bin)', 'Tên vị trí', 'Đơn vị', 'Số lượng tồn'];
+    const headers = ['SKU', 'Tên sản phẩm', 'Danh mục', 'Đơn vị', 'Mã vị trí (Bin)', 'Tên vị trí', 'Số lượng tồn', 'Trạng thái'];
     const rows = displayedStock.map(item => [
       item.product?.sku || '',
       item.product?.name || '',
+      item.product?.category?.name || '',
+      item.product?.unit || 'Cái',
       item.warehouseNode?.code || '',
       item.warehouseNode?.name || '',
-      item.product?.unit || 'Cái',
-      item.quantity
+      item.quantity,
+      item.quantity === 0 ? 'Hết hàng' : item.quantity < (item.product?.minStock || 5) ? 'Sắp hết' : 'Còn hàng',
     ]);
-    exportToCSV('ton_kho', headers, rows);
-    toast.success('Đã xuất file tồn kho CSV');
+    exportToExcel('ton_kho_thuc_te', [{ name: 'Tồn kho', headers, rows }]);
+    toast.success('Đã xuất Excel tồn kho');
   };
 
   const totalSkuCount = new Set(stock.map(item => item.product?.sku).filter(Boolean)).size;
@@ -487,7 +489,7 @@ export const InventoryPage = () => {
             disabled={displayedStock.length === 0}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold disabled:opacity-40 shadow-md shadow-blue-500/10"
           >
-            <Download className="w-3.5 h-3.5" /> Xuất CSV
+            <Download className="w-3.5 h-3.5" /> Xuất Excel
           </button>
         </div>
 
