@@ -11,6 +11,19 @@ import { Database, MapPin, Layers, Download, ScanLine, Search, X, Package, Tag, 
 const removeAccents = s =>
   s ? s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D').toLowerCase() : '';
 
+const getShortName = (node) => {
+  if (!node) return '';
+  if (!node.name) return node.code || '';
+  const parts = node.name.split(/[–-]/);
+  if (node.type === 'warehouse') {
+    if (parts.length > 1) {
+      return `Kho ${parts[1].trim()}`;
+    }
+    return node.name;
+  }
+  return parts[0].trim();
+};
+
 export const InventoryPage = () => {
   const [stock, setStock] = useState([]);
   const [allStock, setAllStock] = useState([]);
@@ -410,7 +423,7 @@ export const InventoryPage = () => {
                 >
                   <option value="">Tất cả kho</option>
                   {allNodes.filter(n => n.type === 'warehouse').map(w => (
-                    <option key={w._id} value={w._id}>{w.code} - {w.name}</option>
+                    <option key={w._id} value={w._id}>{getShortName(w)}</option>
                   ))}
                 </select>
               </div>
@@ -424,7 +437,7 @@ export const InventoryPage = () => {
                 >
                   <option value="">Tất cả khu vực</option>
                   {getDescOfType(selectedWarehouse, 'zone').map(z => (
-                    <option key={z._id} value={z._id}>{z.code} - {z.name}</option>
+                    <option key={z._id} value={z._id}>{getShortName(z)}</option>
                   ))}
                 </select>
               </div>
@@ -438,7 +451,7 @@ export const InventoryPage = () => {
                 >
                   <option value="">Tất cả kệ</option>
                   {getDescOfType(selectedZone, 'rack').map(r => (
-                    <option key={r._id} value={r._id}>{r.code} - {r.name}</option>
+                    <option key={r._id} value={r._id}>{getShortName(r)}</option>
                   ))}
                 </select>
               </div>
@@ -452,7 +465,7 @@ export const InventoryPage = () => {
                 >
                   <option value="">Tất cả khay</option>
                   {getDescOfType(selectedRack, 'bin').map(b => (
-                    <option key={b._id} value={b._id}>{b.code} - {b.name}</option>
+                    <option key={b._id} value={b._id}>{getShortName(b)}</option>
                   ))}
                 </select>
               </div>

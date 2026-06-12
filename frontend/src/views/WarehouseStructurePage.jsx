@@ -63,6 +63,22 @@ const PARENT_TYPE = {
 };
 
 // ──────────────────────────────────────────────────────────────
+// Helper: get short name
+// ──────────────────────────────────────────────────────────────
+const getShortName = (node) => {
+  if (!node) return '';
+  if (!node.name) return node.code || '';
+  const parts = node.name.split(/[–-]/);
+  if (node.type === 'warehouse') {
+    if (parts.length > 1) {
+      return `Kho ${parts[1].trim()}`;
+    }
+    return node.name;
+  }
+  return parts[0].trim();
+};
+
+// ──────────────────────────────────────────────────────────────
 // Build tree from flat list
 // ──────────────────────────────────────────────────────────────
 function buildTree(nodes) {
@@ -878,7 +894,7 @@ export const WarehouseStructurePage = () => {
             >
               <option value="">Tất cả kho</option>
               {nodes.filter(n => n.type === 'warehouse').map(n => (
-                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+                <option key={n._id} value={n._id}>{getShortName(n)}</option>
               ))}
             </select>
           </div>
@@ -893,7 +909,7 @@ export const WarehouseStructurePage = () => {
             >
               <option value="">Tất cả</option>
               {getDescOfType(filterWh, 'zone').map(n => (
-                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+                <option key={n._id} value={n._id}>{getShortName(n)}</option>
               ))}
             </select>
           </div>
@@ -908,7 +924,7 @@ export const WarehouseStructurePage = () => {
             >
               <option value="">Tất cả</option>
               {getDescOfType(filterZone || filterWh, 'aisle').map(n => (
-                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+                <option key={n._id} value={n._id}>{getShortName(n)}</option>
               ))}
             </select>
           </div>
@@ -923,7 +939,7 @@ export const WarehouseStructurePage = () => {
             >
               <option value="">Tất cả</option>
               {getDescOfType(filterAisle || filterZone || filterWh, 'rack').map(n => (
-                <option key={n._id} value={n._id}>{n.code} – {n.name}</option>
+                <option key={n._id} value={n._id}>{getShortName(n)}</option>
               ))}
             </select>
           </div>

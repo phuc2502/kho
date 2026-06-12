@@ -21,6 +21,19 @@ const TYPE_MAP = {
 
 const ITEMS_PER_PAGE = 25;
 
+const getShortName = (node) => {
+  if (!node) return '';
+  if (!node.name) return node.code || '';
+  const parts = node.name.split(/[–-]/);
+  if (node.type === 'warehouse') {
+    if (parts.length > 1) {
+      return `Kho ${parts[1].trim()}`;
+    }
+    return node.name;
+  }
+  return parts[0].trim();
+};
+
 export const StockCardsPage = () => {
   const { hasPermission, user } = useAuth();
   
@@ -531,7 +544,7 @@ export const StockCardsPage = () => {
               >
                 <option value="">Tất cả khu vực</option>
                 {allNodes.filter(n => n.type === 'zone').map(z => (
-                  <option key={z._id} value={z._id}>{z.name} ({z.code})</option>
+                  <option key={z._id} value={z._id}>{getShortName(z)}</option>
                 ))}
               </select>
             </div>
@@ -547,7 +560,7 @@ export const StockCardsPage = () => {
               >
                 <option value="">Tất cả dãy kệ</option>
                 {getDescOfType(selectedZone, 'aisle').map(a => (
-                  <option key={a._id} value={a._id}>{a.name} ({a.code})</option>
+                  <option key={a._id} value={a._id}>{getShortName(a)}</option>
                 ))}
               </select>
             </div>
@@ -563,7 +576,7 @@ export const StockCardsPage = () => {
               >
                 <option value="">Tất cả kệ</option>
                 {getDescOfType(selectedAisle, 'rack').map(r => (
-                  <option key={r._id} value={r._id}>{r.name} ({r.code})</option>
+                  <option key={r._id} value={r._id}>{getShortName(r)}</option>
                 ))}
               </select>
             </div>
@@ -579,7 +592,7 @@ export const StockCardsPage = () => {
               >
                 <option value="">Tất cả khay</option>
                 {getDescOfType(selectedRack, 'bin').map(b => (
-                  <option key={b._id} value={b._id}>{b.name || b.code} ({b.code})</option>
+                  <option key={b._id} value={b._id}>{getShortName(b)}</option>
                 ))}
               </select>
             </div>
