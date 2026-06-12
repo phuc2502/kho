@@ -135,28 +135,32 @@ const seed = async () => {
     // ══════════════════════════════════════════════════════════════
     // 6. RECEIPTS (5 phiếu nhập)
     // ══════════════════════════════════════════════════════════════
-    const rc1 = await Receipt.create({ code:'RC-2026-00001', ghiChu:'Lô tháng 1/2026 – Trục xoay 360° & 180°',          totalAmount:(500*18000)+(300*13500), createdByUserId:staff1._id,  status:'completed' });
+    // RC-001/002: Kế toán kho tạo phiếu, NVK đã hoàn tất (bins đã được gán, tồn kho đã cập nhật)
+    const rc1 = await Receipt.create({ code:'RC-2026-00001', ghiChu:'Lô tháng 1/2026 – Trục xoay 360° & 180°',          totalAmount:(500*18000)+(300*13500), createdByUserId:accountant1._id, status:'completed' });
     await ReceiptItem.create({ receiptId:rc1._id, productId:p1._id, quantity:500, price:18000, warehouseNodeId:binA101._id });
     await ReceiptItem.create({ receiptId:rc1._id, productId:p2._id, quantity:300, price:13500, warehouseNodeId:binA201._id });
     await setDates('Receipts', rc1._id, 90, 88);
 
-    const rc2 = await Receipt.create({ code:'RC-2026-00002', ghiChu:'Lô tháng 2/2026 – Thanh ray & cơ cấu trượt',       totalAmount:(700*28000)+(200*58000), createdByUserId:staff1._id,  status:'completed' });
+    const rc2 = await Receipt.create({ code:'RC-2026-00002', ghiChu:'Lô tháng 2/2026 – Thanh ray & cơ cấu trượt',       totalAmount:(700*28000)+(200*58000), createdByUserId:accountant1._id, status:'completed' });
     await ReceiptItem.create({ receiptId:rc2._id, productId:p3._id, quantity:700, price:28000, warehouseNodeId:binB101._id });
     await ReceiptItem.create({ receiptId:rc2._id, productId:p4._id, quantity:200, price:58000, warehouseNodeId:binB201._id });
     await setDates('Receipts', rc2._id, 75, 73);
 
-    const rc3 = await Receipt.create({ code:'RC-2026-00003', ghiChu:'Lô tháng 3/2026 – Linh kiện MIM (HB14 + CB01)',    totalAmount:(10*105000)+(5*88000),  createdByUserId:staff2._id,  status:'approved' });
-    await ReceiptItem.create({ receiptId:rc3._id, productId:p5._id, quantity:10,  price:105000, warehouseNodeId:binC101._id });
-    await ReceiptItem.create({ receiptId:rc3._id, productId:p6._id, quantity:5,   price:88000,  warehouseNodeId:binC102._id });
-    await setDates('Receipts', rc3._id, 45, 45);
+    // RC-003: đã phê duyệt, NVK chưa cập nhật vị trí (warehouseNodeId=null → NVK sẽ gán khi hoàn tất)
+    const rc3 = await Receipt.create({ code:'RC-2026-00003', ghiChu:'Lô tháng 3/2026 – Linh kiện MIM (HB14 + CB01)',    totalAmount:(10*105000)+(5*88000),  createdByUserId:accountant2._id, status:'approved' });
+    await ReceiptItem.create({ receiptId:rc3._id, productId:p5._id, quantity:10,  price:105000, warehouseNodeId:null });
+    await ReceiptItem.create({ receiptId:rc3._id, productId:p6._id, quantity:5,   price:88000,  warehouseNodeId:null });
+    await setDates('Receipts', rc3._id, 3, 2);
 
-    const rc4 = await Receipt.create({ code:'RC-2026-00004', ghiChu:'Lô bổ sung tháng 5/2026 – Trục xoay & thanh ray',  totalAmount:(200*18000)+(300*28000), createdByUserId:staff1._id,  status:'draft' });
-    await ReceiptItem.create({ receiptId:rc4._id, productId:p1._id, quantity:200, price:18000, warehouseNodeId:binA102._id });
-    await ReceiptItem.create({ receiptId:rc4._id, productId:p3._id, quantity:300, price:28000, warehouseNodeId:binB102._id });
+    // RC-004: Kế toán kho vừa tạo, đang chờ phê duyệt (NVK báo thiếu hàng → incident INC-001)
+    const rc4 = await Receipt.create({ code:'RC-2026-00004', ghiChu:'Lô bổ sung tháng 5/2026 – Trục xoay & thanh ray',  totalAmount:(200*18000)+(300*28000), createdByUserId:accountant1._id, status:'draft' });
+    await ReceiptItem.create({ receiptId:rc4._id, productId:p1._id, quantity:200, price:18000, warehouseNodeId:null });
+    await ReceiptItem.create({ receiptId:rc4._id, productId:p3._id, quantity:300, price:28000, warehouseNodeId:null });
     await setDates('Receipts', rc4._id, 5, 3);
 
-    const rc5 = await Receipt.create({ code:'RC-2026-00005', ghiChu:'Lô tháng 4/2026 – Từ chối do QC không đạt (lỗi bề mặt)', totalAmount:(150*13500), createdByUserId:staff2._id, status:'rejected' });
-    await ReceiptItem.create({ receiptId:rc5._id, productId:p2._id, quantity:150, price:13500, warehouseNodeId:binA201._id });
+    // RC-005: Bị từ chối do QC báo lỗi bề mặt
+    const rc5 = await Receipt.create({ code:'RC-2026-00005', ghiChu:'Lô tháng 4/2026 – Từ chối do QC không đạt (lỗi bề mặt)', rejectNote:'QC phát hiện lỗi bề mặt xước trên 30% lô. Yêu cầu nhà cung cấp đổi hàng.', totalAmount:(150*13500), createdByUserId:accountant2._id, status:'rejected' });
+    await ReceiptItem.create({ receiptId:rc5._id, productId:p2._id, quantity:150, price:13500, warehouseNodeId:null });
     await setDates('Receipts', rc5._id, 30, 29);
 
     console.log('✓ Receipts (5): completed×2, approved×1, draft×1, rejected×1');
@@ -423,36 +427,45 @@ const seed = async () => {
     console.log('✓ StocktakeReports (2): BC-001 (khớp), BC-002 (chênh lệch)');
 
     // ══════════════════════════════════════════════════════════════
-    // 9. INCIDENTS (3 sự cố)
+    // 9. INCIDENTS (3 sự cố — theo luồng nhập kho 2.2.1 & 2.3.1)
     // ══════════════════════════════════════════════════════════════
+
+    // INC-001: NVK phát hiện thiếu hàng khi nhận lô RC-004 (đang chờ QL duyệt)
     const inc1 = await Incident.create({
-      code:'INC-2026-00001', type:'shortage', refType:'receipt', refId:rc3._id,
-      status:'open', action:'reorder',
-      note:'Nhập lô RC-2026-00003 bị thiếu 2 cái MIM-HB14 so với hóa đơn nhà cung cấp. Đã liên hệ yêu cầu bổ sung.',
-      createdByUserId:staff2._id
-    });
-    await IncidentItem.create({ incidentId:inc1._id, productId:p5._id, quantity:2 });
-    await setDates('Incidents', inc1._id, 45, 44);
-
-    const inc2 = await Incident.create({
-      code:'INC-2026-00002', type:'damage', refType:'delivery', refId:dl6._id,
-      status:'open', action:'pending',
-      note:'Khách hàng LG báo 3 cái FST-H360-14 bị gãy chốt trong quá trình vận chuyển. Đang chờ xác nhận ảnh từ khách.',
-      createdByUserId:accountant1._id
-    });
-    await IncidentItem.create({ incidentId:inc2._id, productId:p1._id, quantity:3 });
-    await setDates('Incidents', inc2._id, 36, 36);
-
-    const inc3 = await Incident.create({
-      code:'INC-2026-00003', type:'wrong_product',
-      status:'resolved', action:'return_supplier',
-      note:'Phát hiện 10 cái FST-H180-156 giao nhầm lô cho Dell (RC-2026-00002). Đã thu hồi và trả nhà cung cấp.',
+      code:'INC-2026-00001', type:'hang_thieu', refType:'receipt', refId:rc4._id,
+      status:'pending_approval',
+      note:'Kiểm đếm lô RC-2026-00004: FST-H360-14 thực nhận 185 cái, hoá đơn 200 cái → thiếu 15 cái. Đề nghị quản lý xem xét.',
       createdByUserId:staff1._id
     });
-    await IncidentItem.create({ incidentId:inc3._id, productId:p2._id, quantity:10 });
-    await setDates('Incidents', inc3._id, 70, 65);
+    await IncidentItem.create({ incidentId:inc1._id, productId:p1._id, quantity:15, reason:null });
+    await setDates('Incidents', inc1._id, 5, 4);
 
-    console.log('✓ Incidents (3): open×2, resolved×1');
+    // INC-002: QC phát hiện lỗi bề mặt lô RC-003, QL đã phê duyệt báo cáo → tiếp tục xử lý
+    const inc2 = await Incident.create({
+      code:'INC-2026-00002', type:'hang_loi', refType:'receipt', refId:rc3._id,
+      status:'approved',
+      note:'Kiểm tra lô RC-2026-00003: phát hiện 2 cái MIM-HB14 bị lỗi bề mặt (xước mạ). Lô được chấp nhận vì tỷ lệ lỗi < 3%, ghi nhận để theo dõi NCC.',
+      createdByUserId:qc._id,
+      approvedByUserId:manager._id,
+      approvedAt:new Date(Date.now() - 2*24*60*60*1000)
+    });
+    await IncidentItem.create({ incidentId:inc2._id, productId:p5._id, quantity:2, reason:'Lỗi bề mặt: vết xước mạ PVD, không đạt tiêu chuẩn ngoại quan cấp A' });
+    await setDates('Incidents', inc2._id, 3, 2);
+
+    // INC-003: QC báo lỗi lô RC-005, QL từ chối phiếu nhập → nhà cung cấp cần đổi hàng
+    const inc3 = await Incident.create({
+      code:'INC-2026-00003', type:'hang_loi', refType:'receipt', refId:rc5._id,
+      status:'approved',
+      rejectNote:null,
+      note:'Toàn bộ 150 cái FST-H180-156 lô RC-2026-00005 có vết xước bề mặt và gỉ nhẹ do vận chuyển không đúng cách. Tỷ lệ lỗi ~35%, vượt ngưỡng cho phép. Đề nghị từ chối toàn lô.',
+      createdByUserId:qc._id,
+      approvedByUserId:manager._id,
+      approvedAt:new Date(Date.now() - 29*24*60*60*1000)
+    });
+    await IncidentItem.create({ incidentId:inc3._id, productId:p2._id, quantity:150, reason:'Xước bề mặt + oxy hóa nhẹ. Nguyên nhân: đóng gói không đủ chống ẩm, bao bì bị ướt khi vận chuyển.' });
+    await setDates('Incidents', inc3._id, 30, 29);
+
+    console.log('✓ Incidents (3): pending_approval×1, approved×2');
 
     // ══════════════════════════════════════════════════════════════
     // 10. DELIVERY REQUESTS — Yêu cầu xuất kho (7 yêu cầu)

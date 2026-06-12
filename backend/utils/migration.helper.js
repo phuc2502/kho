@@ -643,6 +643,100 @@ export const runMigrations = async () => {
     console.warn('Migration warning (Receipts.rejectNote):', err.message);
   }
 
+  // ——— 29. Thêm cột rejectNote vào Incidents ———
+  try {
+    const incDesc29 = await qi.describeTable('Incidents');
+    if (!incDesc29.rejectNote) {
+      await qi.addColumn('Incidents', 'rejectNote', {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        after: 'status'
+      });
+      console.log('Migration: Added Incidents.rejectNote');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Incidents.rejectNote):', err.message);
+  }
+
+  // ——— 30. Thêm cột approvedByUser + approvedAt vào Incidents ———
+  try {
+    const incDesc30 = await qi.describeTable('Incidents');
+    if (!incDesc30.approvedByUser) {
+      await qi.addColumn('Incidents', 'approvedByUser', {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        after: 'rejectNote'
+      });
+      console.log('Migration: Added Incidents.approvedByUser');
+    }
+    if (!incDesc30.approvedAt) {
+      await qi.addColumn('Incidents', 'approvedAt', {
+        type: DataTypes.DATE,
+        allowNull: true,
+        after: 'approvedByUser'
+      });
+      console.log('Migration: Added Incidents.approvedAt');
+    }
+  } catch (err) {
+    console.warn('Migration warning (Incidents.approvedByUser/approvedAt):', err.message);
+  }
+
+  // ——— 31. Thêm cột reason vào IncidentItems ———
+  try {
+    const iiDesc31 = await qi.describeTable('IncidentItems');
+    if (!iiDesc31.reason) {
+      await qi.addColumn('IncidentItems', 'reason', {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        after: 'quantity'
+      });
+      console.log('Migration: Added IncidentItems.reason');
+    }
+  } catch (err) {
+    console.warn('Migration warning (IncidentItems.reason):', err.message);
+  }
+
+  // ——— 32. Đổi ENUM Incidents.type: cũ → hang_loi/hang_thieu ———
+  try {
+    await sequelize.query(
+      `ALTER TABLE Incidents MODIFY COLUMN type ENUM('shortage','damage','wrong_product','expired','other','hang_loi','hang_thieu') NOT NULL`
+    );
+    await sequelize.query(`UPDATE Incidents SET type='hang_thieu' WHERE type='shortage'`);
+    await sequelize.query(`UPDATE Incidents SET type='hang_loi' WHERE type IN ('damage','wrong_product','expired','other')`);
+    await sequelize.query(
+      `ALTER TABLE Incidents MODIFY COLUMN type ENUM('hang_loi','hang_thieu') NOT NULL`
+    );
+    console.log('Migration: Updated Incidents.type ENUM (hang_loi/hang_thieu)');
+  } catch (err) {
+    console.warn('Migration warning (Incidents.type enum):', err.message);
+  }
+
+  // ——— 33. Đổi ENUM Incidents.status: open/resolved/closed → pending_approval/approved/rejected ———
+  try {
+    await sequelize.query(
+      `ALTER TABLE Incidents MODIFY COLUMN status ENUM('open','resolved','closed','pending_approval','approved','rejected') NOT NULL DEFAULT 'pending_approval'`
+    );
+    await sequelize.query(`UPDATE Incidents SET status='pending_approval' WHERE status='open'`);
+    await sequelize.query(`UPDATE Incidents SET status='approved' WHERE status='resolved'`);
+    await sequelize.query(`UPDATE Incidents SET status='rejected' WHERE status='closed'`);
+    await sequelize.query(
+      `ALTER TABLE Incidents MODIFY COLUMN status ENUM('pending_approval','approved','rejected') NOT NULL DEFAULT 'pending_approval'`
+    );
+    console.log('Migration: Updated Incidents.status ENUM (pending_approval/approved/rejected)');
+  } catch (err) {
+    console.warn('Migration warning (Incidents.status enum):', err.message);
+  }
+
+  // ——— 34. Cho phép ReceiptItems.warehouseNode NULL (NVK cập nhật sau khi phê duyệt) ———
+  try {
+    await sequelize.query(
+      `ALTER TABLE ReceiptItems MODIFY COLUMN warehouseNode INT NULL`
+    );
+    console.log('Migration: ReceiptItems.warehouseNode now nullable');
+  } catch (err) {
+    console.warn('Migration warning (ReceiptItems.warehouseNode nullable):', err.message);
+  }
+
   console.log('Migrations completed.');
 };
 

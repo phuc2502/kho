@@ -225,88 +225,362 @@ const WarehouseNodeRow = ({
 };
 
 // ──────────────────────────────────────────────────────────────
-// Visual Grid Modal — hiển thị các con trực quan như sơ đồ kho
+// Interactive 2D Warehouse Map — drill-down 5 cấp, layout riêng theo cấp
 // ──────────────────────────────────────────────────────────────
-const VisualGridModal = ({ node, allNodes, onClose }) => {
-  if (!node) return null;
 
-  // Lấy tất cả con trực tiếp của node này
-  const children = allNodes.filter(n => {
-    const pid = n.parentId ?? n.parent?._id;
-    return pid === node._id;
-  });
+// Action popup hiện khi hover trên từng ô trong bản đồ
+const MapCellActions = ({ node, onAddChild, onEdit, onDelete }) => (
+  <div
+    className="flex gap-0.5 bg-white rounded-lg shadow-lg border border-slate-100 p-0.5 z-20"
+    onClick={e => e.stopPropagation()}
+  >
+    {node.type !== 'bin' && (
+      <PermissionGuard permission="warehouse:create">
+        <button
+          onClick={e => { e.stopPropagation(); onAddChild(node); }}
+          className="p-1 rounded text-indigo-500 hover:bg-indigo-50 transition-colors"
+          title={`Thêm ${TYPE_CONFIG[NEXT_TYPE[node.type]]?.label}`}
+        >
+          <Plus className="w-3 h-3" />
+        </button>
+      </PermissionGuard>
+    )}
+    <PermissionGuard permission="warehouse:update">
+      <button
+        onClick={e => { e.stopPropagation(); onEdit(node); }}
+        className="p-1 rounded text-slate-500 hover:bg-slate-100 transition-colors"
+        title="Sửa"
+      >
+        <Edit3 className="w-3 h-3" />
+      </button>
+    </PermissionGuard>
+    <PermissionGuard permission="warehouse:delete">
+      <button
+        onClick={e => { e.stopPropagation(); onDelete(node._id, node.name); }}
+        className="p-1 rounded text-rose-500 hover:bg-rose-50 transition-colors"
+        title="Xóa"
+      >
+        <Trash2 className="w-3 h-3" />
+      </button>
+    </PermissionGuard>
+  </div>
+);
+
+// Cấp 1→2: Zone cards (warehouse hiển thị các khu vực)
+const ZoneCard = ({ zone, allNodes, onDrill, onAddChild, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const cfg = TYPE_CONFIG.zone;
+  const Icon = cfg.icon;
+  const childCount = allNodes.filter(n => (n.parentId ?? n.parent?._id) === zone._id).length;
+  return (
+    <div
+      className={`relative rounded-xl border-2 ${cfg.grid} cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.99] transition-all min-h-[130px] flex flex-col justify-between p-4 select-none`}
+      onClick={() => onDrill(zone)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <div>
+        <Icon className="w-7 h-7 opacity-30 mb-2" />
+        <p className="font-bold font-mono text-sm">{zone.code}</p>
+        <p className="text-xs opacity-60 mt-0.5 line-clamp-2 leading-snug">{zone.name}</p>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold opacity-45">{childCount} dãy kệ</span>
+        <ChevronRight className="w-3.5 h-3.5 opacity-25" />
+      </div>
+      {hov && (
+        <div className="absolute top-1.5 right-1.5">
+          <MapCellActions node={zone} onAddChild={onAddChild} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Cấp 2→3: Aisle rows (zone hiển thị các dãy kệ như hành lang)
+const AisleRow = ({ aisle, allNodes, onDrill, onAddChild, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const cfg = TYPE_CONFIG.aisle;
+  const Icon = cfg.icon;
+  const childCount = allNodes.filter(n => (n.parentId ?? n.parent?._id) === aisle._id).length;
+  return (
+    <div
+      className={`relative flex items-center gap-3 rounded-xl border-2 ${cfg.grid} cursor-pointer hover:shadow-md active:scale-[0.99] transition-all px-4 py-3 select-none`}
+      onClick={() => onDrill(aisle)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      {/* Trụ bên trái — mô phỏng cột kệ đầu dãy */}
+      <div className="w-1.5 shrink-0 flex flex-col gap-0.5">
+        {[0, 1, 2, 3].map(i => <div key={i} className="h-1.5 w-1.5 rounded-full bg-current opacity-25" />)}
+      </div>
+      <Icon className="w-4 h-4 opacity-50 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <span className="font-bold font-mono text-sm">{aisle.code}</span>
+        <span className="ml-2 text-xs opacity-60">{aisle.name}</span>
+      </div>
+      {/* Mini biểu đồ kệ */}
+      <div className="hidden sm:flex items-end gap-0.5 h-7 shrink-0 opacity-30">
+        {[...Array(Math.min(Math.max(childCount, 1), 8))].map((_, i) => (
+          <div key={i} className="w-2 rounded-t-sm bg-current" style={{ height: `${40 + (i % 3) * 20}%` }} />
+        ))}
+      </div>
+      <span className="text-[10px] font-semibold opacity-45 shrink-0">{childCount} kệ</span>
+      <ChevronRight className="w-3.5 h-3.5 opacity-25 shrink-0" />
+      {/* Trụ bên phải */}
+      <div className="w-1.5 shrink-0 flex flex-col gap-0.5">
+        {[0, 1, 2, 3].map(i => <div key={i} className="h-1.5 w-1.5 rounded-full bg-current opacity-25" />)}
+      </div>
+      {hov && (
+        <div className="absolute top-1.5 right-12 z-10">
+          <MapCellActions node={aisle} onAddChild={onAddChild} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Cấp 3→4: Rack units (aisle hiển thị kệ như giá đỡ đứng)
+const RackUnit = ({ rack, allNodes, onDrill, onAddChild, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const cfg = TYPE_CONFIG.rack;
+  const childCount = allNodes.filter(n => (n.parentId ?? n.parent?._id) === rack._id).length;
+  const displayShelves = Math.min(Math.max(childCount, 3), 8);
+  return (
+    <div
+      className={`relative flex flex-col rounded-xl border-2 ${cfg.grid} cursor-pointer hover:shadow-lg active:scale-[0.98] transition-all select-none`}
+      style={{ width: 86 }}
+      onClick={() => onDrill(rack)}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      {/* Thanh nóc kệ */}
+      <div className="h-2 bg-current opacity-30 rounded-t-[10px]" />
+      {/* Các tầng kệ */}
+      <div className="flex-1 px-2 py-2 space-y-1.5">
+        {[...Array(displayShelves)].map((_, i) => (
+          <div key={i} className="h-2.5 rounded-sm bg-current opacity-[0.15] border border-current/20" />
+        ))}
+        {childCount > 8 && <p className="text-[9px] text-center font-bold opacity-35">+{childCount - 8}</p>}
+      </div>
+      {/* Nhãn */}
+      <div className="px-2 pb-2.5 text-center border-t border-current/10 pt-1.5">
+        <p className="font-bold font-mono text-[10px]">{rack.code}</p>
+        <p className="text-[9px] opacity-50 truncate">{rack.name}</p>
+        <p className="text-[9px] opacity-35 mt-0.5">{childCount} khay</p>
+      </div>
+      {hov && (
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+          <MapCellActions node={rack} onAddChild={onAddChild} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Cấp 4→5: Bin cells (rack hiển thị khay như ô lưới)
+const BinCell = ({ bin, onEdit, onDelete }) => {
+  const [hov, setHov] = useState(false);
+  const cfg = TYPE_CONFIG.bin;
+  return (
+    <div
+      className={`relative rounded-lg border-2 ${cfg.grid} p-2 text-center transition-all hover:shadow-md select-none`}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+    >
+      <Package className="w-3.5 h-3.5 mx-auto mb-0.5 opacity-40" />
+      <p className="font-bold font-mono text-[10px] leading-tight">{bin.code}</p>
+      <p className="text-[9px] opacity-50 truncate mt-0.5">{bin.name}</p>
+      {hov && (
+        <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-black/5">
+          <PermissionGuard permission="warehouse:update">
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(bin); }}
+              className="p-1 bg-white rounded-md shadow text-slate-600 hover:text-slate-900 transition-colors"
+              title="Sửa"
+            >
+              <Edit3 className="w-3 h-3" />
+            </button>
+          </PermissionGuard>
+          <PermissionGuard permission="warehouse:delete">
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(bin._id, bin.name); }}
+              className="p-1 bg-white rounded-md shadow text-rose-500 hover:text-rose-700 transition-colors"
+              title="Xóa"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </PermissionGuard>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── InteractiveWarehouseMap — modal chính ────────────────────
+const InteractiveWarehouseMap = ({ rootNode, allNodes, onClose, onAddChild, onEdit, onDelete }) => {
+  const [path, setPath] = useState([rootNode]);
+
+  // Đồng bộ path với dữ liệu mới nhất khi allNodes thay đổi (CRUD)
+  useEffect(() => {
+    setPath(prev => {
+      const updated = prev.map(n => allNodes.find(a => a._id === n._id));
+      let validLen = updated.length;
+      while (validLen > 0 && !updated[validLen - 1]) validLen--;
+      if (validLen === 0) return [prev[0]]; // giữ gốc dù đã xóa
+      return updated.slice(0, validLen);
+    });
+  }, [allNodes]);
+
+  const currentNode = path[path.length - 1];
+  const childType = NEXT_TYPE[currentNode.type];
+  const childCfg  = childType ? TYPE_CONFIG[childType] : null;
+  const children  = allNodes.filter(n => (n.parentId ?? n.parent?._id) === currentNode._id);
+
+  const drillDown = (node) => { if (node.type !== 'bin') setPath(p => [...p, node]); };
+  const goTo = (idx) => setPath(p => p.slice(0, idx + 1));
+
+  const renderMap = () => {
+    if (children.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${childCfg?.badge || 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+            {childCfg
+              ? React.createElement(childCfg.icon, { className: 'w-7 h-7 opacity-60' })
+              : <Package className="w-7 h-7" />}
+          </div>
+          <p className="font-semibold text-slate-600">Chưa có {childCfg?.label || 'vị trí con'} nào</p>
+          <p className="text-sm text-slate-400 mt-1 max-w-xs">
+            Thêm {childCfg?.label || 'vị trí con'} để xem sơ đồ tương tác ở cấp này
+          </p>
+          {childType && (
+            <PermissionGuard permission="warehouse:create">
+              <button
+                onClick={() => onAddChild(currentNode)}
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-500 text-white rounded-xl text-sm font-semibold hover:bg-indigo-600 shadow-md shadow-indigo-500/20 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Thêm {childCfg?.label}
+              </button>
+            </PermissionGuard>
+          )}
+        </div>
+      );
+    }
+
+    const p = { allNodes, onDrill: drillDown, onAddChild, onEdit, onDelete };
+
+    switch (currentNode.type) {
+      case 'warehouse':
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {children.map(z => <ZoneCard key={z._id} zone={z} {...p} />)}
+          </div>
+        );
+      case 'zone':
+        return (
+          <div className="space-y-2.5">
+            {children.map(a => <AisleRow key={a._id} aisle={a} {...p} />)}
+          </div>
+        );
+      case 'aisle':
+        return (
+          <div className="flex flex-wrap gap-3 items-end">
+            {children.map(r => <RackUnit key={r._id} rack={r} {...p} />)}
+          </div>
+        );
+      case 'rack':
+        return (
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
+            {children.map(b => <BinCell key={b._id} bin={b} onEdit={onEdit} onDelete={onDelete} />)}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3">
+      <div
+        className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+        style={{ maxHeight: '92vh' }}
+      >
         {/* Header */}
-        <div className={`px-6 py-4 border-b border-slate-100 flex justify-between items-center ${TYPE_CONFIG[node.type]?.row || 'bg-slate-50'}`}>
+        <div className={`px-6 py-3.5 border-b border-slate-100 flex justify-between items-center ${TYPE_CONFIG[currentNode.type]?.row || 'bg-slate-50'}`}>
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase">Sơ đồ cấu trúc</p>
-            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-              {React.createElement(TYPE_CONFIG[node.type]?.icon || Package, { className: 'w-5 h-5' })}
-              {node.name}
-              <span className="font-mono text-sm text-slate-500 font-normal">({node.code})</span>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sơ đồ kho 2D tương tác</p>
+            <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 mt-0.5">
+              {React.createElement(TYPE_CONFIG[currentNode.type]?.icon || Package, { className: 'w-4 h-4' })}
+              {currentNode.name}
+              <span className="font-mono text-xs text-slate-500 font-normal bg-white/60 px-1.5 py-0.5 rounded-md">
+                {currentNode.code}
+              </span>
             </h3>
           </div>
-          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg">
+          <button
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-white/50 transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Legend */}
-        <div className="px-6 py-2.5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-4">
-          {Object.entries(TYPE_CONFIG).filter(([t]) => t !== 'warehouse').map(([type, cfg]) => (
-            <span key={type} className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className={`w-3 h-3 rounded border ${cfg.badge}`}></span>
-              {cfg.label}
+        {/* Breadcrumb điều hướng */}
+        <div className="px-5 py-2 border-b border-slate-100 bg-slate-50/60 flex items-center gap-1 flex-wrap min-h-[38px]">
+          {path.map((n, idx) => {
+            const BcIcon = TYPE_CONFIG[n.type]?.icon || Package;
+            const isCurrent = idx === path.length - 1;
+            return (
+              <React.Fragment key={n._id}>
+                {idx > 0 && <ChevronRight className="w-3 h-3 text-slate-300 shrink-0" />}
+                <button
+                  onClick={() => !isCurrent && goTo(idx)}
+                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md font-medium transition-colors ${
+                    isCurrent
+                      ? 'bg-white border border-slate-200 text-slate-700 shadow-sm cursor-default'
+                      : 'text-slate-400 hover:text-slate-700 hover:bg-white hover:border hover:border-slate-200 cursor-pointer'
+                  }`}
+                >
+                  <BcIcon className="w-3 h-3" />
+                  <span className="font-mono font-bold">{n.code}</span>
+                  {isCurrent && (
+                    <span className="hidden sm:inline text-slate-500 font-normal ml-0.5">— {n.name}</span>
+                  )}
+                </button>
+              </React.Fragment>
+            );
+          })}
+          {childCfg && children.length > 0 && (
+            <span className="ml-auto text-[10px] text-slate-400 font-medium hidden sm:block shrink-0">
+              {children.length} {childCfg.label}
             </span>
-          ))}
+          )}
         </div>
 
-        {/* Grid */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {children.length === 0 ? (
-            <div className="text-center py-12 text-slate-400">
-              <Package className="w-10 h-10 mx-auto mb-3 text-slate-300" />
-              <p className="font-medium">Chưa có vị trí con nào bên trong</p>
-              <p className="text-sm mt-1">Nhấn <strong>"Thêm con"</strong> trên dòng này để thêm vị trí con</p>
-            </div>
-          ) : (
-            <>
-              <p className="text-xs text-slate-400 font-semibold mb-3 uppercase">
-                {children.length} vị trí con · {TYPE_CONFIG[NEXT_TYPE[node.type]]?.label || ''}
-              </p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2.5">
-                {children.map(child => {
-                  const childCfg = TYPE_CONFIG[child.type] || {};
-                  const ChildIcon = childCfg.icon || Package;
-                  // Count grandchildren
-                  const grandchildren = allNodes.filter(n => {
-                    const pid = n.parentId ?? n.parent?._id;
-                    return pid === child._id;
-                  });
+        {/* Toolbar: hướng dẫn + nút thêm */}
+        {childType && (
+          <div className="px-5 py-2.5 border-b border-slate-100 flex items-center justify-between bg-white">
+            <p className="text-xs text-slate-400">
+              {children.length > 0
+                ? 'Di chuột vào ô để sửa / xóa · Nhấn vào ô để khám phá bên trong'
+                : `Chưa có ${childCfg?.label} nào trong ${TYPE_CONFIG[currentNode.type]?.label} này`}
+            </p>
+            <PermissionGuard permission="warehouse:create">
+              <button
+                onClick={() => onAddChild(currentNode)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-xs font-semibold shadow-sm shadow-indigo-500/20 transition-colors shrink-0 ml-4"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Thêm {childCfg?.label}
+              </button>
+            </PermissionGuard>
+          </div>
+        )}
 
-                  return (
-                    <div
-                      key={child._id}
-                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border-2 min-h-[90px] text-center cursor-default transition-all hover:shadow-md hover:scale-105
-                        ${childCfg.grid || 'bg-slate-50 border-slate-200 text-slate-600'}`}
-                    >
-                      <ChildIcon className="w-5 h-5 mb-1.5 opacity-70" />
-                      <p className="font-bold text-xs font-mono leading-tight">{child.code}</p>
-                      <p className="text-[10px] opacity-70 truncate w-full leading-tight mt-0.5">{child.name}</p>
-                      {grandchildren.length > 0 && (
-                        <span className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center rounded-full bg-black/10 text-[9px] font-bold">
-                          {grandchildren.length}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+        {/* Vùng bản đồ */}
+        <div className="flex-1 overflow-y-auto p-5">
+          {renderMap()}
         </div>
       </div>
     </div>
@@ -752,12 +1026,15 @@ export const WarehouseStructurePage = () => {
         </div>
       )}
 
-      {/* Visual Grid Modal */}
+      {/* Interactive 2D Warehouse Map */}
       {gridNode && (
-        <VisualGridModal
-          node={gridNode}
+        <InteractiveWarehouseMap
+          rootNode={gridNode}
           allNodes={nodes}
           onClose={() => setGridNode(null)}
+          onAddChild={openAddChild}
+          onEdit={openEdit}
+          onDelete={handleDelete}
         />
       )}
 

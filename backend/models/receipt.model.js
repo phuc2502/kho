@@ -87,7 +87,7 @@ export const ReceiptItem = sequelize.define('ReceiptItem', {
   },
   warehouseNodeId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: 'warehouseNode',
     references: {
       model: WarehouseNode,

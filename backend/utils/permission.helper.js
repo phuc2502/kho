@@ -25,10 +25,11 @@ export const PERMISSION_CATALOG = [
   { code: 'partner:delete',     name: 'Xóa đối tác',                     group: 'Cấu trúc Kho & Đối tác' },
 
   // Vận hành Nhập & Xuất
-  { code: 'receipt:read',              name: 'Xem phiếu nhập',                   group: 'Vận hành Nhập & Xuất' },
-  { code: 'receipt:create',            name: 'Tạo phiếu nhập',                   group: 'Vận hành Nhập & Xuất' },
-  { code: 'receipt:update',            name: 'Sửa phiếu nhập',                   group: 'Vận hành Nhập & Xuất' },
-  { code: 'receipt:approve',           name: 'Duyệt phiếu nhập',                 group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:read',              name: 'Xem phiếu nhập',                               group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:create',            name: 'Tạo phiếu nhập',                               group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:update',            name: 'Sửa phiếu nhập',                               group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:approve',           name: 'Duyệt phiếu nhập',                             group: 'Vận hành Nhập & Xuất' },
+  { code: 'receipt:complete',          name: 'Hoàn tất nhập kho (Nhân viên kho)',             group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery-request:read',     name: 'Xem yêu cầu xuất kho',             group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery-request:create',   name: 'Tạo yêu cầu xuất kho (Sale)',      group: 'Vận hành Nhập & Xuất' },
   { code: 'delivery:read',             name: 'Xem phiếu xuất',                   group: 'Vận hành Nhập & Xuất' },
@@ -126,8 +127,8 @@ export const ROLE_DEFAULTS = {
     'product:read',
     'category:read',
     'warehouse:read',
-    // Nhập kho (chỉ xem — KeToanKho lập phiếu, NhanVienKho thực hiện nhận hàng vật lý)
-    'receipt:read',
+    // Nhập kho: xem + hoàn tất (sắp xếp hàng, cập nhật vị trí sau khi QC & QL phê duyệt — HĐ21-23)
+    'receipt:read', 'receipt:complete',
     // Yêu cầu xuất kho (xem)
     'delivery-request:read',
     // Phiếu xuất kho: xem + xác nhận xuất hàng vật lý + hoàn tất (theo swimlane tài liệu HĐ22, HĐ26)

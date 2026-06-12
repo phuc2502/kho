@@ -37,9 +37,13 @@ export const ReceiptsPage = () => {
   const [rejectNote, setRejectNote] = useState('');
   const [rejectReceiptId, setRejectReceiptId] = useState(null);
 
+  // Complete receipt (NVK assigns bins)
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completeItemBins, setCompleteItemBins] = useState([]);
+
   // Quick Incident state
   const [showIncidentModal, setShowIncidentModal] = useState(false);
-  const [incidentType, setIncidentType] = useState('shortage');
+  const [incidentType, setIncidentType] = useState('hang_thieu');
   const [incidentNote, setIncidentNote] = useState('');
   const [incidentItems, setIncidentItems] = useState([]);
 
@@ -141,9 +145,9 @@ export const ReceiptsPage = () => {
   const handleCreateReceipt = async (e) => {
     e.preventDefault();
 
-    const invalidItem = items.some(item => !item.product || item.quantity <= 0 || !item.warehouseNode);
+    const invalidItem = items.some(item => !item.product || item.quantity <= 0);
     if (invalidItem) {
-      toast.error('Vui lòng điền đầy đủ sản phẩm, số lượng và khay chứa hàng');
+      toast.error('Vui lòng điền đầy đủ sản phẩm và số lượng');
       return;
     }
 
@@ -154,10 +158,10 @@ export const ReceiptsPage = () => {
           product: item.product,
           quantity: Number(item.quantity),
           price: Number(item.price),
-          warehouseNode: item.warehouseNode
+          warehouseNode: item.warehouseNode || null
         }))
       });
-      toast.success('Lập phiếu nhập kho nháp thành công');
+      toast.success('Lập phiếu nhập kho thành công — đang chờ phê duyệt');
       setShowAddModal(false);
       setGhiChu('');
       setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
@@ -175,6 +179,45 @@ export const ReceiptsPage = () => {
       fetchData();
     } catch (error) {
       toast.error('Cập nhật trạng thái thất bại: ' + error.message);
+    }
+  };
+
+  const handleOpenCompleteModal = () => {
+    const bins = selectedReceipt.items?.map(item => ({
+      receiptItemId: item._id,
+      productName: item.product?.name || '',
+      productSku: item.product?.sku || '',
+      quantity: item.quantity,
+      unit: item.product?.unit || 'Cái',
+      currentBinId: item.warehouseNode?._id || item.warehouseNodeId || '',
+      warehouseNodeId: item.warehouseNode?._id || item.warehouseNodeId || '',
+      _zone: '',
+      _rack: '',
+    }));
+    setCompleteItemBins(bins);
+    setShowCompleteModal(true);
+  };
+
+  const handleCompleteReceipt = async (e) => {
+    e.preventDefault();
+    const missing = completeItemBins.some(b => !b.warehouseNodeId);
+    if (missing) {
+      toast.error('Vui lòng gán vị trí bin cho tất cả sản phẩm');
+      return;
+    }
+    try {
+      await ReceiptModel.complete(selectedReceipt._id, {
+        items: completeItemBins.map(b => ({
+          receiptItemId: b.receiptItemId,
+          warehouseNodeId: Number(b.warehouseNodeId)
+        }))
+      });
+      toast.success('Hoàn tất nhập kho — tồn kho và thẻ kho đã được cập nhật');
+      setShowCompleteModal(false);
+      setSelectedReceipt(null);
+      fetchData();
+    } catch (error) {
+      toast.error('Hoàn tất nhập kho thất bại: ' + error.message);
     }
   };
 
@@ -214,10 +257,10 @@ export const ReceiptsPage = () => {
   };
 
   const STATUS_MAP = {
-    draft:     { label: 'Nháp',        style: 'bg-slate-100 text-slate-600 border-slate-200' },
-    approved:  { label: 'Đã duyệt',   style: 'bg-blue-100 text-blue-700 border-blue-200' },
-    completed: { label: 'Hoàn thành', style: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-    rejected:  { label: 'Từ chối',    style: 'bg-red-100 text-red-700 border-red-200' },
+    draft:     { label: 'Chờ phê duyệt', style: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+    approved:  { label: 'Đã phê duyệt',  style: 'bg-blue-100 text-blue-700 border-blue-200' },
+    completed: { label: 'Đã nhập kho',   style: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    rejected:  { label: 'Từ chối',       style: 'bg-red-100 text-red-700 border-red-200' },
   };
 
   const renderStatusBadge = (status) => {
@@ -256,7 +299,7 @@ export const ReceiptsPage = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-xl font-bold text-slate-800">Quản lý Phiếu Nhập kho</h2>
-          <p className="text-sm text-slate-500">Tạo phiếu nhập nháp và duyệt nhập kho trực tiếp vào vị trí khay chứa</p>
+          <p className="text-sm text-slate-500">KeToanKho lập phiếu (Chờ phê duyệt) → QuanLyKho phê duyệt → NhanVienKho sắp xếp hàng và hoàn tất nhập kho</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -313,9 +356,9 @@ export const ReceiptsPage = () => {
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
             className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:border-primary-400 min-w-[150px]">
             <option value="">Tất cả trạng thái</option>
-            <option value="draft">Nháp</option>
-            <option value="approved">Đã duyệt</option>
-            <option value="completed">Hoàn thành</option>
+            <option value="draft">Chờ phê duyệt</option>
+            <option value="approved">Đã phê duyệt</option>
+            <option value="completed">Đã nhập kho</option>
             <option value="rejected">Từ chối</option>
           </select>
           <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}
@@ -517,54 +560,55 @@ export const ReceiptsPage = () => {
                         </button>
                       </div>
 
-                      {/* Dòng 2: Phân cấp vị trí lưu kho */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {/* Khu vực */}
-                        <div>
-                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khu vực</p>
-                          <select
-                            value={item._zone}
-                            onChange={(e) => handleItemChange(idx, '_zone', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
-                          >
-                            <option value="">-- Tất cả --</option>
-                            {allNodes.filter(n => n.type === 'zone').map(z => (
-                              <option key={z._id} value={z._id}>{z.code} – {z.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        {/* Kệ chứa */}
-                        <div>
-                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Kệ chứa</p>
-                          <select
-                            value={item._rack}
-                            onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
-                            disabled={!item._zone}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                          >
-                            <option value="">-- Tất cả --</option>
-                            {getDescOfType(item._zone, 'rack').map(r => (
-                              <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        {/* Khay / Bin */}
-                        <div>
-                          <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">
-                            <span className="text-red-400 mr-0.5">*</span> Khay (Bin)
-                          </p>
-                          <select
-                            required
-                            value={item.warehouseNode}
-                            onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
-                            disabled={!item._rack}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                          >
-                            <option value="" disabled>-- Chọn khay --</option>
-                            {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
-                              <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
-                            ))}
-                          </select>
+                      {/* Dòng 2: Phân cấp vị trí lưu kho (tùy chọn — NVK sẽ gán sau khi QL phê duyệt) */}
+                      <div className="space-y-1">
+                        <p className="text-[9px] text-slate-400 font-semibold uppercase">Vị trí khay (tùy chọn)</p>
+                        <p className="text-[9px] text-slate-300 italic">NhanVienKho sẽ gán vị trí bin sau khi QuanLyKho phê duyệt phiếu.</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {/* Khu vực */}
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khu vực</p>
+                            <select
+                              value={item._zone}
+                              onChange={(e) => handleItemChange(idx, '_zone', e.target.value)}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400"
+                            >
+                              <option value="">-- Tất cả --</option>
+                              {allNodes.filter(n => n.type === 'zone').map(z => (
+                                <option key={z._id} value={z._id}>{z.code} – {z.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {/* Kệ chứa */}
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Kệ chứa</p>
+                            <select
+                              value={item._rack}
+                              onChange={(e) => handleItemChange(idx, '_rack', e.target.value)}
+                              disabled={!item._zone}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                            >
+                              <option value="">-- Tất cả --</option>
+                              {getDescOfType(item._zone, 'rack').map(r => (
+                                <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          {/* Khay / Bin */}
+                          <div>
+                            <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khay (Bin)</p>
+                            <select
+                              value={item.warehouseNode}
+                              onChange={(e) => handleItemChange(idx, 'warehouseNode', e.target.value)}
+                              disabled={!item._rack}
+                              className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:border-primary-400 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                            >
+                              <option value="">-- Chưa gán --</option>
+                              {getDescOfType(item._rack || item._zone || null, 'bin').map(b => (
+                                <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -706,7 +750,7 @@ export const ReceiptsPage = () => {
                         checked: false
                       }));
                       setIncidentItems(items);
-                      setIncidentType('damage');
+                      setIncidentType('hang_thieu');
                       setIncidentNote('');
                       setShowIncidentModal(true);
                     }}
@@ -716,7 +760,7 @@ export const ReceiptsPage = () => {
                   </button>
                 </PermissionGuard>
 
-                {(selectedReceipt.status === 'draft' || selectedReceipt.status === 'approved') && (
+                {selectedReceipt.status === 'draft' && (
                   <PermissionGuard permission="receipt:approve">
                     <button
                       onClick={() => { setRejectReceiptId(selectedReceipt._id); setShowRejectModal(true); }}
@@ -724,26 +768,21 @@ export const ReceiptsPage = () => {
                     >
                       ❌ Từ chối
                     </button>
-                  </PermissionGuard>
-                )}
-
-                {selectedReceipt.status === 'draft' && (
-                  <PermissionGuard permission="receipt:approve">
                     <button
                       onClick={() => handleTransitionStatus(selectedReceipt._id, 'approved')}
                       className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
                     >
-                      <CheckCircle2 className="w-4 h-4" /> Duyệt phiếu
+                      <CheckCircle2 className="w-4 h-4" /> Phê duyệt phiếu
                     </button>
                   </PermissionGuard>
                 )}
                 {selectedReceipt.status === 'approved' && (
-                  <PermissionGuard permission="receipt:approve">
+                  <PermissionGuard permission="receipt:complete">
                     <button
-                      onClick={() => handleTransitionStatus(selectedReceipt._id, 'completed')}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      onClick={handleOpenCompleteModal}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-md shadow-emerald-500/10"
                     >
-                      <CheckCircle2 className="w-4 h-4" /> Hoàn thành nhập kho
+                      <CheckCircle2 className="w-4 h-4" /> Hoàn tất nhập kho
                     </button>
                   </PermissionGuard>
                 )}
@@ -782,6 +821,111 @@ export const ReceiptsPage = () => {
         </div>
       )}
 
+      {/* Complete Receipt Modal — NVK assigns bins */}
+      {showCompleteModal && selectedReceipt && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" /> Hoàn Tất Nhập Kho
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">Gán vị trí bin cho từng sản phẩm để cập nhật tồn kho</p>
+              </div>
+              <button onClick={() => setShowCompleteModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleCompleteReceipt} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Sau khi hoàn tất, tồn kho và thẻ kho sẽ được cập nhật tự động. Thao tác này không thể hoàn tác.</span>
+              </div>
+              <div className="space-y-3">
+                {completeItemBins.map((binItem, idx) => (
+                  <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="font-semibold text-slate-900 text-sm">{binItem.productName}</span>
+                        <span className="ml-2 font-mono text-xs text-slate-400">{binItem.productSku}</span>
+                      </div>
+                      <span className="font-bold text-slate-700 text-xs">{binItem.quantity} {binItem.unit}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Khu vực</p>
+                        <select
+                          value={binItem._zone}
+                          onChange={(e) => {
+                            const next = [...completeItemBins];
+                            next[idx]._zone = e.target.value;
+                            next[idx]._rack = '';
+                            next[idx].warehouseNodeId = '';
+                            setCompleteItemBins(next);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                        >
+                          <option value="">-- Khu vực --</option>
+                          {allNodes.filter(n => n.type === 'zone').map(z => (
+                            <option key={z._id} value={z._id}>{z.code} – {z.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">Kệ</p>
+                        <select
+                          value={binItem._rack}
+                          disabled={!binItem._zone}
+                          onChange={(e) => {
+                            const next = [...completeItemBins];
+                            next[idx]._rack = e.target.value;
+                            next[idx].warehouseNodeId = '';
+                            setCompleteItemBins(next);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none disabled:opacity-50 disabled:bg-slate-100"
+                        >
+                          <option value="">-- Kệ --</option>
+                          {getDescOfType(binItem._zone, 'rack').map(r => (
+                            <option key={r._id} value={r._id}>{r.code} – {r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-semibold uppercase mb-1">
+                          <span className="text-red-400 mr-0.5">*</span> Bin
+                        </p>
+                        <select
+                          required
+                          value={binItem.warehouseNodeId}
+                          disabled={!binItem._rack}
+                          onChange={(e) => {
+                            const next = [...completeItemBins];
+                            next[idx].warehouseNodeId = e.target.value;
+                            setCompleteItemBins(next);
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none disabled:opacity-50 disabled:bg-slate-100"
+                        >
+                          <option value="" disabled>-- Chọn bin --</option>
+                          {getDescOfType(binItem._rack || binItem._zone || null, 'bin').map(b => (
+                            <option key={b._id} value={b._id}>{b.code} · {b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+                <button type="button" onClick={() => setShowCompleteModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
+                <button type="submit"
+                  className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-500/10">
+                  Xác nhận Hoàn tất Nhập kho
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Quick Incident Modal */}
       {showIncidentModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
@@ -804,11 +948,8 @@ export const ReceiptsPage = () => {
                   onChange={(e) => setIncidentType(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:border-primary-500 text-sm"
                 >
-                  <option value="shortage">Thiếu hụt số lượng</option>
-                  <option value="damage">Hàng bị hư hỏng</option>
-                  <option value="wrong_product">Sai sản phẩm</option>
-                  <option value="expired">Hàng hết hạn</option>
-                  <option value="other">Sự cố khác</option>
+                  <option value="hang_thieu">Hàng thiếu (NVK kiểm đếm)</option>
+                  <option value="hang_loi">Hàng lỗi (QC kiểm tra chất lượng)</option>
                 </select>
               </div>
 
@@ -986,7 +1127,7 @@ export const ReceiptsPage = () => {
         <div id="receipt-print-canvas" className="hidden p-8 bg-white text-black font-serif">
           <div className="flex justify-between items-start mb-6">
             <div className="text-left font-serif">
-              <p className="font-bold uppercase text-xs">ĐƠN VỊ: MVC WAREHOUSE SYSTEM</p>
+              <p className="font-bold uppercase text-xs">ĐƠN VỊ: CÔNG TY FOSITEK</p>
               <p className="text-xs">Địa chỉ: Khu công nghệ cao, TP. Hồ Chí Minh</p>
             </div>
             <div className="text-right font-serif max-w-[280px]">

@@ -278,3 +278,119 @@ export const updateReceipt = async (req, res, next) => {
     next(error);
   }
 };
+
+// Nhân viên kho cập nhật vị trí lô hàng và hoàn tất nhập kho (HĐ21-23)
+export const completeReceipt = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { id } = req.params;
+    const { items } = req.body; // [{ receiptItemId, warehouseNodeId }]
+
+    const receipt = await Receipt.findByPk(id, {
+      include: [{ model: ReceiptItem, as: 'items' }],
+      transaction: t
+    });
+    if (!receipt) {
+      await t.rollback();
+      return res.status(404).json({ message: 'Không tìm thấy phiếu nhập kho' });
+    }
+    if (receipt.status !== 'approved') {
+      await t.rollback();
+      return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu nhập đang ở trạng thái Đã phê duyệt' });
+    }
+
+    // Cập nhật vị trí (warehouseNodeId) cho từng dòng hàng
+    if (items && items.length > 0) {
+      for (const upd of items) {
+        if (!upd.warehouseNodeId) continue;
+        await ReceiptItem.update(
+          { warehouseNodeId: upd.warehouseNodeId },
+          { where: { _id: upd.receiptItemId, receiptId: id }, transaction: t }
+        );
+      }
+    }
+
+    // Reload items với warehouseNodeId đã cập nhật
+    const updatedItems = await ReceiptItem.findAll({
+      where: { receiptId: id },
+      transaction: t
+    });
+
+    // Điều chỉnh tồn kho + ghi thẻ kho (HĐ23-25)
+    for (const item of updatedItems) {
+      if (!item.warehouseNodeId) continue;
+
+      const productIdVal = item.get('productId') ?? item.dataValues?.product;
+      const nodeIdVal    = item.get('warehouseNodeId') ?? item.dataValues?.warehouseNode;
+
+      const [inventoryRecord] = await Inventory.findOrCreate({
+        where: { productId: productIdVal, warehouseNodeId: nodeIdVal },
+        defaults: { quantity: 0 },
+        transaction: t
+      });
+
+      const qtyBefore = inventoryRecord.quantity;
+      inventoryRecord.quantity += Number(item.quantity);
+      await inventoryRecord.save({ transaction: t });
+      const qtyAfter = inventoryRecord.quantity;
+
+      const scCount = await StockCard.count({ transaction: t });
+      const scCode  = `TK-${new Date().getFullYear()}-${String(scCount + 1).padStart(5, '0')}`;
+
+      await StockCard.create({
+        code: scCode,
+        productId: productIdVal,
+        warehouseNodeId: nodeIdVal,
+        refCode: receipt.code,
+        type: 'import',
+        qtyBefore,
+        qtyChange: Number(item.quantity),
+        qtyAfter,
+        note: `Nhập kho theo phiếu ${receipt.code}`,
+        recordedAt: new Date(),
+        createdByUserId: req.user._id
+      }, { transaction: t });
+    }
+
+    receipt.status = 'completed';
+    await receipt.save({ transaction: t });
+    await t.commit();
+
+    const populated = await Receipt.findByPk(id, {
+      include: [
+        { model: User, as: 'createdByUser', attributes: ['username', 'role'] },
+        {
+          model: ReceiptItem,
+          as: 'items',
+          include: [
+            { model: Product, as: 'product', attributes: ['sku', 'name', 'unit'] },
+            { model: WarehouseNode, as: 'warehouseNode', attributes: ['name', 'code', 'type'] }
+          ]
+        }
+      ]
+    });
+
+    await recordAudit({
+      action: 'receipt.complete',
+      userId: req.user._id,
+      username: req.user.username,
+      entity: 'receipt',
+      entityId: Number(id),
+      payload: { code: receipt.code }
+    });
+
+    sendNotification({
+      targetRoles: ['KeToanKho', 'QuanLyKho', 'Admin'],
+      excludeUserId: req.user._id,
+      title: `Phiếu nhập kho hoàn tất: ${receipt.code}`,
+      content: `${req.user.fullName || req.user.username} đã cập nhật vị trí lô hàng và hoàn tất nhập kho phiếu ${receipt.code}. Tồn kho đã được cập nhật.`,
+      type: 'receipt',
+      refId: Number(id)
+    });
+
+    res.json(populated);
+  } catch (error) {
+    if (!t.finished) await t.rollback();
+    next(error);
+  }
+};

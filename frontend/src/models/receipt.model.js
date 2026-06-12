@@ -9,5 +9,8 @@ export const ReceiptModel = {
   },
   update: async (id, receiptData) => {
     return await api.put(`/receipts/${id}`, receiptData);
+  },
+  complete: async (id, data) => {
+    return await api.put(`/receipts/${id}/complete`, data);
   }
 };

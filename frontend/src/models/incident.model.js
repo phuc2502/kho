@@ -7,6 +7,12 @@ export const IncidentModel = {
   create: async (data) => {
     return await api.post('/incidents', data);
   },
+  approve: async (id) => {
+    return await api.post(`/incidents/${id}/approve`, {});
+  },
+  reject: async (id, reason) => {
+    return await api.post(`/incidents/${id}/reject`, { reason });
+  },
   update: async (id, data) => {
     return await api.put(`/incidents/${id}`, data);
   },

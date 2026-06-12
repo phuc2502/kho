@@ -14,8 +14,9 @@ export const Incident = sequelize.define('Incident', {
     allowNull: false,
     unique: true
   },
+  // hang_loi: hàng không đạt chất lượng (QC lập); hang_thieu: hàng thiếu số lượng (NhanVienKho lập)
   type: {
-    type: DataTypes.ENUM('shortage', 'damage', 'wrong_product', 'expired', 'other'),
+    type: DataTypes.ENUM('hang_loi', 'hang_thieu'),
     allowNull: false
   },
   refType: {
@@ -27,12 +28,12 @@ export const Incident = sequelize.define('Incident', {
     allowNull: true
   },
   status: {
-    type: DataTypes.ENUM('open', 'resolved', 'closed'),
-    defaultValue: 'open'
+    type: DataTypes.ENUM('pending_approval', 'approved', 'rejected'),
+    defaultValue: 'pending_approval'
   },
-  action: {
-    type: DataTypes.ENUM('reorder', 'dispose', 'return_supplier', 'write_off', 'pending'),
-    defaultValue: 'pending'
+  rejectNote: {
+    type: DataTypes.TEXT,
+    allowNull: true
   },
   note: {
     type: DataTypes.TEXT,
@@ -46,6 +47,19 @@ export const Incident = sequelize.define('Incident', {
       model: User,
       key: '_id'
     }
+  },
+  approvedByUserId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'approvedByUser',
+    references: {
+      model: User,
+      key: '_id'
+    }
+  },
+  approvedAt: {
+    type: DataTypes.DATE,
+    allowNull: true
   }
 }, {
   timestamps: true
@@ -80,6 +94,11 @@ export const IncidentItem = sequelize.define('IncidentItem', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 1
+  },
+  // Nguyên nhân lỗi / mô tả chi tiết (dùng cho hang_loi)
+  reason: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   timestamps: false
@@ -87,6 +106,7 @@ export const IncidentItem = sequelize.define('IncidentItem', {
 
 // Relationships
 Incident.belongsTo(User, { foreignKey: 'createdByUserId', as: 'createdByUser' });
+Incident.belongsTo(User, { foreignKey: 'approvedByUserId', as: 'approvedByUser' });
 Incident.hasMany(IncidentItem, { foreignKey: 'incidentId', as: 'items', onDelete: 'CASCADE' });
 
 IncidentItem.belongsTo(Incident, { foreignKey: 'incidentId', as: 'incident' });
