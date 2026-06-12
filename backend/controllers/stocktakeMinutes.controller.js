@@ -95,8 +95,8 @@ export const approveMinutes = async (req, res, next) => {
       approvedAt: new Date()
     }, { transaction: t });
 
-    // Approve stocktake
-    await stocktake.update({ status: 'approved' }, { transaction: t });
+    // Complete stocktake
+    await stocktake.update({ status: 'completed' }, { transaction: t });
 
     const items = stocktake.items || [];
     let adjustmentId = null;
@@ -112,17 +112,26 @@ export const approveMinutes = async (req, res, next) => {
           code: 'ADJ-' + stocktake.code,
           reason: 'count_correction',
           note: 'Tự động tạo từ biên bản kiểm kê ' + minutes.code,
-          status: 'draft',
+          status: 'approved',
           createdByUserId: req.user._id
         }, { transaction: t });
 
         for (const item of diffItems) {
+          const delta = Number(item.countedQty) - Number(item.systemQty);
           await AdjustmentItem.create({
             adjustmentId: adjustment._id,
             productId: item.productId,
             warehouseNodeId: item.warehouseNodeId,
-            delta: Number(item.countedQty) - Number(item.systemQty)
+            delta
           }, { transaction: t });
+
+          // Apply inventory adjustment: set quantity to countedQty
+          const productIdVal = item.get('productId') ?? item.dataValues?.product;
+          const nodeIdVal    = item.get('warehouseNodeId') ?? item.dataValues?.warehouseNode;
+          await sequelize.query(
+            'UPDATE Inventories SET quantity = ? WHERE `product` = ? AND `warehouseNode` = ?',
+            { replacements: [Number(item.countedQty), productIdVal, nodeIdVal], transaction: t }
+          );
         }
 
         adjustmentId = adjustment._id;

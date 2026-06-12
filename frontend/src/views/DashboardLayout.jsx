@@ -280,7 +280,7 @@ export const DashboardLayout = () => {
               className="text-[11px] font-medium hidden sm:inline"
               style={{ color: '#b8b2aa', letterSpacing: '0.04em' }}
             >
-              MVC WAREHOUSE
+              FOSITEK WAREHOUSE
             </span>
             <ChevronRight className="w-3 h-3 hidden sm:inline" style={{ color: '#c9c3bb' }} />
             <h1 className="text-sm font-semibold truncate max-w-[180px] xs:max-w-none" style={{ color: '#1e1919' }}>

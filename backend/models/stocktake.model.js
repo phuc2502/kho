@@ -20,7 +20,7 @@ export const Stocktake = sequelize.define('Stocktake', {
     allowNull: false
   },
   status: {
-    type: DataTypes.ENUM('pending_approval', 'counting', 'submitted', 'approved', 'rejected'),
+    type: DataTypes.ENUM('pending_approval', 'counting', 'submitted', 'completed', 'rejected'),
     allowNull: false,
     defaultValue: 'pending_approval'
   },
@@ -119,6 +119,18 @@ export const StocktakeItem = sequelize.define('StocktakeItem', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 0
+  },
+  discrepancyQty: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  discrepancyCategory: {
+    type: DataTypes.STRING(50),
+    allowNull: true
+  },
+  discrepancyReason: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 }, {
   timestamps: false

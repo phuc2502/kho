@@ -239,12 +239,17 @@ export const updateStocktake = async (req, res, next) => {
       await StocktakeItem.destroy({ where: { stocktakeId: id }, transaction: t });
 
       for (const item of items) {
+        const counted = Number(item.countedQty) || 0;
+        const system  = Number(item.systemQty) || 0;
         await StocktakeItem.create({
           stocktakeId: id,
           productId: item.productId,
           warehouseNodeId: item.warehouseNodeId,
-          systemQty: Number(item.systemQty) || 0,
-          countedQty: Number(item.countedQty) || 0
+          systemQty: system,
+          countedQty: counted,
+          discrepancyQty: counted - system,
+          discrepancyCategory: item.discrepancyCategory || null,
+          discrepancyReason: item.discrepancyReason || null
         }, { transaction: t });
       }
     }

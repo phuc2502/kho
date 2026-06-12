@@ -126,7 +126,7 @@ export const deliveryTemplate = (delivery) => {
 export const stocktakeSheetTemplate = (stocktake) => {
   const statusMap = {
     pending_approval: 'Chờ phê duyệt', counting: 'Đang kiểm kê',
-    submitted: 'Chờ duyệt biên bản', approved: 'Đã phê duyệt', rejected: 'Từ chối'
+    submitted: 'Chờ duyệt biên bản', completed: 'Hoàn tất', rejected: 'Từ chối'
   };
   const rows = (stocktake.items || []).map((item, i) => `
     <tr>

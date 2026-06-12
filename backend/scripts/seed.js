@@ -305,30 +305,30 @@ const seed = async () => {
     // ══════════════════════════════════════════════════════════════
     // 8. STOCKTAKES (5 phiếu kiểm kê) + Biên bản + Báo cáo
     // ══════════════════════════════════════════════════════════════
-    // ST-001: approved, không chênh lệch
+    // ST-001: completed, không chênh lệch
     const st1 = await Stocktake.create({
       code:'ST-2026-00001', date:'2026-03-15',
-      status:'approved', hasDiff:false,
+      status:'completed', hasDiff:false,
       note:'Kiểm kê định kỳ Q1/2026. Kết quả: Tất cả khớp hệ thống.',
       createdByUserId:accountant1._id,
       approvedByUserId:manager._id, approvedAt:new Date('2026-03-16'),
       submittedByUserId:accountant1._id, submittedAt:new Date('2026-03-17')
     });
-    await StocktakeItem.create({ stocktakeId:st1._id, productId:p1._id, warehouseNodeId:binA101._id, systemQty:97,  countedQty:97  });
-    await StocktakeItem.create({ stocktakeId:st1._id, productId:p2._id, warehouseNodeId:binA201._id, systemQty:200, countedQty:200 });
+    await StocktakeItem.create({ stocktakeId:st1._id, productId:p1._id, warehouseNodeId:binA101._id, systemQty:97,  countedQty:97,  discrepancyQty:0 });
+    await StocktakeItem.create({ stocktakeId:st1._id, productId:p2._id, warehouseNodeId:binA201._id, systemQty:200, countedQty:200, discrepancyQty:0 });
     await setDates('Stocktakes', st1._id, 87, 86);
 
-    // ST-002: approved, có chênh lệch (SLK-380 thiếu 5)
+    // ST-002: completed, có chênh lệch (SLK-380 thiếu 5)
     const st2 = await Stocktake.create({
       code:'ST-2026-00002', date:'2026-04-20',
-      status:'approved', hasDiff:true,
+      status:'completed', hasDiff:true,
       note:'Kiểm kê đột xuất Khu B. Phát hiện lệch 5 bộ SLK-380 tại VT-B1-01.',
       createdByUserId:staff1._id,
       approvedByUserId:manager._id, approvedAt:new Date('2026-04-22'),
       submittedByUserId:accountant1._id, submittedAt:new Date('2026-04-23')
     });
-    await StocktakeItem.create({ stocktakeId:st2._id, productId:p3._id, warehouseNodeId:binB101._id, systemQty:305, countedQty:300 });
-    await StocktakeItem.create({ stocktakeId:st2._id, productId:p4._id, warehouseNodeId:binB201._id, systemQty:200, countedQty:200 });
+    await StocktakeItem.create({ stocktakeId:st2._id, productId:p3._id, warehouseNodeId:binB101._id, systemQty:305, countedQty:300, discrepancyQty:-5, discrepancyCategory:'thất_thoát', discrepancyReason:'Kiểm tra thực tế thấy thiếu 5 bộ so với sổ sách, nghi thất lạc trong quá trình bốc dỡ.' });
+    await StocktakeItem.create({ stocktakeId:st2._id, productId:p4._id, warehouseNodeId:binB201._id, systemQty:200, countedQty:200, discrepancyQty:0 });
     await setDates('Stocktakes', st2._id, 51, 49);
 
     // ST-003: counting (đang đếm)
@@ -363,11 +363,11 @@ const seed = async () => {
       approvedByUserId:manager._id, approvedAt:new Date('2026-06-09'),
       submittedByUserId:accountant2._id, submittedAt:new Date('2026-06-10')
     });
-    await StocktakeItem.create({ stocktakeId:st5._id, productId:p5._id, warehouseNodeId:binC101._id, systemQty:7, countedQty:5 });
-    await StocktakeItem.create({ stocktakeId:st5._id, productId:p6._id, warehouseNodeId:binC102._id, systemQty:5, countedQty:7 });
+    await StocktakeItem.create({ stocktakeId:st5._id, productId:p5._id, warehouseNodeId:binC101._id, systemQty:7, countedQty:5, discrepancyQty:-2, discrepancyCategory:'hư_hỏng', discrepancyReason:'2 cái bị hỏng do ẩm ướt, không còn sử dụng được.' });
+    await StocktakeItem.create({ stocktakeId:st5._id, productId:p6._id, warehouseNodeId:binC102._id, systemQty:5, countedQty:7, discrepancyQty:2,  discrepancyCategory:'nhập_xuất_sai', discrepancyReason:'2 cái nhập thêm ngày 05/06 chưa được ghi vào hệ thống.' });
     await setDates('Stocktakes', st5._id, 2, 1);
 
-    console.log('✓ Stocktakes (5): approved×2, counting×1, pending_approval×1, submitted×1');
+    console.log('✓ Stocktakes (5): completed×2, counting×1, pending_approval×1, submitted×1');
 
     // ── Biên bản kiểm kê (3 biên bản) ────────────────────────────
     // BB-001: cho ST-001 (approved, không chênh lệch)

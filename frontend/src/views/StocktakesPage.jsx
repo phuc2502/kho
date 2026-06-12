@@ -19,7 +19,7 @@ const STATUS_CONFIG = {
   pending_approval: { label: 'Chờ phê duyệt',    color: 'bg-slate-100 text-slate-700 border-slate-200',   step: 1 },
   counting:         { label: 'Đang kiểm kê',      color: 'bg-blue-100 text-blue-700 border-blue-200',      step: 2 },
   submitted:        { label: 'Chờ duyệt BB',      color: 'bg-violet-100 text-violet-700 border-violet-200', step: 3 },
-  approved:         { label: 'Đã phê duyệt',      color: 'bg-emerald-100 text-emerald-700 border-emerald-200', step: 4 },
+  completed:        { label: 'Hoàn tất',           color: 'bg-emerald-100 text-emerald-700 border-emerald-200', step: 4 },
   rejected:         { label: 'Từ chối',            color: 'bg-red-100 text-red-700 border-red-200',          step: 0 },
 };
 
@@ -27,11 +27,11 @@ const WORKFLOW_STEPS = [
   { key: 'pending_approval', label: 'Lập phiếu' },
   { key: 'counting',         label: 'Kiểm kê' },
   { key: 'submitted',        label: 'Chờ duyệt' },
-  { key: 'approved',         label: 'Hoàn tất' },
+  { key: 'completed',        label: 'Hoàn tất' },
 ];
 
 const WorkflowBar = ({ currentStatus }) => {
-  const stepMap = { pending_approval: 1, counting: 2, submitted: 3, approved: 4, rejected: 0 };
+  const stepMap = { pending_approval: 1, counting: 2, submitted: 3, completed: 4, rejected: 0 };
   const currentStep = stepMap[currentStatus] || 1;
   if (currentStatus === 'rejected') {
     return (
@@ -180,7 +180,9 @@ export const StocktakesPage = () => {
           product: item.product,
           warehouseNode: item.warehouseNode,
           systemQty: item.systemQty,
-          countedQty: item.countedQty ?? 0
+          countedQty: item.countedQty ?? 0,
+          discrepancyCategory: item.discrepancyCategory || '',
+          discrepancyReason: item.discrepancyReason || ''
         }))
       );
     }
@@ -240,7 +242,10 @@ export const StocktakesPage = () => {
           _id: item._id,
           productId: Number(item.productId),
           warehouseNodeId: Number(item.warehouseNodeId),
-          countedQty: Number(item.countedQty)
+          systemQty: Number(item.systemQty),
+          countedQty: Number(item.countedQty),
+          discrepancyCategory: item.discrepancyCategory || null,
+          discrepancyReason: item.discrepancyReason || null
         }))
       });
       toast.success('Đã lưu số liệu đếm');
@@ -253,7 +258,9 @@ export const StocktakesPage = () => {
           product: item.product,
           warehouseNode: item.warehouseNode,
           systemQty: item.systemQty,
-          countedQty: item.countedQty ?? 0
+          countedQty: item.countedQty ?? 0,
+          discrepancyCategory: item.discrepancyCategory || '',
+          discrepancyReason: item.discrepancyReason || ''
         }))
       );
       fetchData();
@@ -396,7 +403,7 @@ export const StocktakesPage = () => {
             <option value="pending_approval">Chờ phê duyệt</option>
             <option value="counting">Đang kiểm kê</option>
             <option value="submitted">Chờ duyệt biên bản</option>
-            <option value="approved">Đã phê duyệt</option>
+            <option value="completed">Hoàn tất</option>
             <option value="rejected">Từ chối</option>
           </select>
           <select value={filterWarehouse} onChange={e => setFilterWarehouse(e.target.value)}
@@ -707,38 +714,85 @@ export const StocktakesPage = () => {
                         <th className="px-4 py-2.5 text-center">
                           {selectedStocktake.status === 'counting' ? 'Đếm thực tế ✏️' : 'Đếm thực tế'}
                         </th>
-                        {(selectedStocktake.status === 'submitted' || selectedStocktake.status === 'approved') && (
-                          <th className="px-4 py-2.5 text-right">Chênh lệch</th>
+                        {selectedStocktake.status === 'counting' && (
+                          <>
+                            <th className="px-4 py-2.5">Phân loại</th>
+                            <th className="px-4 py-2.5">Lý do chênh lệch</th>
+                          </>
+                        )}
+                        {(selectedStocktake.status === 'submitted' || selectedStocktake.status === 'completed') && (
+                          <>
+                            <th className="px-4 py-2.5 text-right">Chênh lệch</th>
+                            <th className="px-4 py-2.5">Phân loại</th>
+                            <th className="px-4 py-2.5">Lý do</th>
+                          </>
                         )}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {selectedStocktake.status === 'counting'
-                        ? editingCounts.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/20">
-                            <td className="px-4 py-2.5">
-                              <p className="font-semibold text-slate-900">{item.product?.name}</p>
-                              <p className="text-[10px] font-mono text-slate-400">{item.product?.sku}</p>
-                            </td>
-                            <td className="px-4 py-2.5 font-mono font-bold text-primary-600">{item.warehouseNode?.code}</td>
-                            <td className="px-4 py-2.5 text-center font-bold text-slate-500">{item.systemQty}</td>
-                            <td className="px-4 py-2.5 text-center">
-                              <input
-                                type="number" min="0"
-                                value={item.countedQty}
-                                onChange={(e) => {
-                                  const next = [...editingCounts];
-                                  next[idx].countedQty = e.target.value;
-                                  setEditingCounts(next);
-                                }}
-                                className="w-20 bg-white border border-primary-300 rounded-lg px-2 py-1 text-center text-xs font-bold text-slate-900 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200"
-                              />
-                            </td>
-                          </tr>
-                        ))
+                        ? editingCounts.map((item, idx) => {
+                          const hasDiff = Number(item.countedQty) !== Number(item.systemQty);
+                          return (
+                            <tr key={idx} className={hasDiff ? 'bg-amber-50/40' : 'hover:bg-slate-50/20'}>
+                              <td className="px-4 py-2.5">
+                                <p className="font-semibold text-slate-900">{item.product?.name}</p>
+                                <p className="text-[10px] font-mono text-slate-400">{item.product?.sku}</p>
+                              </td>
+                              <td className="px-4 py-2.5 font-mono font-bold text-primary-600">{item.warehouseNode?.code}</td>
+                              <td className="px-4 py-2.5 text-center font-bold text-slate-500">{item.systemQty}</td>
+                              <td className="px-4 py-2.5 text-center">
+                                <input
+                                  type="number" min="0"
+                                  value={item.countedQty}
+                                  onChange={(e) => {
+                                    const next = [...editingCounts];
+                                    next[idx].countedQty = e.target.value;
+                                    setEditingCounts(next);
+                                  }}
+                                  className="w-20 bg-white border border-primary-300 rounded-lg px-2 py-1 text-center text-xs font-bold text-slate-900 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200"
+                                />
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <select
+                                  value={item.discrepancyCategory || ''}
+                                  disabled={!hasDiff}
+                                  onChange={(e) => {
+                                    const next = [...editingCounts];
+                                    next[idx].discrepancyCategory = e.target.value;
+                                    setEditingCounts(next);
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-primary-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  <option value="">-- Phân loại --</option>
+                                  <option value="thất_thoát">Thất thoát</option>
+                                  <option value="hư_hỏng">Hư hỏng</option>
+                                  <option value="nhập_xuất_sai">Nhập/xuất sai</option>
+                                  <option value="ghi_sổ_nhầm">Ghi sổ nhầm</option>
+                                  <option value="khác">Khác</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <input
+                                  type="text"
+                                  value={item.discrepancyReason || ''}
+                                  disabled={!hasDiff}
+                                  placeholder={hasDiff ? 'Nhập lý do...' : '—'}
+                                  onChange={(e) => {
+                                    const next = [...editingCounts];
+                                    next[idx].discrepancyReason = e.target.value;
+                                    setEditingCounts(next);
+                                  }}
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-primary-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })
                         : (selectedStocktake.items || []).map((item, idx) => {
                           const diff = Number(item.countedQty) - Number(item.systemQty);
-                          const showDiff = selectedStocktake.status === 'submitted' || selectedStocktake.status === 'approved';
+                          const showDiff = selectedStocktake.status === 'submitted' || selectedStocktake.status === 'completed';
+                          const CATEGORY_LABELS = { thất_thoát: 'Thất thoát', hư_hỏng: 'Hư hỏng', nhập_xuất_sai: 'Nhập/xuất sai', ghi_sổ_nhầm: 'Ghi sổ nhầm', khác: 'Khác' };
                           return (
                             <tr key={idx} className={showDiff && diff !== 0 ? 'bg-amber-50/30' : 'hover:bg-slate-50/20'}>
                               <td className="px-4 py-2.5">
@@ -749,13 +803,21 @@ export const StocktakesPage = () => {
                               <td className="px-4 py-2.5 text-center font-bold text-slate-500">{item.systemQty}</td>
                               <td className="px-4 py-2.5 text-center font-bold text-slate-900">{item.countedQty ?? '—'}</td>
                               {showDiff && (
-                                <td className="px-4 py-2.5 text-right font-bold">
-                                  {diff === 0
-                                    ? <span className="text-slate-400">0</span>
-                                    : diff > 0
-                                      ? <span className="text-emerald-600">+{diff}</span>
-                                      : <span className="text-red-600">{diff}</span>}
-                                </td>
+                                <>
+                                  <td className="px-4 py-2.5 text-right font-bold">
+                                    {diff === 0
+                                      ? <span className="text-slate-400">0</span>
+                                      : diff > 0
+                                        ? <span className="text-emerald-600">+{diff}</span>
+                                        : <span className="text-red-600">{diff}</span>}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-slate-600">
+                                    {item.discrepancyCategory ? CATEGORY_LABELS[item.discrepancyCategory] || item.discrepancyCategory : <span className="text-slate-300">—</span>}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-slate-500 max-w-[160px]">
+                                    {item.discrepancyReason || <span className="text-slate-300">—</span>}
+                                  </td>
+                                </>
                               )}
                             </tr>
                           );
@@ -838,11 +900,11 @@ export const StocktakesPage = () => {
                 </div>
               )}
 
-              {/* approved → show success + link to report */}
-              {selectedStocktake.status === 'approved' && (
+              {/* completed → show success + link to report */}
+              {selectedStocktake.status === 'completed' && (
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Kiểm kê đã được phê duyệt
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Kiểm kê đã hoàn tất
                   </span>
                   <button
                     onClick={() => { setSelectedStocktake(null); navigate('/stocktake-reports'); }}
@@ -877,7 +939,7 @@ export const StocktakesPage = () => {
               >
                 <Printer className="w-3.5 h-3.5" /> In Phiếu
               </button>
-              {(selectedStocktake.status === 'submitted' || selectedStocktake.status === 'approved') && (
+              {(selectedStocktake.status === 'submitted' || selectedStocktake.status === 'completed') && (
                 <button
                   onClick={() => printDocument(stocktakeMinutesTemplate(selectedStocktake), `Biên bản kiểm kê ${selectedStocktake.code}`)}
                   className="px-3.5 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
@@ -886,7 +948,7 @@ export const StocktakesPage = () => {
                   <FileText className="w-3.5 h-3.5" /> Biên bản
                 </button>
               )}
-              {selectedStocktake.status === 'approved' && (
+              {selectedStocktake.status === 'completed' && (
                 <button
                   onClick={() => printDocument(stocktakeReportTemplate(selectedStocktake), `Báo cáo kiểm kê ${selectedStocktake.code}`)}
                   className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"

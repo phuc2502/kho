@@ -569,5 +569,64 @@ export const runMigrations = async () => {
     console.warn('Migration warning (Deliveries signature columns):', err.message);
   }
 
+  // ——— 24. Thêm cột discrepancyQty vào StocktakeItems ———
+  try {
+    const siDesc24 = await qi.describeTable('StocktakeItems');
+    if (!siDesc24.discrepancyQty) {
+      await qi.addColumn('StocktakeItems', 'discrepancyQty', {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        after: 'countedQty'
+      });
+      console.log('Migration: Added StocktakeItems.discrepancyQty');
+    }
+  } catch (err) {
+    console.warn('Migration warning (StocktakeItems.discrepancyQty):', err.message);
+  }
+
+  // ——— 25. Thêm cột discrepancyCategory vào StocktakeItems ———
+  try {
+    const siDesc25 = await qi.describeTable('StocktakeItems');
+    if (!siDesc25.discrepancyCategory) {
+      await qi.addColumn('StocktakeItems', 'discrepancyCategory', {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+        after: 'discrepancyQty'
+      });
+      console.log('Migration: Added StocktakeItems.discrepancyCategory');
+    }
+  } catch (err) {
+    console.warn('Migration warning (StocktakeItems.discrepancyCategory):', err.message);
+  }
+
+  // ——— 26. Thêm cột discrepancyReason vào StocktakeItems ———
+  try {
+    const siDesc26 = await qi.describeTable('StocktakeItems');
+    if (!siDesc26.discrepancyReason) {
+      await qi.addColumn('StocktakeItems', 'discrepancyReason', {
+        type: DataTypes.TEXT,
+        allowNull: true,
+        after: 'discrepancyCategory'
+      });
+      console.log('Migration: Added StocktakeItems.discrepancyReason');
+    }
+  } catch (err) {
+    console.warn('Migration warning (StocktakeItems.discrepancyReason):', err.message);
+  }
+
+  // ——— 27. Đổi ENUM Stocktakes.status: 'approved' → 'completed' ———
+  try {
+    await sequelize.query(
+      `ALTER TABLE Stocktakes MODIFY COLUMN status ENUM('pending_approval','counting','submitted','approved','completed','rejected') NOT NULL DEFAULT 'pending_approval'`
+    );
+    await sequelize.query(`UPDATE Stocktakes SET status = 'completed' WHERE status = 'approved'`);
+    await sequelize.query(
+      `ALTER TABLE Stocktakes MODIFY COLUMN status ENUM('pending_approval','counting','submitted','completed','rejected') NOT NULL DEFAULT 'pending_approval'`
+    );
+    console.log('Migration: Updated Stocktakes.status ENUM (approved → completed)');
+  } catch (err) {
+    console.warn('Migration warning (Stocktakes status enum):', err.message);
+  }
+
   console.log('Migrations completed.');
 };
