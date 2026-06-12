@@ -51,7 +51,7 @@ export const ForgotPasswordPage = () => {
         <div className="flex items-center gap-3 relative z-10">
           <DropboxMark size={22} color="#0061fe" />
           <span className="font-semibold text-sm" style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}>
-            MVC Warehouse
+            Fositek Warehouse
           </span>
         </div>
         <div className="relative z-10 max-w-sm">
@@ -65,7 +65,7 @@ export const ForgotPasswordPage = () => {
             Nhập email công ty, hệ thống sẽ thông báo cho quản trị viên. Admin sẽ cấp lại mật khẩu và liên hệ với bạn.
           </p>
         </div>
-        <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>© 2024 MVC Warehouse Management System</p>
+        <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>© 2024 Fositek Warehouse Management System</p>
       </section>
 
       {/* ── RIGHT — Form ──────────────────────────────────────── */}
@@ -75,7 +75,7 @@ export const ForgotPasswordPage = () => {
           {/* Mobile wordmark */}
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <DropboxMark size={22} color="#0061fe" />
-            <span className="font-semibold text-sm" style={{ color: '#1e1919' }}>MVC Warehouse</span>
+            <span className="font-semibold text-sm" style={{ color: '#1e1919' }}>Fositek Warehouse</span>
           </div>
 
           <div style={{ background: '#ffffff', border: '1px solid #eee9e2', borderRadius: '12px', padding: '36px' }}>

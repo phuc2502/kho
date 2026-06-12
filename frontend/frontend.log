@@ -185,3 +185,8 @@
       at async loadAndTransform (file:///D:/TTCN_Hang/kho/frontend/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51978:27)
 [2m6:35:33 AM[22m [31m[1m[vite][22m[39m Pre-transform error: Failed to parse source for import analysis because the content contains invalid JS syntax. If you are using JSX, make sure to name the file with the .jsx or .tsx extension.
 [2m6:36:05 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/views/ReceiptsPage.jsx, /src/views/DeliveriesPage.jsx, /src/views/StocktakesPage.jsx[22m
+[2m7:11:54 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/DashboardLayout.jsx, /src/index.css[22m
+[2m7:11:57 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/DashboardPage.jsx, /src/index.css[22m
+[2m7:12:01 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/LoginPage.jsx, /src/index.css[22m
+[2m7:12:04 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ForgotPasswordPage.jsx, /src/index.css[22m
+[2m7:12:07 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ResetPasswordPage.jsx, /src/index.css[22m

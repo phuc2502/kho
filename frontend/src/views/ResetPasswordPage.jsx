@@ -74,7 +74,7 @@ export const ResetPasswordPage = () => {
         />
         <div className="flex items-center gap-3 relative z-10">
           <DropboxMark size={22} color="#0061fe" />
-          <span className="font-semibold text-sm" style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}>MVC Warehouse</span>
+          <span className="font-semibold text-sm" style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}>Fositek Warehouse</span>
         </div>
         <div className="relative z-10 max-w-sm">
           <p className="text-xs font-medium uppercase mb-6" style={{ color: '#716b61', letterSpacing: '0.08em' }}>Bảo mật tài khoản</p>
@@ -85,7 +85,7 @@ export const ResetPasswordPage = () => {
             Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm chữ in hoa, chữ số và ký tự đặc biệt. Sau khi đặt lại thành công, bạn sẽ được chuyển về trang đăng nhập.
           </p>
         </div>
-        <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>© 2024 MVC Warehouse Management System</p>
+        <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>© 2024 Fositek Warehouse Management System</p>
       </section>
 
       {/* RIGHT */}
@@ -94,7 +94,7 @@ export const ResetPasswordPage = () => {
 
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <DropboxMark size={22} color="#0061fe" />
-            <span className="font-semibold text-sm" style={{ color: '#1e1919' }}>MVC Warehouse</span>
+            <span className="font-semibold text-sm" style={{ color: '#1e1919' }}>Fositek Warehouse</span>
           </div>
 
           <div style={{ background: '#ffffff', border: '1px solid #eee9e2', borderRadius: '12px', padding: '36px' }}>
