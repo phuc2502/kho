@@ -150,7 +150,7 @@ export const DashboardLayout = () => {
               className="font-semibold text-sm"
               style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}
             >
-              MVC Warehouse
+              Fositek Warehouse
             </span>
           </div>
           <button

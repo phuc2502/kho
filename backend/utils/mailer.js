@@ -99,7 +99,7 @@ const wrapEmail = (body) => `
         <path d="M20 6.5L30 0l10 6.5L30 13l10 6.5-10 6.5-10-6.5L30 13z" fill="#0061fe"/>
         <path d="M10 27.85L20 21.35l10 6.5-10 6.5z" fill="#0061fe"/>
       </svg>
-      <span style="color:#f7f5f2;font-weight:600;font-size:13px;letter-spacing:-0.01em">MVC Warehouse · FOSITEK Hà Nam</span>
+      <span style="color:#f7f5f2;font-weight:600;font-size:13px;letter-spacing:-0.01em">Fositek Warehouse · FOSITEK Hà Nam</span>
     </div>
     <div style="padding:28px 32px">${body}</div>
   </div>

@@ -282,7 +282,7 @@ export const DashboardPage = () => {
           className="text-xs font-medium uppercase mb-3"
           style={{ color: 'rgba(255,255,255,0.55)', letterSpacing: '0.07em' }}
         >
-          MVC Warehouse · Hệ thống quản lý kho
+          Fositek Warehouse · Hệ thống quản lý kho
         </p>
 
         {/* Heading */}

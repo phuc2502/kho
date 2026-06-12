@@ -73,7 +73,7 @@ export const LoginPage = () => {
             className="font-semibold text-sm"
             style={{ color: '#f7f5f2', letterSpacing: '-0.01em' }}
           >
-            MVC Warehouse
+            Fositek Warehouse
           </span>
         </div>
 
@@ -120,7 +120,7 @@ export const LoginPage = () => {
 
         {/* Footer */}
         <p className="text-xs relative z-10" style={{ color: '#3d3633' }}>
-          © 2024 MVC Warehouse Management System
+          © 2024 Fositek Warehouse Management System
         </p>
       </section>
 
@@ -135,7 +135,7 @@ export const LoginPage = () => {
           <div className="lg:hidden flex items-center gap-3 mb-10">
             <DropboxMark size={22} color="#0061fe" />
             <span className="font-semibold text-sm" style={{ color: '#1e1919', letterSpacing: '-0.01em' }}>
-              MVC Warehouse
+              Fositek Warehouse
             </span>
           </div>
 
