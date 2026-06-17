@@ -5,6 +5,7 @@ import { User } from '../models/user.model.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { getEffectivePermissions } from '../utils/permission.helper.js';
 // sendMail/buildResetPasswordEmail không còn dùng trong forgotPassword (Admin xử lý thủ công)
+import { sendNotification } from '../utils/notification.helper.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_me_in_production';
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -253,6 +254,15 @@ export const forgotPassword = async (req, res, next) => {
       entity: 'user',
       entityId: user._id,
       payload: { note: 'Gửi yêu cầu cấp lại mật khẩu' }
+    });
+
+    // Gửi thông báo cho Admin biết có yêu cầu cấp lại mật khẩu
+    await sendNotification({
+      targetRoles: ['Admin'],
+      title: `Yêu cầu cấp lại mật khẩu`,
+      content: `Tài khoản "${user.fullName || user.username}" (${user.email}) vừa gửi yêu cầu cấp lại mật khẩu. Vui lòng vào trang Quản lý người dùng để xử lý.`,
+      type: 'user',
+      refId: user._id
     });
 
     res.json(genericOk);
