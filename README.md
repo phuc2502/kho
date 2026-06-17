@@ -6,28 +6,28 @@ Hệ thống quản lý kho thành phẩm linh kiện điện tử cho **FOSITEK
 
 ## 🏗 Kiến trúc hệ thống
 
-```
+```text
 kho/
 ├── backend/            # Express API Server (Node.js + Sequelize + MySQL)
-│   ├── config/         # Kết nối cơ sở dữ liệu (MySQL/XAMPP)
-│   ├── models/         # Model Sequelize (ORM)
-│   ├── controllers/    # Logic nghiệp vụ
+│   ├── config/         # Cấu hình & Kết nối cơ sở dữ liệu
+│   ├── models/         # Các Model Sequelize (ORM)
+│   ├── controllers/    # Logic nghiệp vụ (Controllers)
 │   ├── routes/         # Định nghĩa API endpoints
-│   ├── middlewares/    # JWT Auth + kiểm tra quyền động
-│   ├── utils/          # permission.helper, audit.helper, migration.helper
-│   ├── scripts/
-│   │   └── seed.js     # Dữ liệu mẫu FOSITEK
-│   └── server.js
+│   ├── middlewares/    # Phân quyền, JWT Auth, xử lý lỗi
+│   ├── utils/          # Các hàm hỗ trợ (permission, audit, notification...)
+│   ├── database/       # Thư mục chứa script khởi tạo dữ liệu
+│   │   ├── seed.js     # Nạp dữ liệu mẫu gốc
+│   │   └── seed_extra.js # Nạp dữ liệu mẫu linh kiện điện tử bổ sung
+│   └── server.js       # Entry point khởi chạy backend
 │
-├── frontend/           # React 18 + Vite + Tailwind CSS (Dropbox Design)
+├── frontend/           # React 18 + Vite + Tailwind CSS
 │   └── src/
-│       ├── models/     # Giao tiếp API
-│       ├── controllers/# Auth context, state hooks
-│       ├── views/      # Các trang giao diện
-│       └── components/ # PermissionGuard, shared components
+│       ├── models/     # Các lớp giao tiếp với API backend
+│       ├── controllers/# Các context quản lý state (Auth, v.v.)
+│       ├── views/      # Giao diện các trang nghiệp vụ
+│       └── components/ # Component dùng chung (UI, Notification, Permission...)
 │
-├── DB.sql              # Schema SQL Server (thiết kế gốc – tham khảo)
-└── seed_data.sql       # Dữ liệu mẫu SQL Server (tham khảo)
+└── Dockerfile          # Cấu hình Docker
 ```
 
 ---
@@ -58,7 +58,8 @@ JWT_SECRET=super_secret_key_change_me_in_production
 
 Chạy seed để tạo database và nạp dữ liệu mẫu:
 ```bash
-npm run seed
+npm run seed       # Nạp dữ liệu gốc 
+npm run seed:extra # Bổ sung dữ liệu kho linh kiện điện tử
 ```
 
 Khởi chạy server:
@@ -156,34 +157,6 @@ Nhân viên kinh doanh. Quyền hạn tối thiểu, tập trung vào việc **t
 
 ---
 
-## 📦 Dữ liệu mẫu (sau khi seed)
-
-### Sản phẩm
-
-| Mã SKU | Tên sản phẩm | Danh mục | Giá nhập | Giá bán |
-|:---|:---|:---|---:|---:|
-| FST-H360-14 | Trục xoay 360° FST-H360-14 | Trục xoay (Bản lề) | 18.000 đ | 30.000 đ |
-| FST-H180-156 | Trục xoay 180° FST-H180-156 | Trục xoay (Bản lề) | 13.500 đ | 22.000 đ |
-| FST-SLK-380 | Thanh ray dẫn hướng FST-SLK-380 | Thanh trượt (Slide Rail) | 28.000 đ | 46.000 đ |
-| FST-SL2IN1-135 | Cơ cấu trượt 2-in-1 FST-SL2IN1-135 | Thanh trượt (Slide Rail) | 58.000 đ | 92.000 đ |
-| FST-MIM-HB14 | Giá đỡ bản lề MIM FST-MIM-HB14 | Linh kiện MIM | 105.000 đ | 162.000 đ |
-| FST-MIM-CB01 | Khung viền camera MIM FST-MIM-CB01 | Linh kiện MIM | 88.000 đ | 136.000 đ |
-
-### Tồn kho ban đầu
-
-| Sản phẩm | Vị trí | Số lượng |
-|:---|:---|---:|
-| FST-H360-14 | VT-A1-01 (Kệ A1, Hàng 1) | 97 cái |
-| FST-H360-14 | VT-A1-02 (Kệ A1, Hàng 2) | 200 cái |
-| FST-H180-156 | VT-A2-01 (Kệ A2, Hàng 1) | 200 cái |
-| FST-SLK-380 | VT-B1-01 (Kệ B1, Hàng 1) | 300 bộ |
-| FST-SLK-380 | VT-B1-02 (Kệ B1, Hàng 2) | 400 bộ |
-| FST-SL2IN1-135 | VT-B2-01 (Kệ B2, Hàng 1) | 200 bộ |
-| FST-MIM-HB14 | VT-C1-01 (Kệ C1, Hàng 1) | 7 cái |
-| FST-MIM-CB01 | VT-C1-02 (Kệ C1, Hàng 2) | 5 cái |
-
----
-
 ## 🔄 Luồng nghiệp vụ chính
 
 ### Phiếu nhập kho
@@ -215,64 +188,3 @@ Nháp → Đã duyệt → Hoàn thành
 | Database | MySQL 8.x (XAMPP) |
 | Auth | JWT (jsonwebtoken) + bcryptjs |
 | Design | Dropbox Design System (cream paper, warm ink, Dropbox Blue) |
-
----
-
-## 📋 Thay đổi v2.0 — Quản lý lô sản xuất & Bảo hành
-
-> Cập nhật dựa trên phân tích thiếu sót so với chuẩn ngành (tham khảo Sacomtec GPP).
-
-### ⭐ Bảng mới: `LoSanXuat`
-Theo dõi lô sản xuất để hỗ trợ truy xuất nguồn gốc và thu hồi sản phẩm lỗi.
-
-| Cột | Kiểu | Ghi chú |
-|-----|------|---------|
-| Ma_lo | VARCHAR(50) PK | Mã lô nội bộ |
-| Ma_san_pham | INT FK | Liên kết SanPham |
-| So_lo_nha_may | VARCHAR(100) | Số lô từ nhà máy/nhà cung cấp |
-| Ngay_san_xuat | DATE | Ngày sản xuất lô |
-| So_luong_san_xuat | INT | Số lượng trong lô |
-| Nguon_goc | NVARCHAR(200) | Nhà cung cấp/nhà máy |
-| Ghi_chu | NVARCHAR(500) | |
-| Thoi_gian_tao | DATETIME2 | |
-
-### ⭐ Thuộc tính mới trong bảng cũ
-
-| Bảng | Cột thêm | Kiểu | Mục đích |
-|------|----------|------|----------|
-| `SanPham` | `Thoi_han_bao_hanh` | INT NULL | Số tháng bảo hành mặc định theo sản phẩm |
-| `SoSerial` | `Ma_lo` | VARCHAR(50) FK NULL | Gắn serial với lô sản xuất |
-| `SoSerial` | `Han_bao_hanh` | DATE NULL | Ngày hết hạn bảo hành của từng đơn vị |
-| `ChiTietNhapKho` | `Ma_lo` | VARCHAR(50) FK NULL | Lô sản xuất tương ứng khi nhập |
-
-### ⭐ NhatKyEmail mở rộng (12 cột)
-
-Bổ sung 3 cột và 3 loại email mới cho cảnh báo vận hành tự động:
-- `Ma_san_pham FK NULL` — sản phẩm liên quan
-- `Ma_vi_tri FK NULL` — vị trí kho liên quan  
-- `Da_xu_ly BIT DEFAULT 0` — trạng thái xử lý cảnh báo
-
-Loại email mới: `TON_KHO_THAP` · `HAN_BAO_HANH` · `LO_LOI`
-
-### ⭐ Quy tắc FIFO khi xuất kho
-
-Khi tạo phiếu xuất, hệ thống ưu tiên lấy lô nhập sớm nhất (`Ngay_san_xuat ASC`):
-```sql
-SELECT cl.Ma_lo, cl.So_luong_ton
-FROM ChiTietNhapKho cl
-JOIN LoSanXuat ls ON cl.Ma_lo = ls.Ma_lo
-WHERE cl.Ma_san_pham = @MaSanPham
-  AND cl.Ma_vi_tri = @MaViTri
-ORDER BY ls.Ngay_san_xuat ASC, ls.Thoi_gian_tao ASC;
-```
-Index hỗ trợ: `IX_LoSanXuat_SanPham_NgaySX (Ma_san_pham, Ngay_san_xuat)`
-
-### 📊 Dashboard — 5 widget mới
-
-| # | Widget | Query cơ sở |
-|---|--------|-------------|
-| 1 | Tổng tồn kho theo sản phẩm | `SUM(So_luong_ton)` GROUP BY sản phẩm |
-| 2 | Sắp hết hàng | `So_luong_ton < So_luong_toi_thieu` |
-| 3 | Serial sắp hết bảo hành | `Han_bao_hanh BETWEEN NOW() AND NOW()+30d` |
-| 4 | Nhập/Xuất 30 ngày | COUNT phiếu theo ngày lập |
-| 5 | Phân tầng tuổi lô tồn | Phân nhóm theo `Ngay_san_xuat` |

@@ -37,7 +37,8 @@ export const Notification = sequelize.define('Notification', {
       'adjustment',
       'incident',
       'stocktake',
-      'system'
+      'system',
+      'user'
     ),
     allowNull: false,
     defaultValue: 'system',
