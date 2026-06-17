@@ -94,6 +94,10 @@ export const createDeliveryRequest = async (req, res, next) => {
       await t.rollback();
       return res.status(400).json({ message: 'Vui lòng chọn hoặc nhập tên khách hàng' });
     }
+    if (!expectedDeliveryDate) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Vui lòng chọn ngày giao hàng dự kiến' });
+    }
     if (!items || items.length === 0) {
       await t.rollback();
       return res.status(400).json({ message: 'Yêu cầu phải có ít nhất 1 sản phẩm' });

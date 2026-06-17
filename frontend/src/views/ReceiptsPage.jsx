@@ -11,6 +11,7 @@ import { Plus, Eye, CheckCircle2, X, Calendar, Clipboard, Download, Search, Prin
 import { exportToCSV } from '../utils/exportCSV.js';
 import { printDocument } from '../utils/printDocument.js';
 import { receiptTemplate } from '../utils/printTemplates.js';
+import { removeAccents } from '../utils/normalize.js';
 
 export const ReceiptsPage = () => {
   const { hasPermission } = useAuth();
@@ -77,20 +78,20 @@ export const ReceiptsPage = () => {
   }, []);
 
   const suggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return [];
     return receipts.filter(r =>
-      r.code?.toLowerCase().includes(q) ||
-      r.ghiChu?.toLowerCase().includes(q) ||
+      removeAccents(r.code).includes(q) ||
+      removeAccents(r.ghiChu).includes(q) ||
       r.items?.some(i =>
-        i.product?.name?.toLowerCase().includes(q) ||
-        i.product?.sku?.toLowerCase().includes(q)
+        removeAccents(i.product?.name).includes(q) ||
+        removeAccents(i.product?.sku).includes(q)
       )
     ).slice(0, 6);
   }, [searchQuery, receipts]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     let validBinCodes = null;
     if (filterWarehouse) {
       validBinCodes = new Set();
@@ -107,17 +108,16 @@ export const ReceiptsPage = () => {
     }
     return receipts.filter(r => {
       const matchQ = !q ||
-        r.code?.toLowerCase().includes(q) ||
-        r.ghiChu?.toLowerCase().includes(q) ||
+        removeAccents(r.code).includes(q) ||
+        removeAccents(r.ghiChu).includes(q) ||
         r.items?.some(i =>
-          i.product?.name?.toLowerCase().includes(q) ||
-          i.product?.sku?.toLowerCase().includes(q)
+          removeAccents(i.product?.name).includes(q) ||
+          removeAccents(i.product?.sku).includes(q)
         );
       const matchSt  = !filterStatus || r.status === filterStatus;
       const matchFr  = !filterFrom   || new Date(r.createdAt) >= new Date(filterFrom);
       const matchTo_ = !filterTo     || new Date(r.createdAt) <= new Date(filterTo + 'T23:59:59');
       const matchWH  = !validBinCodes || r.items?.some(i => validBinCodes.has(i.warehouseNode?.code));
-      return matchQ && matchSt && matchFr && matchTo_ && matchWH;
     });
   }, [receipts, searchQuery, filterStatus, filterFrom, filterTo, filterWarehouse, allNodes]);
 

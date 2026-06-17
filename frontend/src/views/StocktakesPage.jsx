@@ -14,6 +14,7 @@ import {
 import { exportToCSV } from '../utils/exportCSV.js';
 import { printDocument } from '../utils/printDocument.js';
 import { stocktakeSheetTemplate, stocktakeMinutesTemplate, stocktakeReportTemplate } from '../utils/printTemplates.js';
+import { removeAccents } from '../utils/normalize.js';
 
 const STATUS_CONFIG = {
   pending_approval: { label: 'Chờ phê duyệt',    color: 'bg-slate-100 text-slate-700 border-slate-200',   step: 1 },
@@ -133,16 +134,16 @@ export const StocktakesPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const suggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return [];
     return stocktakes.filter(st =>
-      st.code?.toLowerCase().includes(q) ||
-      st.note?.toLowerCase().includes(q)
+      removeAccents(st.code).includes(q) ||
+      removeAccents(st.note).includes(q)
     ).slice(0, 6);
   }, [searchQuery, stocktakes]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     let validBinCodes = null;
     if (filterWarehouse) {
       validBinCodes = new Set();
@@ -159,8 +160,8 @@ export const StocktakesPage = () => {
     }
     return stocktakes.filter(st => {
       const matchQ = !q ||
-        st.code?.toLowerCase().includes(q) ||
-        st.note?.toLowerCase().includes(q);
+        removeAccents(st.code).includes(q) ||
+        removeAccents(st.note).includes(q);
       const matchSt  = !filterStatus || st.status === filterStatus;
       const matchFr  = !filterFrom   || new Date(st.createdAt) >= new Date(filterFrom);
       const matchTo_ = !filterTo     || new Date(st.createdAt) <= new Date(filterTo + 'T23:59:59');

@@ -7,6 +7,7 @@ import {
   ScanLine, Package, MapPin, Clock, X, Loader,
   Search, ChevronRight, RefreshCw, Info
 } from 'lucide-react';
+import { removeAccents } from '../utils/normalize.js';
 
 const NODE_TYPE_LABEL = {
   warehouse: 'Kho',
@@ -65,12 +66,12 @@ export const ScannerPage = () => {
   // Suggestion filters
   const suggestions = query.trim() ? [
     ...allProducts.filter(p =>
-      p.sku?.toLowerCase().includes(query.toLowerCase()) ||
-      p.name?.toLowerCase().includes(query.toLowerCase())
+      removeAccents(p.sku).includes(removeAccents(query)) ||
+      removeAccents(p.name).includes(removeAccents(query))
     ).slice(0, 5).map(p => ({ type: 'product', label: p.name, code: p.sku, id: p._id })),
     ...allNodes.filter(n =>
-      n.code?.toLowerCase().includes(query.toLowerCase()) ||
-      n.name?.toLowerCase().includes(query.toLowerCase())
+      removeAccents(n.code).includes(removeAccents(query)) ||
+      removeAccents(n.name).includes(removeAccents(query))
     ).slice(0, 5).map(n => ({ type: 'node', label: n.name, code: n.code, id: n._id }))
   ] : [];
 
