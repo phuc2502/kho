@@ -364,7 +364,7 @@ export const completeDelivery = async (req, res, next) => {
       include: [{ model: DeliveryItem, as: 'items' }]
     });
     if (!delivery) { await t.rollback(); return res.status(404).json({ message: 'Không tìm thấy phiếu xuất kho' }); }
-    if (delivery.status !== 'shipping') { await t.rollback(); return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang ở trạng thái "Đang vận chuyển"' }); }
+    if (delivery.status !== 'shipping') { await t.rollback(); return res.status(400).json({ message: 'Chỉ có thể hoàn tất phiếu đang ở trạng thái "Đang bàn giao"' }); }
 
     // Kiểm tra tồn kho lần cuối trước khi trừ
     for (const item of delivery.items) {

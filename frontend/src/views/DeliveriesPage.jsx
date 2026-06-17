@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
   preparing: { label: 'Đang soạn',       color: 'bg-violet-100 text-violet-700 border-violet-200', step: 1 },
   draft:     { label: 'Chờ phê duyệt',   color: 'bg-slate-100 text-slate-700 border-slate-200',   step: 2 },
   approved:  { label: 'Đã phê duyệt',    color: 'bg-blue-100 text-blue-700 border-blue-200',      step: 3 },
-  shipping:  { label: 'Đang vận chuyển', color: 'bg-amber-100 text-amber-700 border-amber-200',   step: 4 },
+  shipping:  { label: 'Đang bàn giao',   color: 'bg-amber-100 text-amber-700 border-amber-200',   step: 4 },
   completed: { label: 'Hoàn tất',        color: 'bg-emerald-100 text-emerald-700 border-emerald-200', step: 5 },
   rejected:  { label: 'Từ chối',         color: 'bg-red-100 text-red-700 border-red-200',         step: 0 },
   cancelled: { label: 'Đã hủy',         color: 'bg-gray-100 text-gray-600 border-gray-200',      step: 0 },
@@ -28,7 +28,7 @@ const WORKFLOW_STEPS = [
   { key: 'preparing', label: 'Soạn phiếu', icon: PenLine },
   { key: 'draft',     label: 'Chờ duyệt',  icon: Clipboard },
   { key: 'approved',  label: 'Đã duyệt',   icon: CheckCircle2 },
-  { key: 'shipping',  label: 'Xuất hàng',  icon: Truck },
+  { key: 'shipping',  label: 'Bàn giao',   icon: Truck },
   { key: 'completed', label: 'Hoàn tất',   icon: PackageCheck },
 ];
 
@@ -278,7 +278,7 @@ export const DeliveriesPage = () => {
     const labels = {
       draft:     'Đã gửi phiếu xuất để Quản lý phê duyệt',
       approved:  'Đã phê duyệt phiếu xuất – tồn kho đã được giữ chỗ',
-      shipping:  'Đã xác nhận xuất hàng – đang vận chuyển',
+      shipping:  'Đã xác nhận xuất hàng – đang bàn giao',
       completed: 'Hoàn tất xuất kho – đã trừ tồn kho',
       rejected:  'Đã từ chối phiếu xuất',
     };
@@ -430,7 +430,7 @@ export const DeliveriesPage = () => {
             <option value="preparing">Đang soạn</option>
             <option value="draft">Chờ phê duyệt</option>
             <option value="approved">Đã phê duyệt</option>
-            <option value="shipping">Đang vận chuyển</option>
+            <option value="shipping">Đang bàn giao</option>
             <option value="completed">Hoàn tất</option>
             <option value="rejected">Từ chối</option>
             <option value="cancelled">Đã hủy</option>

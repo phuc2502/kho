@@ -70,7 +70,7 @@ export const receiptTemplate = (receipt) => {
 export const deliveryTemplate = (delivery) => {
   const statusMap = {
     preparing: 'Đang soạn', draft: 'Chờ phê duyệt', approved: 'Đã phê duyệt',
-    shipping: 'Đang vận chuyển', completed: 'Hoàn tất', rejected: 'Từ chối', cancelled: 'Đã hủy'
+    shipping: 'Đang bàn giao', completed: 'Hoàn tất', rejected: 'Từ chối', cancelled: 'Đã hủy'
   };
   const rows = (delivery.items || []).map((item, i) => `
     <tr>
