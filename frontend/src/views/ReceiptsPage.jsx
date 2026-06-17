@@ -118,6 +118,7 @@ export const ReceiptsPage = () => {
       const matchFr  = !filterFrom   || new Date(r.createdAt) >= new Date(filterFrom);
       const matchTo_ = !filterTo     || new Date(r.createdAt) <= new Date(filterTo + 'T23:59:59');
       const matchWH  = !validBinCodes || r.items?.some(i => validBinCodes.has(i.warehouseNode?.code));
+      return matchQ && matchSt && matchFr && matchTo_ && matchWH;
     });
   }, [receipts, searchQuery, filterStatus, filterFrom, filterTo, filterWarehouse, allNodes]);
 
