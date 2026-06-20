@@ -9,6 +9,7 @@ import { User } from '../models/user.model.js';
 import { sequelize } from '../config/db.js';
 import { recordAudit } from '../utils/audit.helper.js';
 import { sendNotification, createNotificationForUser } from '../utils/notification.helper.js';
+import { StockCard } from '../models/stockCard.model.js';
 
 const minutesIncludes = [
   {
@@ -116,6 +117,8 @@ export const approveMinutes = async (req, res, next) => {
           createdByUserId: req.user._id
         }, { transaction: t });
 
+        let currentCardCount = await StockCard.count({ transaction: t });
+
         for (const item of diffItems) {
           const delta = Number(item.countedQty) - Number(item.systemQty);
           await AdjustmentItem.create({
@@ -128,10 +131,37 @@ export const approveMinutes = async (req, res, next) => {
           // Apply inventory adjustment: set quantity to countedQty
           const productIdVal = item.get('productId') ?? item.dataValues?.product;
           const nodeIdVal    = item.get('warehouseNodeId') ?? item.dataValues?.warehouseNode;
+
+          const [invRows] = await sequelize.query(
+            'SELECT quantity FROM Inventories WHERE `product` = ? AND `warehouseNode` = ? LIMIT 1',
+            { replacements: [productIdVal, nodeIdVal], transaction: t }
+          );
+          const qtyBefore = invRows.length > 0 ? Number(invRows[0].quantity) : 0;
+          const qtyAfter = Number(item.countedQty);
+          const qtyChange = qtyAfter - qtyBefore;
+
           await sequelize.query(
             'UPDATE Inventories SET quantity = ? WHERE `product` = ? AND `warehouseNode` = ?',
-            { replacements: [Number(item.countedQty), productIdVal, nodeIdVal], transaction: t }
+            { replacements: [qtyAfter, productIdVal, nodeIdVal], transaction: t }
           );
+
+          // Tự động ghi nhận Thẻ kho (Stock Card)
+          currentCardCount++;
+          const scCode = `TK-${new Date().getFullYear()}-${String(currentCardCount).padStart(5, '0')}`;
+
+          await StockCard.create({
+            code: scCode,
+            productId: productIdVal,
+            warehouseNodeId: nodeIdVal,
+            refCode: adjustment.code,
+            type: 'adjustment',
+            qtyBefore,
+            qtyChange,
+            qtyAfter,
+            note: `Điều chỉnh tồn kho tự động theo phiếu ${adjustment.code} (kiểm kê)`,
+            recordedAt: new Date(),
+            createdByUserId: req.user._id
+          }, { transaction: t });
         }
 
         adjustmentId = adjustment._id;
