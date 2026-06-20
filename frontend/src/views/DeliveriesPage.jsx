@@ -10,6 +10,7 @@ import { IncidentModel } from '../models/incident.model.js';
 import toast from 'react-hot-toast';
 import { Plus, Eye, CheckCircle2, X, Clipboard, Truck, PackageCheck, CircleDot, Search, Calendar, PenLine, Send, Printer, Download, UserCheck } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { removeAccents } from '../utils/normalize.js';
 import { printDocument } from '../utils/printDocument.js';
 import { deliveryTemplate } from '../utils/printTemplates.js';
 
@@ -17,7 +18,7 @@ const STATUS_CONFIG = {
   preparing: { label: 'Đang soạn',       color: 'bg-violet-100 text-violet-700 border-violet-200', step: 1 },
   draft:     { label: 'Chờ phê duyệt',   color: 'bg-slate-100 text-slate-700 border-slate-200',   step: 2 },
   approved:  { label: 'Đã phê duyệt',    color: 'bg-blue-100 text-blue-700 border-blue-200',      step: 3 },
-  shipping:  { label: 'Đang vận chuyển', color: 'bg-amber-100 text-amber-700 border-amber-200',   step: 4 },
+  shipping:  { label: 'Đang bàn giao',   color: 'bg-amber-100 text-amber-700 border-amber-200',   step: 4 },
   completed: { label: 'Hoàn tất',        color: 'bg-emerald-100 text-emerald-700 border-emerald-200', step: 5 },
   rejected:  { label: 'Từ chối',         color: 'bg-red-100 text-red-700 border-red-200',         step: 0 },
   cancelled: { label: 'Đã hủy',         color: 'bg-gray-100 text-gray-600 border-gray-200',      step: 0 },
@@ -27,7 +28,7 @@ const WORKFLOW_STEPS = [
   { key: 'preparing', label: 'Soạn phiếu', icon: PenLine },
   { key: 'draft',     label: 'Chờ duyệt',  icon: Clipboard },
   { key: 'approved',  label: 'Đã duyệt',   icon: CheckCircle2 },
-  { key: 'shipping',  label: 'Xuất hàng',  icon: Truck },
+  { key: 'shipping',  label: 'Bàn giao',   icon: Truck },
   { key: 'completed', label: 'Hoàn tất',   icon: PackageCheck },
 ];
 
@@ -110,6 +111,7 @@ export const DeliveriesPage = () => {
   const [customerId, setCustomerId] = useState('');
   const [tenKhachHang, setTenKhachHang] = useState('');
   const [note, setNote] = useState('');
+  const [requestId, setRequestId] = useState(null);
   const [items, setItems] = useState([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
 
   const fetchData = async () => {
@@ -138,20 +140,20 @@ export const DeliveriesPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const suggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return [];
     return deliveries.filter(d =>
-      d.code?.toLowerCase().includes(q) ||
-      d.tenKhachHang?.toLowerCase().includes(q) ||
+      removeAccents(d.code).includes(q) ||
+      removeAccents(d.tenKhachHang).includes(q) ||
       d.items?.some(i =>
-        i.product?.name?.toLowerCase().includes(q) ||
-        i.product?.sku?.toLowerCase().includes(q)
+        removeAccents(i.product?.name).includes(q) ||
+        removeAccents(i.product?.sku).includes(q)
       )
     ).slice(0, 6);
   }, [searchQuery, deliveries]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     let validBinCodes = null;
     if (filterWarehouse) {
       validBinCodes = new Set();
@@ -168,11 +170,11 @@ export const DeliveriesPage = () => {
     }
     return deliveries.filter(d => {
       const matchQ = !q ||
-        d.code?.toLowerCase().includes(q) ||
-        d.tenKhachHang?.toLowerCase().includes(q) ||
+        removeAccents(d.code).includes(q) ||
+        removeAccents(d.tenKhachHang).includes(q) ||
         d.items?.some(i =>
-          i.product?.name?.toLowerCase().includes(q) ||
-          i.product?.sku?.toLowerCase().includes(q)
+          removeAccents(i.product?.name).includes(q) ||
+          removeAccents(i.product?.sku).includes(q)
         );
       const matchSt  = !filterStatus || d.status === filterStatus;
       const matchFr  = !filterFrom   || new Date(d.createdAt) >= new Date(filterFrom);
@@ -203,6 +205,25 @@ export const DeliveriesPage = () => {
     setCustomerId(delivery.customerId ? String(delivery.customerId) : '');
     setTenKhachHang(delivery.tenKhachHang);
     setNote(delivery.note || '');
+    setRequestId(delivery.requestId || delivery.fromRequest?._id || null);
+    setItems(delivery.items?.map(i => ({
+      product: i.product?._id || i.productId,
+      quantity: i.quantity,
+      price: i.price,
+      warehouseNode: i.warehouseNode?._id || i.warehouseNodeId,
+      _zone: '',
+      _rack: ''
+    })) || [{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
+    setShowAddModal(true);
+  };
+
+  // Mở modal tái tạo phiếu bị từ chối thành phiếu mới
+  const openRecreateModal = (delivery) => {
+    setEditingDelivery(null);
+    setCustomerId(delivery.customerId ? String(delivery.customerId) : '');
+    setTenKhachHang(delivery.tenKhachHang);
+    setNote(delivery.note || '');
+    setRequestId(delivery.requestId || delivery.fromRequest?._id || null);
     setItems(delivery.items?.map(i => ({
       product: i.product?._id || i.productId,
       quantity: i.quantity,
@@ -225,6 +246,7 @@ export const DeliveriesPage = () => {
         customerId: customerId ? Number(customerId) : undefined,
         tenKhachHang: tenKhachHang.trim() || undefined,
         note: note.trim() || undefined,
+        requestId: requestId || undefined,
         items: items.map(item => ({
           product: item.product,
           quantity: Number(item.quantity),
@@ -244,6 +266,7 @@ export const DeliveriesPage = () => {
       setCustomerId('');
       setTenKhachHang('');
       setNote('');
+      setRequestId(null);
       setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]);
       fetchData();
     } catch (error) {
@@ -255,7 +278,7 @@ export const DeliveriesPage = () => {
     const labels = {
       draft:     'Đã gửi phiếu xuất để Quản lý phê duyệt',
       approved:  'Đã phê duyệt phiếu xuất – tồn kho đã được giữ chỗ',
-      shipping:  'Đã xác nhận xuất hàng – đang vận chuyển',
+      shipping:  'Đã xác nhận xuất hàng – đang bàn giao',
       completed: 'Hoàn tất xuất kho – đã trừ tồn kho',
       rejected:  'Đã từ chối phiếu xuất',
     };
@@ -369,14 +392,6 @@ export const DeliveriesPage = () => {
           >
             <Download className="w-4 h-4" /> Xuất CSV
           </button>
-          <PermissionGuard permission="delivery:create">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold transition-colors shadow-md shadow-primary-500/10"
-            >
-              <Plus className="w-4 h-4" /> Lập phiếu xuất
-            </button>
-          </PermissionGuard>
         </div>
       </div>
 
@@ -415,7 +430,7 @@ export const DeliveriesPage = () => {
             <option value="preparing">Đang soạn</option>
             <option value="draft">Chờ phê duyệt</option>
             <option value="approved">Đã phê duyệt</option>
-            <option value="shipping">Đang vận chuyển</option>
+            <option value="shipping">Đang bàn giao</option>
             <option value="completed">Hoàn tất</option>
             <option value="rejected">Từ chối</option>
             <option value="cancelled">Đã hủy</option>
@@ -559,7 +574,7 @@ export const DeliveriesPage = () => {
                 <Clipboard className="w-5 h-5 text-primary-500" />
                 {editingDelivery ? `Sửa phiếu ${editingDelivery.code}` : 'Lập Phiếu Xuất Kho'}
               </h3>
-              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setCustomerId(''); setTenKhachHang(''); setNote(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
+              <button onClick={() => { setShowAddModal(false); setEditingDelivery(null); setCustomerId(''); setTenKhachHang(''); setNote(''); setRequestId(null); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateDelivery} className="p-6 space-y-6">
               <div>
@@ -710,7 +725,7 @@ export const DeliveriesPage = () => {
                   <strong className="text-slate-900">{formatCurrency(items.reduce((s, i) => s + (Number(i.quantity) * Number(i.price) || 0), 0))}</strong>
                 </span>
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setCustomerId(''); setTenKhachHang(''); setNote(''); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
+                  <button type="button" onClick={() => { setShowAddModal(false); setEditingDelivery(null); setCustomerId(''); setTenKhachHang(''); setNote(''); setRequestId(null); setItems([{ product: '', quantity: 1, price: 0, warehouseNode: '', _zone: '', _rack: '', _category: '' }]); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-semibold">Hủy</button>
                   <button type="submit" className="px-6 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-semibold shadow-md shadow-primary-500/10">
                     {editingDelivery ? 'Lưu thay đổi' : 'Tạo phiếu'}
                   </button>
@@ -844,6 +859,18 @@ export const DeliveriesPage = () => {
                       className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5"
                     >
                       <PenLine className="w-3.5 h-3.5" /> Sửa phiếu
+                    </button>
+                  </PermissionGuard>
+                )}
+
+                {/* Sửa lại phiếu xuất kho — CHỈ khi bị từ chối (rejected) */}
+                {selectedDelivery.status === 'rejected' && (
+                  <PermissionGuard permission="delivery:create">
+                    <button
+                      onClick={() => { setSelectedDelivery(null); openRecreateModal(selectedDelivery); }}
+                      className="px-3.5 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-md shadow-primary-500/10"
+                    >
+                      <PenLine className="w-3.5 h-3.5" /> Sửa lại phiếu xuất kho
                     </button>
                   </PermissionGuard>
                 )}

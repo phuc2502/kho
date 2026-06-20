@@ -6,6 +6,7 @@ import {
   CheckCircle2, TrendingDown, TrendingUp, Printer, Download
 } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { removeAccents } from '../utils/normalize.js';
 
 export const StocktakeReportsPage = () => {
   const [reports, setReports] = useState([]);
@@ -28,11 +29,11 @@ export const StocktakeReportsPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return reports;
     return reports.filter(r =>
-      r.code?.toLowerCase().includes(q) ||
-      r.stocktake?.code?.toLowerCase().includes(q)
+      removeAccents(r.code).includes(q) ||
+      removeAccents(r.stocktake?.code).includes(q)
     );
   }, [reports, searchQuery]);
 

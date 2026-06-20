@@ -25,6 +25,12 @@ const setDates = async (table, id, createdDaysAgo, updatedDaysAgo = createdDaysA
   );
 };
 
+const getDeliveryDateStr = (daysOffset) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysOffset);
+  return d.toISOString().slice(0, 10);
+};
+
 const seed = async () => {
   try {
     await connectDB();
@@ -555,8 +561,9 @@ const seed = async () => {
       tenKhachHang: 'Samsung Electronics Vietnam',
       status: 'completed',
       note: 'Đơn hàng Q1/2026 – bản lề cho dòng Galaxy Book Pro.',
+      expectedDeliveryDate: getDeliveryDateStr(-75),
       totalAmount: (150 * 30000) + (80 * 22000),
-      createdByUserId: accountant1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx1._id, productId: p1._id, quantity: 150, priceEstimate: 30000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx1._id, productId: p2._id, quantity: 80,  priceEstimate: 22000 });
@@ -571,8 +578,9 @@ const seed = async () => {
       tenKhachHang: 'HP Vietnam Sales',
       status: 'completed',
       note: 'Đơn hàng Q1/2026 – bộ hinge + cơ cấu trượt cho HP Envy & Spectre.',
+      expectedDeliveryDate: getDeliveryDateStr(-55),
       totalAmount: (100 * 30000) + (100 * 92000),
-      createdByUserId: accountant2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx2._id, productId: p1._id, quantity: 100, priceEstimate: 30000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx2._id, productId: p4._id, quantity: 100, priceEstimate: 92000 });
@@ -586,8 +594,9 @@ const seed = async () => {
       tenKhachHang: 'Samsung Electronics Vietnam',
       status: 'processing',
       note: 'Đơn hàng Q2/2026 – trục xoay 360° & thanh ray dẫn hướng cho Galaxy Book Flex.',
+      expectedDeliveryDate: getDeliveryDateStr(-20),
       totalAmount: (200 * 30000) + (100 * 46000),
-      createdByUserId: accountant1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx3._id, productId: p1._id, quantity: 200, priceEstimate: 30000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx3._id, productId: p3._id, quantity: 100, priceEstimate: 46000 });
@@ -601,9 +610,9 @@ const seed = async () => {
       tenKhachHang: 'Panasonic Vietnam',
       status: 'processing',
       note: 'Đơn bổ sung cho dây chuyền lắp ráp tháng 6 – thanh ray SLK-380.',
-      expectedDeliveryDate: '2026-06-15',
+      expectedDeliveryDate: getDeliveryDateStr(-2),
       totalAmount: (50 * 46000),
-      createdByUserId: staff1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx4._id, productId: p3._id, quantity: 50, priceEstimate: 46000 });
     await setDates('DeliveryRequests', ycx4._id, 3, 1);
@@ -616,9 +625,9 @@ const seed = async () => {
       tenKhachHang: 'MSI Technology Vietnam',
       status: 'pending',
       note: 'Yêu cầu cấp bách cho model MSI Prestige – cần trong tuần.',
-      expectedDeliveryDate: '2026-06-18',
+      expectedDeliveryDate: getDeliveryDateStr(1),
       totalAmount: (80 * 30000) + (50 * 22000),
-      createdByUserId: accountant2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx5._id, productId: p1._id, quantity: 80, priceEstimate: 30000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx5._id, productId: p2._id, quantity: 50, priceEstimate: 22000 });
@@ -631,7 +640,7 @@ const seed = async () => {
       tenKhachHang: 'Toshiba Storage Vietnam',
       status: 'pending',
       note: 'Đơn hàng dài hạn Q3/2026 – đề nghị xuất 1 lần trong tuần.',
-      expectedDeliveryDate: '2026-06-20',
+      expectedDeliveryDate: getDeliveryDateStr(3),
       totalAmount: (100 * 46000) + (60 * 92000),
       createdByUserId: sale._id,
     });
@@ -646,8 +655,9 @@ const seed = async () => {
       tenKhachHang: 'Hisense Electronics Vietnam',
       status: 'cancelled',
       note: 'Khách hàng huỷ đơn do thay đổi thiết kế sản phẩm – không cần trục xoay 180°.',
+      expectedDeliveryDate: getDeliveryDateStr(-62),
       totalAmount: (200 * 22000),
-      createdByUserId: staff2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx7._id, productId: p2._id, quantity: 200, priceEstimate: 22000 });
     await setDates('DeliveryRequests', ycx7._id, 65, 60);
@@ -659,7 +669,7 @@ const seed = async () => {
       tenKhachHang: 'Foxconn Technology Vietnam',
       status: 'insufficient_stock',
       note: 'Yêu cầu số lượng lớn vượt tồn kho hiện tại – kho đang chờ nhập bổ sung.',
-      expectedDeliveryDate: '2026-06-25',
+      expectedDeliveryDate: getDeliveryDateStr(5),
       totalAmount: (500 * 162000),
       createdByUserId: sale._id,
     });
@@ -675,8 +685,9 @@ const seed = async () => {
       tenKhachHang: 'Dell Technologies Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – thanh ray dẫn hướng SLK-380 cho dòng Inspiron 15.',
+      expectedDeliveryDate: getDeliveryDateStr(-66),
       totalAmount: (200 * 46000),
-      createdByUserId: accountant1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx8._id, productId: p3._id, quantity: 200, priceEstimate: 46000 });
     await setDates('DeliveryRequests', ycx8._id, 67, 65);
@@ -689,8 +700,9 @@ const seed = async () => {
       tenKhachHang: 'Lenovo Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – linh kiện MIM giá đỡ bản lề & khung camera cho ThinkPad X1.',
+      expectedDeliveryDate: getDeliveryDateStr(-51),
       totalAmount: (3 * 162000) + (2 * 136000),
-      createdByUserId: staff2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx9._id, productId: p5._id, quantity: 3, priceEstimate: 162000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx9._id, productId: p6._id, quantity: 2, priceEstimate: 136000 });
@@ -704,8 +716,9 @@ const seed = async () => {
       tenKhachHang: 'Asus Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – SLK-380 & SL2IN1 cho ROG & ZenBook.',
+      expectedDeliveryDate: getDeliveryDateStr(-43),
       totalAmount: (250 * 46000) + (80 * 92000),
-      createdByUserId: accountant2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx10._id, productId: p3._id, quantity: 250, priceEstimate: 46000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx10._id, productId: p4._id, quantity: 80,  priceEstimate: 92000 });
@@ -719,8 +732,9 @@ const seed = async () => {
       tenKhachHang: 'LG Electronics Vietnam',
       status: 'completed',
       note: 'Đơn Q1/2026 – bản lề 360° & 180° cho LG Gram.',
+      expectedDeliveryDate: getDeliveryDateStr(-39),
       totalAmount: (80 * 30000) + (50 * 22000),
-      createdByUserId: staff1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx11._id, productId: p1._id, quantity: 80, priceEstimate: 30000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx11._id, productId: p2._id, quantity: 50, priceEstimate: 22000 });
@@ -734,8 +748,9 @@ const seed = async () => {
       tenKhachHang: 'Acer Inc. Vietnam Branch',
       status: 'completed',
       note: 'Đơn Q1/2026 – H180-156 & SL2IN1 cho Swift & Aspire.',
+      expectedDeliveryDate: getDeliveryDateStr(-36),
       totalAmount: (120 * 22000) + (60 * 92000),
-      createdByUserId: accountant1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx12._id, productId: p2._id, quantity: 120, priceEstimate: 22000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx12._id, productId: p4._id, quantity: 60,  priceEstimate: 92000 });
@@ -749,8 +764,9 @@ const seed = async () => {
       tenKhachHang: 'Dell Technologies Vietnam',
       status: 'completed',
       note: 'Đơn Q2/2026 – H180-156 bổ sung cho Vostro 14.',
+      expectedDeliveryDate: getDeliveryDateStr(-16),
       totalAmount: (150 * 22000),
-      createdByUserId: staff1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx13._id, productId: p2._id, quantity: 150, priceEstimate: 22000 });
     await setDates('DeliveryRequests', ycx13._id, 17, 15);
@@ -763,8 +779,9 @@ const seed = async () => {
       tenKhachHang: 'HP Vietnam Sales',
       status: 'completed',
       note: 'Đơn Q2/2026 – cơ cấu trượt & MIM giá đỡ cho HP Spectre x360.',
+      expectedDeliveryDate: getDeliveryDateStr(-11),
       totalAmount: (80 * 92000) + (2 * 162000),
-      createdByUserId: accountant2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx14._id, productId: p4._id, quantity: 80, priceEstimate: 92000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx14._id, productId: p5._id, quantity: 2,  priceEstimate: 162000 });
@@ -778,8 +795,9 @@ const seed = async () => {
       tenKhachHang: 'Asus Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q2/2026 – SLK-380 cho ExpertBook B9.',
+      expectedDeliveryDate: getDeliveryDateStr(-8),
       totalAmount: (100 * 46000),
-      createdByUserId: staff2._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx15._id, productId: p3._id, quantity: 100, priceEstimate: 46000 });
     await setDates('DeliveryRequests', ycx15._id, 9, 7);
@@ -792,8 +810,9 @@ const seed = async () => {
       tenKhachHang: 'Lenovo Technology Vietnam',
       status: 'completed',
       note: 'Đơn Q2/2026 – bản lề 360° & 180° cho IdeaPad Flex.',
+      expectedDeliveryDate: getDeliveryDateStr(-4),
       totalAmount: (50 * 30000) + (50 * 22000),
-      createdByUserId: accountant1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx16._id, productId: p1._id, quantity: 50, priceEstimate: 30000 });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx16._id, productId: p2._id, quantity: 50, priceEstimate: 22000 });
@@ -807,8 +826,9 @@ const seed = async () => {
       tenKhachHang: 'MSI Technology Vietnam',
       status: 'processing',
       note: 'Yêu cầu khẩn – bản lề 360° cho MSI Prestige 13 AI, cần xuất trong ngày.',
+      expectedDeliveryDate: getDeliveryDateStr(1),
       totalAmount: (30 * 30000),
-      createdByUserId: staff1._id,
+      createdByUserId: sale._id,
     });
     await DeliveryRequestItem.create({ deliveryRequestId: ycx17._id, productId: p1._id, quantity: 30, priceEstimate: 30000 });
     await Delivery.update({ requestId: ycx17._id }, { where: { _id: dl13._id } });

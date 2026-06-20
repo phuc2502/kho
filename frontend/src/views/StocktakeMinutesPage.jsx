@@ -8,6 +8,7 @@ import {
   AlertCircle, FileText, Printer, Download
 } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { removeAccents } from '../utils/normalize.js';
 
 const STATUS_CONFIG = {
   pending_approval: { label: 'Chờ phê duyệt', color: 'bg-slate-100 text-slate-700 border-slate-200' },
@@ -49,11 +50,11 @@ export const StocktakeMinutesPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     return minutes.filter(m => {
       const matchQ = !q ||
-        m.code?.toLowerCase().includes(q) ||
-        m.stocktake?.code?.toLowerCase().includes(q);
+        removeAccents(m.code).includes(q) ||
+        removeAccents(m.stocktake?.code).includes(q);
       const matchSt = !filterStatus || m.status === filterStatus;
       return matchQ && matchSt;
     });

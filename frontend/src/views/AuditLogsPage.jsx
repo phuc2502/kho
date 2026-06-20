@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AuditLogModel } from '../models/auditLog.model.js';
 import toast from 'react-hot-toast';
 import { History, Search, ChevronLeft, ChevronRight, FileText, X, User, Clock, Tag } from 'lucide-react';
+import { removeAccents } from '../utils/normalize.js';
 
 // ──────────────────────────────────────────────────────────────
 // Action labels
@@ -281,21 +282,21 @@ export const AuditLogsPage = () => {
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   const filteredLogs = logs.filter(log => {
-    const s = searchTerm.toLowerCase();
+    const s = removeAccents(searchTerm);
     const matchesSearch = !s ||
-      log.username?.toLowerCase().includes(s) ||
-      log.action?.toLowerCase().includes(s) ||
-      log.entity?.toLowerCase().includes(s) ||
-      (ACTION_MAP[log.action] || '').toLowerCase().includes(s);
+      removeAccents(log.username).includes(s) ||
+      removeAccents(log.action).includes(s) ||
+      removeAccents(log.entity).includes(s) ||
+      removeAccents(ACTION_MAP[log.action] || '').includes(s);
     const matchesAction = !filterAction || log.action?.startsWith(filterAction);
     return matchesSearch && matchesAction;
   });
 
   const uniqueUsernames = Array.from(new Set(logs.map(log => log.username).filter(Boolean)));
-  const matchedUsers = uniqueUsernames.filter(u => u.toLowerCase().includes(searchTerm.toLowerCase()));
+  const matchedUsers = uniqueUsernames.filter(u => removeAccents(u).includes(removeAccents(searchTerm)));
   const matchedActions = Object.entries(ACTION_MAP).filter(([key, label]) =>
-    key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    label.toLowerCase().includes(searchTerm.toLowerCase())
+    removeAccents(key).includes(removeAccents(searchTerm)) ||
+    removeAccents(label).includes(removeAccents(searchTerm))
   ).slice(0, 5);
 
   const suggestions = searchTerm.trim() ? [

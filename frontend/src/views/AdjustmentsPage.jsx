@@ -9,6 +9,7 @@ import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
 import { Plus, Eye, Trash2, X, ArrowLeftRight, CheckCircle2, AlertTriangle, Search, Calendar, Printer, Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { removeAccents } from '../utils/normalize.js';
 
 export const AdjustmentsPage = () => {
   const { hasPermission } = useAuth();
@@ -64,17 +65,17 @@ export const AdjustmentsPage = () => {
   }, []);
 
   const suggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return [];
     return adjustments.filter(adj =>
-      adj.code?.toLowerCase().includes(q) ||
-      adj.note?.toLowerCase().includes(q) ||
-      adj.reason?.toLowerCase().includes(q)
+      removeAccents(adj.code).includes(q) ||
+      removeAccents(adj.note).includes(q) ||
+      removeAccents(renderReasonText(adj.reason)).includes(q)
     ).slice(0, 6);
   }, [searchQuery, adjustments]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     let validBinCodes = null;
     if (filterWarehouse) {
       validBinCodes = new Set();
@@ -91,9 +92,9 @@ export const AdjustmentsPage = () => {
     }
     return adjustments.filter(adj => {
       const matchQ = !q ||
-        adj.code?.toLowerCase().includes(q) ||
-        adj.note?.toLowerCase().includes(q) ||
-        adj.reason?.toLowerCase().includes(q);
+        removeAccents(adj.code).includes(q) ||
+        removeAccents(adj.note).includes(q) ||
+        removeAccents(renderReasonText(adj.reason)).includes(q);
       const matchSt  = !filterStatus || adj.status === filterStatus;
       const matchRs  = !filterReason || adj.reason === filterReason;
       const matchFr  = !filterFrom   || new Date(adj.createdAt) >= new Date(filterFrom);

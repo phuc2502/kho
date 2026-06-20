@@ -8,6 +8,7 @@ import { useAuth } from '../controllers/auth.context.jsx';
 import toast from 'react-hot-toast';
 import { Plus, Eye, X, PackagePlus, Loader2, ClipboardList, CheckCircle2, Truck, Ban, Clock, Search, Calendar, Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { removeAccents } from '../utils/normalize.js';
 
 // ── Trạng thái yêu cầu ────────────────────────────────────────
 const REQ_STATUS = {
@@ -97,21 +98,21 @@ export const DeliveryRequestsPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const suggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return [];
     return requests.filter(r =>
-      r.code?.toLowerCase().includes(q) ||
-      r.tenKhachHang?.toLowerCase().includes(q) ||
-      r.note?.toLowerCase().includes(q) ||
+      removeAccents(r.code).includes(q) ||
+      removeAccents(r.tenKhachHang).includes(q) ||
+      removeAccents(r.note).includes(q) ||
       r.items?.some(i =>
-        i.product?.name?.toLowerCase().includes(q) ||
-        i.product?.sku?.toLowerCase().includes(q)
+        removeAccents(i.product?.name).includes(q) ||
+        removeAccents(i.product?.sku).includes(q)
       )
     ).slice(0, 6);
   }, [searchQuery, requests]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     let validBinCodes = null;
     if (filterWarehouse) {
       validBinCodes = new Set();
@@ -128,12 +129,12 @@ export const DeliveryRequestsPage = () => {
     }
     return requests.filter(r => {
       const matchQ = !q ||
-        r.code?.toLowerCase().includes(q) ||
-        r.tenKhachHang?.toLowerCase().includes(q) ||
-        r.note?.toLowerCase().includes(q) ||
+        removeAccents(r.code).includes(q) ||
+        removeAccents(r.tenKhachHang).includes(q) ||
+        removeAccents(r.note).includes(q) ||
         r.items?.some(i =>
-          i.product?.name?.toLowerCase().includes(q) ||
-          i.product?.sku?.toLowerCase().includes(q)
+          removeAccents(i.product?.name).includes(q) ||
+          removeAccents(i.product?.sku).includes(q)
         );
       const matchSt  = !filterStatus || r.status === filterStatus;
       const matchFr  = !filterFrom   || new Date(r.createdAt) >= new Date(filterFrom);
@@ -147,6 +148,7 @@ export const DeliveryRequestsPage = () => {
   const handleCreateRequest = async (e) => {
     e.preventDefault();
     if (!form.customerId && !form.tenKhachHang.trim()) return toast.error('Vui lòng chọn hoặc nhập tên khách hàng');
+    if (!form.expectedDeliveryDate) return toast.error('Vui lòng chọn ngày giao hàng dự kiến');
     if (formItems.some(i => !i.productId || i.quantity <= 0))
       return toast.error('Vui lòng chọn đủ sản phẩm và số lượng');
 
@@ -678,10 +680,11 @@ export const DeliveryRequestsPage = () => {
               {/* Ngày giao dự kiến */}
               <div>
                 <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">
-                  Ngày giao hàng dự kiến (tùy chọn)
+                  Ngày giao hàng dự kiến *
                 </label>
                 <input
                   type="date"
+                  required
                   value={form.expectedDeliveryDate}
                   onChange={e => setForm({ ...form, expectedDeliveryDate: e.target.value })}
                   className="w-full max-w-xs px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-400"

@@ -45,6 +45,55 @@ const ROLE_LABELS = {
   Sale:        { label: 'Sale – Kinh doanh', color: 'bg-green-100 text-green-700 ring-green-200' },
 };
 
+const PERMISSION_LABELS = {
+  'product:read': 'Xem sản phẩm',
+  'product:create': 'Thêm sản phẩm',
+  'product:update': 'Sửa sản phẩm',
+  'product:delete': 'Xóa sản phẩm',
+  'category:read': 'Xem danh mục',
+  'category:create': 'Thêm danh mục',
+  'category:update': 'Sửa danh mục',
+  'category:delete': 'Xóa danh mục',
+  'warehouse:read': 'Xem sơ đồ kho',
+  'warehouse:create': 'Tạo vị trí kho',
+  'warehouse:update': 'Sửa vị trí kho',
+  'warehouse:delete': 'Xóa vị trí kho',
+  'partner:read': 'Xem đối tác',
+  'partner:create': 'Thêm đối tác',
+  'partner:update': 'Sửa đối tác',
+  'partner:delete': 'Xóa đối tác',
+  'receipt:read': 'Xem phiếu nhập',
+  'receipt:create': 'Tạo phiếu nhập',
+  'receipt:update': 'Sửa phiếu nhập',
+  'receipt:approve': 'Duyệt phiếu nhập',
+  'receipt:complete': 'Hoàn tất nhập kho',
+  'delivery-request:read': 'Xem yêu cầu xuất kho',
+  'delivery-request:create': 'Tạo yêu cầu xuất kho',
+  'delivery:read': 'Xem phiếu xuất',
+  'delivery:create': 'Tạo phiếu xuất',
+  'delivery:update': 'Sửa phiếu xuất',
+  'delivery:approve': 'Duyệt phiếu xuất',
+  'delivery:ship': 'Xác nhận xuất hàng',
+  'delivery:complete': 'Hoàn tất xuất kho',
+  'stocktake:read': 'Xem phiếu kiểm kê',
+  'stocktake:create': 'Tạo / Sửa phiếu kiểm kê',
+  'stocktake:approve': 'Phê duyệt phiếu kiểm kê',
+  'stocktake:count': 'Nhập số liệu đếm',
+  'adjustment:read': 'Xem phiếu điều chỉnh',
+  'adjustment:create': 'Tạo phiếu điều chỉnh',
+  'adjustment:approve': 'Duyệt phiếu điều chỉnh',
+  'incident:read': 'Xem báo cáo sự cố',
+  'incident:create': 'Báo cáo sự cố mới',
+  'incident:approve': 'Phê duyệt / Xử lý sự cố',
+  'customer:read': 'Xem khách hàng',
+  'customer:create': 'Thêm khách hàng',
+  'customer:update': 'Sửa khách hàng',
+  'inventory:read': 'Xem tồn kho thực tế',
+  'user:manage': 'Quản lý tài khoản & Phân quyền',
+  'audit:read': 'Xem nhật ký hoạt động',
+  'emaillog:read': 'Xem nhật ký email',
+};
+
 export const ProfilePage = () => {
   const { user } = useAuth();
 
@@ -146,7 +195,9 @@ export const ProfilePage = () => {
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">Quyền hạn</p>
               <div className="flex flex-wrap gap-1.5">
                 {user.permissions.slice(0, 10).map((p) => (
-                  <span key={p} className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">{p}</span>
+                  <span key={p} className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+                    {PERMISSION_LABELS[p] || p}
+                  </span>
                 ))}
                 {user.permissions.length > 10 && (
                   <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-xs">+{user.permissions.length - 10} khác</span>

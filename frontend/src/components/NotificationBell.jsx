@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
   Bell, Check, CheckCheck, Trash2, X,
   ArrowDownLeft, ArrowUpRight, FileText,
-  ArrowLeftRight, AlertTriangle, Settings, Package
+  ArrowLeftRight, AlertTriangle, Settings, Package, UserCog
 } from 'lucide-react';
 
 // ── Icon & điều hướng theo loại thông báo ───────────────────────
@@ -16,6 +16,7 @@ const TYPE_CONFIG = {
   adjustment:       { icon: ArrowLeftRight, color: '#f59e0b', label: 'Điều chỉnh',      path: '/adjustments' },
   incident:         { icon: AlertTriangle,  color: '#ef4444', label: 'Sự cố',           path: '/incidents' },
   stocktake:        { icon: Package,        color: '#06b6d4', label: 'Kiểm kê',         path: '/stocktakes' },
+  user:             { icon: UserCog,        color: '#f97316', label: 'Tài khoản',       path: '/users' },
   system:           { icon: Settings,       color: '#6b7280', label: 'Hệ thống',        path: '/' },
 };
 

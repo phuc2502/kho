@@ -10,6 +10,7 @@ import { Plus, Eye, Trash2, X, AlertTriangle, CheckCircle2, XCircle, Search, Cal
 import { printDocument } from '../utils/printDocument.js';
 import { incidentTemplate } from '../utils/printTemplates.js';
 import { exportToCSV } from '../utils/exportCSV.js';
+import { removeAccents } from '../utils/normalize.js';
 
 const TYPE_LABELS = {
   hang_loi:   'Hàng lỗi (QC)',
@@ -76,18 +77,18 @@ export const IncidentsPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   const suggestions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     if (!q) return [];
     return incidents.filter(inc =>
-      inc.code?.toLowerCase().includes(q) ||
-      inc.note?.toLowerCase().includes(q)
+      removeAccents(inc.code).includes(q) ||
+      removeAccents(inc.note).includes(q)
     ).slice(0, 6);
   }, [searchQuery, incidents]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = removeAccents(searchQuery.trim());
     return incidents.filter(inc => {
-      const matchQ  = !q || inc.code?.toLowerCase().includes(q) || inc.note?.toLowerCase().includes(q);
+      const matchQ  = !q || removeAccents(inc.code).includes(q) || removeAccents(inc.note).includes(q);
       const matchSt = !filterStatus || inc.status === filterStatus;
       const matchTy = !filterType   || inc.type   === filterType;
       const matchFr = !filterFrom   || new Date(inc.createdAt) >= new Date(filterFrom);
