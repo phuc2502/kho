@@ -1,0 +1,3314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Warehouse Management API Docs (Standalone)</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <link rel="icon" type="image/png" href="https://unpkg.com/swagger-ui-dist@5/favicon-32x32.png" />
+  <style>
+    html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" charset="UTF-8"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+  <script>
+    const spec = {
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Warehouse Management MVC API",
+    "description": "Complete API Documentation for the Warehouse Management System, including User Management, RBAC Permissions, Products, Receipts, Deliveries, Stocktake, Adjustments, Incidents, Dashboard Stats, and Notifications.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000/api/v1",
+      "description": "Local development server"
+    }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "summary": "Register a new user",
+        "description": "Open registration endpoint for creating the first or subsequent users.",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "username",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "username": {
+                    "type": "string",
+                    "example": "admin"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "admin@company.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "description": "Password must be >=8 chars, containing 1 uppercase, 1 digit, and 1 special character.",
+                    "example": "P@ssw0rd2026"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "Admin",
+                      "QuanLyKho",
+                      "KeToanKho",
+                      "NhanVienKho",
+                      "QC",
+                      "Sale"
+                    ],
+                    "default": "NhanVienKho",
+                    "example": "Admin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful, returns user info and JWT token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "User already exists or validation error."
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "summary": "Login user",
+        "description": "Login using email or username. Protects against brute force (locks account after 5 failed attempts for 10 minutes).",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "emailOrUsername",
+                  "password"
+                ],
+                "properties": {
+                  "emailOrUsername": {
+                    "type": "string",
+                    "example": "admin@company.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "P@ssw0rd2026"
+                  },
+                  "rememberMe": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Incorrect username or password."
+          },
+          "403": {
+            "description": "User account deactivated."
+          },
+          "423": {
+            "description": "User account is temporarily locked due to brute-force protection."
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get current authenticated user details",
+        "description": "Returns information about the currently logged-in user including effective RBAC permissions.",
+        "tags": [
+          "Authentication"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current user profile fetched successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized."
+          }
+        }
+      }
+    },
+    "/auth/change-password": {
+      "put": {
+        "summary": "Change password",
+        "description": "Logged-in users can update their passwords.",
+        "tags": [
+          "Authentication"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "format": "password"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully."
+          },
+          "400": {
+            "description": "Invalid current password or weak new password."
+          }
+        }
+      }
+    },
+    "/auth/force-change-password": {
+      "put": {
+        "summary": "Force change password on first login",
+        "description": "Required when the user registers or has their password reset by an administrator.",
+        "tags": [
+          "Authentication"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "newPassword"
+                ],
+                "properties": {
+                  "newPassword": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password forced-change successful."
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "summary": "Request password reset",
+        "description": "Allows a user to request password reset. Flags their account so the admin can reset it manually.",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Always returns a generic success message to prevent user enumeration."
+          }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "summary": "Reset password with token",
+        "description": "Resets password using a valid reset token generated by password reset flow.",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "newPassword"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully."
+          },
+          "400": {
+            "description": "Invalid/expired token or password policy mismatch."
+          }
+        }
+      }
+    },
+    "/users": {
+      "get": {
+        "summary": "Get all users",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of users fetched.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created."
+          }
+        }
+      }
+    },
+    "/users/reset-requests-count": {
+      "get": {
+        "summary": "Count pending password reset requests",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Count of users who requested a password reset.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "put": {
+        "summary": "Update a user account",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User updated."
+          }
+        }
+      }
+    },
+    "/users/{userId}/reset-password": {
+      "post": {
+        "summary": "Admin manual reset password for user",
+        "description": "Generates a temporary random password for user, sets mustChangePassword flag, and emails them.",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Password reset successful."
+          }
+        }
+      }
+    },
+    "/users/{userId}/deactivate": {
+      "put": {
+        "summary": "Deactivate user account",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "deactivationReason"
+                ],
+                "properties": {
+                  "deactivationReason": {
+                    "type": "string",
+                    "example": "Left the company"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account deactivated successfully."
+          }
+        }
+      }
+    },
+    "/users/{userId}/reactivate": {
+      "put": {
+        "summary": "Reactivate user account",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account reactivated successfully."
+          }
+        }
+      }
+    },
+    "/users/{userId}/warehouses": {
+      "get": {
+        "summary": "Get warehouses assigned to a user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of assigned warehouse nodes."
+          }
+        }
+      },
+      "post": {
+        "summary": "Assign a warehouse to a user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "warehouseNodeId"
+                ],
+                "properties": {
+                  "warehouseNodeId": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Warehouse node successfully assigned to user."
+          }
+        }
+      }
+    },
+    "/users/{userId}/warehouses/{warehouseNodeId}": {
+      "delete": {
+        "summary": "Unassign a warehouse from a user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "warehouseNodeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Warehouse unassigned successfully."
+          }
+        }
+      }
+    },
+    "/users/{userId}/permissions": {
+      "get": {
+        "summary": "Get detailed permissions override for user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User permission overrides fetched."
+          }
+        }
+      },
+      "put": {
+        "summary": "Save individual permission overrides for user",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "permissions"
+                ],
+                "properties": {
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "action": {
+                          "type": "string"
+                        },
+                        "allowed": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Permissions saved."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Reset permission overrides to role default",
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Permission overrides deleted."
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "summary": "Get all product categories",
+        "tags": [
+          "Categories"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of categories."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a category",
+        "tags": [
+          "Categories"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created."
+          }
+        }
+      }
+    },
+    "/categories/{id}": {
+      "put": {
+        "summary": "Update a category",
+        "tags": [
+          "Categories"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a category",
+        "tags": [
+          "Categories"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted."
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "summary": "Get all products",
+        "tags": [
+          "Products"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of products."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a product",
+        "tags": [
+          "Products"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created."
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "put": {
+        "summary": "Update a product",
+        "tags": [
+          "Products"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a product",
+        "tags": [
+          "Products"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deleted."
+          }
+        }
+      }
+    },
+    "/warehouses": {
+      "get": {
+        "summary": "Get hierarchical warehouse nodes",
+        "tags": [
+          "Warehouses"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of nodes."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a warehouse node",
+        "description": "Create a node of type warehouse, zone, aisle, rack, or bin.",
+        "tags": [
+          "Warehouses"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseNodeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Warehouse node created."
+          }
+        }
+      }
+    },
+    "/warehouses/{id}": {
+      "put": {
+        "summary": "Update warehouse node",
+        "tags": [
+          "Warehouses"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseNodeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete warehouse node",
+        "tags": [
+          "Warehouses"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          }
+        }
+      }
+    },
+    "/receipts": {
+      "get": {
+        "summary": "List goods receipt notes",
+        "tags": [
+          "Receipts"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of receipts."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create draft receipt note",
+        "tags": [
+          "Receipts"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "ghiChu": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "product",
+                        "quantity",
+                        "price",
+                        "warehouseNode"
+                      ],
+                      "properties": {
+                        "product": {
+                          "type": "integer",
+                          "description": "Product ID"
+                        },
+                        "quantity": {
+                          "type": "integer"
+                        },
+                        "price": {
+                          "type": "number"
+                        },
+                        "warehouseNode": {
+                          "type": "integer",
+                          "description": "Warehouse Node ID"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Receipt draft created."
+          }
+        }
+      }
+    },
+    "/receipts/{id}": {
+      "put": {
+        "summary": "Edit/Approve/Reject receipt note",
+        "description": "Allows editor to change details in draft. If status is updated, triggers permissions checks to approve/reject.",
+        "tags": [
+          "Receipts"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ghiChu": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product": {
+                          "type": "integer"
+                        },
+                        "quantity": {
+                          "type": "integer"
+                        },
+                        "price": {
+                          "type": "number"
+                        },
+                        "warehouseNode": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "approved",
+                      "completed",
+                      "rejected"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason required when status is rejected."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated successfully."
+          }
+        }
+      }
+    },
+    "/receipts/{id}/complete": {
+      "put": {
+        "summary": "Complete receipt and log warehouse locations",
+        "description": "Performed by Warehouse Staff to record physical location allocations, increase stock, and write stock cards.",
+        "tags": [
+          "Receipts"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "receiptItemId",
+                        "warehouseNodeId"
+                      ],
+                      "properties": {
+                        "receiptItemId": {
+                          "type": "integer"
+                        },
+                        "warehouseNodeId": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Completed successfully, inventory updated."
+          }
+        }
+      }
+    },
+    "/delivery-requests": {
+      "get": {
+        "summary": "Get delivery requests",
+        "description": "Sales see only their own requests. Warehouse managers/accountants see all requests.",
+        "tags": [
+          "Delivery Requests"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of delivery requests."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create delivery request (Sales only)",
+        "tags": [
+          "Delivery Requests"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "expectedDeliveryDate",
+                  "items"
+                ],
+                "properties": {
+                  "customerId": {
+                    "type": "integer"
+                  },
+                  "tenKhachHang": {
+                    "type": "string",
+                    "description": "Optional manual customer name if customerId is null."
+                  },
+                  "expectedDeliveryDate": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "note": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "productId",
+                        "quantity"
+                      ],
+                      "properties": {
+                        "productId": {
+                          "type": "integer"
+                        },
+                        "quantity": {
+                          "type": "integer"
+                        },
+                        "priceEstimate": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Delivery request created."
+          }
+        }
+      }
+    },
+    "/delivery-requests/{id}": {
+      "get": {
+        "summary": "Get delivery request by ID",
+        "tags": [
+          "Delivery Requests"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request details."
+          }
+        }
+      }
+    },
+    "/delivery-requests/{id}/check-stock": {
+      "post": {
+        "summary": "Verify inventory stock availability for delivery request",
+        "description": "Triggers availability checking across all bins. Automatically transitions status to insufficient_stock if inventory is low.",
+        "tags": [
+          "Delivery Requests"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inventory availability report."
+          }
+        }
+      }
+    },
+    "/delivery-requests/{id}/cancel": {
+      "patch": {
+        "summary": "Cancel delivery request",
+        "tags": [
+          "Delivery Requests"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request cancelled."
+          }
+        }
+      }
+    },
+    "/delivery-requests/{id}/status": {
+      "patch": {
+        "summary": "Update delivery request status manually (Accountants/Managers only)",
+        "tags": [
+          "Delivery Requests"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "processing",
+                      "completed",
+                      "cancelled"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updated."
+          }
+        }
+      }
+    },
+    "/deliveries": {
+      "get": {
+        "summary": "List physical delivery notes",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of delivery notes."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create physical delivery note (Draft)",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Draft delivery note created."
+          }
+        }
+      }
+    },
+    "/deliveries/{id}": {
+      "put": {
+        "summary": "Update draft delivery details",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated successfully."
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/submit": {
+      "patch": {
+        "summary": "Submit physical delivery note for approval",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Submitted."
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/approve": {
+      "patch": {
+        "summary": "Approve physical delivery note",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved."
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/reject": {
+      "patch": {
+        "summary": "Reject physical delivery note",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejected."
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/ship": {
+      "patch": {
+        "summary": "Confirm physical items loaded (approved -> shipping)",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shipped."
+          }
+        }
+      }
+    },
+    "/deliveries/{id}/complete": {
+      "patch": {
+        "summary": "Complete physical delivery (shipping -> completed)",
+        "description": "Automatically deducts warehouse stock and logs stock card entries.",
+        "tags": [
+          "Deliveries"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed, stock updated."
+          }
+        }
+      }
+    },
+    "/inventory": {
+      "get": {
+        "summary": "Get current inventory levels in nodes",
+        "tags": [
+          "Inventory"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current stock list."
+          }
+        }
+      }
+    },
+    "/stock-cards": {
+      "get": {
+        "summary": "Get stock card history log",
+        "tags": [
+          "Stock Cards"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of stock card transactions."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create manual adjustment stock card",
+        "tags": [
+          "Stock Cards"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockCardManualInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Card created."
+          }
+        }
+      }
+    },
+    "/stock-cards/{id}": {
+      "put": {
+        "summary": "Edit manual adjustment stock card",
+        "tags": [
+          "Stock Cards"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockCardManualInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete manual adjustment stock card",
+        "tags": [
+          "Stock Cards"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          }
+        }
+      }
+    },
+    "/stocktakes": {
+      "get": {
+        "summary": "List inventory counts (stocktake)",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create inventory count task",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StocktakeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created."
+          }
+        }
+      }
+    },
+    "/stocktakes/{id}": {
+      "put": {
+        "summary": "Update inventory count details",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StocktakeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete count task",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          }
+        }
+      }
+    },
+    "/stocktakes/{id}/submit": {
+      "patch": {
+        "summary": "Submit counted quantities (counting -> pending_approval)",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Submitted."
+          }
+        }
+      }
+    },
+    "/stocktakes/{id}/approve": {
+      "put": {
+        "summary": "Approve stocktake results",
+        "description": "Verifies matched counts. If discrepancies exist, automatically triggers the creation of Stocktake Minutes for adjustment.",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved."
+          }
+        }
+      }
+    },
+    "/stocktakes/{id}/reject": {
+      "patch": {
+        "summary": "Reject stocktake count",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rejected."
+          }
+        }
+      }
+    },
+    "/stocktakes/{id}/complete-counting": {
+      "patch": {
+        "summary": "Complete physical counting step",
+        "tags": [
+          "Stocktakes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Completed."
+          }
+        }
+      }
+    },
+    "/stocktake-minutes": {
+      "get": {
+        "summary": "List stocktake discrepancy minutes",
+        "tags": [
+          "Stocktake Minutes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of minutes."
+          }
+        }
+      }
+    },
+    "/stocktake-minutes/{id}": {
+      "get": {
+        "summary": "Get detailed minutes by ID",
+        "tags": [
+          "Stocktake Minutes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Minute details."
+          }
+        }
+      }
+    },
+    "/stocktake-minutes/{id}/approve": {
+      "patch": {
+        "summary": "Approve minutes and automatically generate Inventory Adjustments",
+        "tags": [
+          "Stocktake Minutes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved and adjustments created."
+          }
+        }
+      }
+    },
+    "/stocktake-minutes/{id}/reject": {
+      "patch": {
+        "summary": "Reject discrepancy minutes",
+        "tags": [
+          "Stocktake Minutes"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rejected."
+          }
+        }
+      }
+    },
+    "/stocktake-reports": {
+      "get": {
+        "summary": "List generated stocktake reports",
+        "tags": [
+          "Stocktake Reports"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of reports."
+          }
+        }
+      }
+    },
+    "/stocktake-reports/{id}": {
+      "get": {
+        "summary": "Get stocktake report details",
+        "tags": [
+          "Stocktake Reports"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detailed report."
+          }
+        }
+      }
+    },
+    "/adjustments": {
+      "get": {
+        "summary": "List inventory adjustment vouchers",
+        "tags": [
+          "Adjustments"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of adjustments."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create manual adjustment voucher",
+        "tags": [
+          "Adjustments"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "productId",
+                        "warehouseNodeId",
+                        "qtyChange"
+                      ],
+                      "properties": {
+                        "productId": {
+                          "type": "integer"
+                        },
+                        "warehouseNodeId": {
+                          "type": "integer"
+                        },
+                        "qtyChange": {
+                          "type": "integer",
+                          "description": "Positive or negative change."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Adjustment created."
+          }
+        }
+      }
+    },
+    "/adjustments/{id}/approve": {
+      "put": {
+        "summary": "Approve adjustment and apply changes directly to stock",
+        "tags": [
+          "Adjustments"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved and inventory values synced."
+          }
+        }
+      }
+    },
+    "/adjustments/{id}": {
+      "delete": {
+        "summary": "Cancel/Delete draft adjustment voucher",
+        "tags": [
+          "Adjustments"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted successfully."
+          }
+        }
+      }
+    },
+    "/incidents": {
+      "get": {
+        "summary": "List recorded incidents",
+        "tags": [
+          "Incidents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of incidents."
+          }
+        }
+      },
+      "post": {
+        "summary": "Record new incident (damage/loss)",
+        "tags": [
+          "Incidents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Incident recorded."
+          }
+        }
+      }
+    },
+    "/incidents/{id}": {
+      "put": {
+        "summary": "Update incident details",
+        "tags": [
+          "Incidents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncidentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated."
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete incident log",
+        "tags": [
+          "Incidents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          }
+        }
+      }
+    },
+    "/incidents/{id}/approve": {
+      "post": {
+        "summary": "Approve incident (reconcile loss and adjust stock automatically)",
+        "tags": [
+          "Incidents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved."
+          }
+        }
+      }
+    },
+    "/incidents/{id}/reject": {
+      "post": {
+        "summary": "Reject incident reconciliation",
+        "tags": [
+          "Incidents"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rejected."
+          }
+        }
+      }
+    },
+    "/audit-logs": {
+      "get": {
+        "summary": "Fetch audit logs",
+        "tags": [
+          "Audit Logs"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System activity logs."
+          }
+        }
+      }
+    },
+    "/email-logs": {
+      "get": {
+        "summary": "Get email log entries (Admin only)",
+        "tags": [
+          "Email Logs"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of emails sent."
+          }
+        }
+      }
+    },
+    "/email-logs/stats": {
+      "get": {
+        "summary": "Get email delivery success rate stats",
+        "tags": [
+          "Email Logs"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Performance charts data."
+          }
+        }
+      }
+    },
+    "/email-logs/failed": {
+      "delete": {
+        "summary": "Purge failed logs",
+        "tags": [
+          "Email Logs"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Purged."
+          }
+        }
+      }
+    },
+    "/email-logs/{logId}": {
+      "delete": {
+        "summary": "Delete email log entry",
+        "tags": [
+          "Email Logs"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "logId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          }
+        }
+      }
+    },
+    "/dashboard/stats": {
+      "get": {
+        "summary": "Get overview dashboard widgets",
+        "description": "Returns low stock levels, 30d consumption rate, warranty expiries, slow-moving items, and top deliveries.",
+        "tags": [
+          "Dashboard"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard widget collections."
+          }
+        }
+      }
+    },
+    "/customers": {
+      "get": {
+        "summary": "List all customers",
+        "tags": [
+          "Customers"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List."
+          }
+        }
+      },
+      "post": {
+        "summary": "Create new customer",
+        "tags": [
+          "Customers"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created."
+          }
+        }
+      }
+    },
+    "/customers/{id}": {
+      "get": {
+        "summary": "Get customer by ID",
+        "tags": [
+          "Customers"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail."
+          }
+        }
+      },
+      "put": {
+        "summary": "Update customer",
+        "tags": [
+          "Customers"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated."
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "Get user notifications",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of notifications."
+          }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "patch": {
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All marked read."
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "summary": "Mark specific notification as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marked read."
+          }
+        }
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "summary": "Delete notification",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "string"
+          },
+          "mustChangePassword": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserCreateInput": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password",
+          "role"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Admin",
+              "QuanLyKho",
+              "KeToanKho",
+              "NhanVienKho",
+              "QC",
+              "Sale"
+            ]
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          }
+        }
+      },
+      "UserUpdateInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Admin",
+              "QuanLyKho",
+              "KeToanKho",
+              "NhanVienKho",
+              "QC",
+              "Sale"
+            ]
+          }
+        }
+      },
+      "ProductInput": {
+        "type": "object",
+        "required": [
+          "sku",
+          "name",
+          "priceIn",
+          "priceOut",
+          "category"
+        ],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "example": "SKU-10293"
+          },
+          "name": {
+            "type": "string",
+            "example": "iPhone 15 Pro Max"
+          },
+          "description": {
+            "type": "string"
+          },
+          "priceIn": {
+            "type": "number",
+            "example": 1000
+          },
+          "priceOut": {
+            "type": "number",
+            "example": 1200
+          },
+          "unit": {
+            "type": "string",
+            "default": "C├íi",
+            "example": "C├íi"
+          },
+          "category": {
+            "type": "integer",
+            "description": "Category ID"
+          }
+        }
+      },
+      "WarehouseNodeInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "code",
+          "type"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Zone A"
+          },
+          "code": {
+            "type": "string",
+            "example": "ZA"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "warehouse",
+              "zone",
+              "aisle",
+              "rack",
+              "bin"
+            ]
+          },
+          "parentId": {
+            "type": "integer"
+          }
+        }
+      },
+      "DeliveryInput": {
+        "type": "object",
+        "required": [
+          "deliveryRequestId",
+          "items"
+        ],
+        "properties": {
+          "deliveryRequestId": {
+            "type": "integer"
+          },
+          "ghiChu": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "productId",
+                "quantity",
+                "warehouseNodeId"
+              ],
+              "properties": {
+                "productId": {
+                  "type": "integer"
+                },
+                "quantity": {
+                  "type": "integer"
+                },
+                "warehouseNodeId": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "StockCardManualInput": {
+        "type": "object",
+        "required": [
+          "productId",
+          "warehouseNodeId",
+          "qtyChange",
+          "type"
+        ],
+        "properties": {
+          "productId": {
+            "type": "integer"
+          },
+          "warehouseNodeId": {
+            "type": "integer"
+          },
+          "qtyChange": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "import",
+              "export"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "StocktakeInput": {
+        "type": "object",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "productId",
+                "warehouseNodeId",
+                "countedQty"
+              ],
+              "properties": {
+                "productId": {
+                  "type": "integer"
+                },
+                "warehouseNodeId": {
+                  "type": "integer"
+                },
+                "countedQty": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "IncidentInput": {
+        "type": "object",
+        "required": [
+          "productId",
+          "warehouseNodeId",
+          "quantity",
+          "type"
+        ],
+        "properties": {
+          "productId": {
+            "type": "integer"
+          },
+          "warehouseNodeId": {
+            "type": "integer"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "damage",
+              "loss"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerInput": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+};
+
+    window.onload = () => {
+      window.ui = SwaggerUIBundle({
+        spec: spec,
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>
